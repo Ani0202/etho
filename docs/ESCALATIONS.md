@@ -93,3 +93,23 @@ definitions, dev-tuned pipeline". The correction-loop arm is labeled "few-shot (
    time; $ per hour of video.
 4. **Next:** propose a demo-video script plan and an ADR on whether/where the app is hosted publicly
    during judging (public hosting needs approval).
+
+## 2026-10-28 ~17:20 UTC: headline wording, after the Codex test-results gate
+The Codex gate (Astra) and our evaluator independently flag two words in the approved wording:
+- **"untouched":** no test video, prediction or score was looked at, and nothing was tuned on test. But per-video
+  *summaries of test labels* (behavior counts) were read before the run. They shaped which dev videos we chose,
+  the 10 fps choice and the targets (disclosed in EVAL_PLAN).
+- **"no labeled examples"** can be read as "no labeled data was used at all", but dev labels were used to tune
+  settings.
+
+*Recommend*, keeping your structure:
+- **Headline:** "Training-free: plain-English behavior definitions, no labeled examples given to the models, no
+  model training."
+- **Footnote:** "Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official
+  test videos. Test-label summaries (behavior counts) informed dev-set selection and targets; no test predictions
+  were used to choose settings."
+
+Codex's own stricter version is in `ops/codex/ask-20261028-165452-293961.md`.
+
+*Blocking:* no. It affects the README, the demo and the report text, not the results.
+*Fallback if no reply in 2 h:* use the recommended version above in written material.
