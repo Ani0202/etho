@@ -1,0 +1,10 @@
+{
+  "_source": "Behavior definitions as written by the dataset authors: Segalin et al., MARS, eLife 2021 (https://elifesciences.org/articles/63720), Materials and methods, 'Mouse behavior annotation'; the same wording appears in the CalMS21 paper (arXiv:2104.02710), Appendix D.2. Quoted via a fetch tool; punctuation may differ slightly from the source. These are the plain-English inputs to Etho's zero-shot rule synthesis; they were not edited after looking at any label.",
+  "subject": "the resident (black) mouse",
+  "partner": "the intruder (white) mouse",
+  "behaviors": {
+    "attack": "High-intensity behavior in which the resident is biting or tussling with the intruder, including periods between bouts of biting/tussling during which the intruder is jumping or running away. Pauses during which resident and intruder are facing each other (typically while rearing) are not attack. Short periods of high-intensity chasing between periods of attack are still attack.",
+    "investigation": "The resident (black) mouse is in close contact with the intruder (white) and is actively sniffing the intruder anywhere on its body or tail. Active sniffing can usually be distinguished from passive orienting behavior.",
+    "mount": "Copulatory behavior in which the resident is hunched over the intruder, typically from the rear, and grasping the intruder. Periods where the resident is climbing on the intruder but not attempting to grasp it are not mount."
+  }
+}
