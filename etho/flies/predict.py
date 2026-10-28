@@ -136,8 +136,10 @@ def predict_movie(table: dict[str, np.ndarray], spec: dict, window: str, fps: fl
 
 
 def in_frozen_tree(path: str) -> bool:
-    """etho/ outside etho/app, and configs/ (EVAL_PLAN 14.12 item 10): what a frozen run must not have changed."""
-    return (path.startswith("etho/") and not path.startswith("etho/app/")) or path.startswith("configs/")
+    """etho/ outside etho/app and etho/gateway, and configs/ (EVAL_PLAN 14.12 item 10, 14.14): what a frozen run
+    must not have changed."""
+    return (path.startswith("etho/") and not path.startswith(("etho/app/", "etho/gateway/"))) \
+        or path.startswith("configs/")
 
 
 def git_state(repo: Path = REPO) -> dict:

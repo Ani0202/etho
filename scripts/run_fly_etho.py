@@ -122,7 +122,8 @@ def cmd_predict(a) -> None:
                              f"needs {want_fps:g}")
         d = root() / "data/runs" / a.run / f"movie{m}"
         inputs[f"movie{m}"] = {"features_sha256": sha256_file(d / "features.npz"),
-                               "tracking_json_sha256": sha256_file(d / "tracking.json")}
+                               "tracking_sha256": sha256_file(d / "tracking.json"),
+                               "features_path": str(d / "features.npz"), "tracking_path": str(d / "tracking.json")}
         per_movie[m] = predict_movie(table, spec, window, fps)
         print(f"movie{m}", {b: int(per_movie[m][b].sum()) for b in spec["behaviors"]}, flush=True)
     cfg = {"pipeline": "etho.flies", "detectors": str(a.detectors), "detectors_sha256": sha256_file(a.detectors),

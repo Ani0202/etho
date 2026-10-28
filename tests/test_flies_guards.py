@@ -62,7 +62,8 @@ def test_dirty_frozen_trees_and_changed_assets_are_refused(tmp_path):
             check_frozen_run(frozen, det, override=None, repo=repo, state={"run_dirty_paths": dirty})
     # etho/app, docs and logs are outside the frozen trees
     check_frozen_run(frozen, det, override=None, repo=repo,
-                     state={"run_dirty_paths": ["etho/app/server.py", "docs/STATE.md", "eval/results/runs.jsonl"]})
+                     state={"run_dirty_paths": ["etho/app/server.py", "etho/gateway/gateway.py", "docs/STATE.md",
+                                       "eval/results/runs.jsonl"]})
     (repo / "etho/x.py").write_text("x = 2\n")  # a frozen asset edited after the freeze
     with pytest.raises(SystemExit, match="differs from the frozen hash"):
         check_frozen_run(frozen, det, override=None, repo=repo, state=CLEAN)
@@ -144,3 +145,27 @@ def test_nogo_branch_pipeline_at_10_fps_is_accepted_by_the_scorer(tmp_path):
     assert got["step"] == 3 and got["pair"]["wing_threat"].shape == (18000,)
     with pytest.raises(ValueError, match="do not cover window"):
         P.predict_movie(t, spec, "mid5", 10.0)
+
+
+def test_cli_manifest_satisfies_the_scorers_input_checks(tmp_path):
+    """The manifest `predict` writes carries what eval's verify_manifest_inputs demands (amendment F3)."""
+    import os
+
+    from eval.flies_score import verify_manifest_inputs
+    from tests.test_flies_frozen import full_table
+    run = tmp_path / "data/runs/T/movie1"
+    run.mkdir(parents=True)
+    np.savez(run / "features.npz", **full_table())
+    (run / "tracking.json").write_text(json.dumps({"sample_fps": 30.0}))
+    out = tmp_path / "pred"
+    r = subprocess.run([sys.executable, "scripts/run_fly_etho.py", "predict", "--run", "T", "--movies", "1",
+                        "--detectors", "configs/detectors/F1_flies.json", "--out", str(out)], cwd=ROOT,
+                       capture_output=True, text=True, env={**os.environ, "ETHO_ROOT": str(tmp_path),
+                                                            "PYTHONPATH": str(ROOT)})
+    assert r.returncode == 0, r.stderr[-800:]
+    cfg = json.loads((out / "manifest.json").read_text())["config"]
+    assert cfg["override"] == {} and cfg["window"] == [22500, 31500] and cfg["window_name"] == "mid5"
+    sha = cfg["detectors_sha256"]
+    frozen = {"assets": {"detectors": [{"path": "configs/detectors/F1_flies.json", "sha256": sha}]}}
+    rep = verify_manifest_inputs(cfg, frozen, "mid5", [1], runs_dir=tmp_path / "data/runs")
+    assert rep["inputs"]["movie1"]["features"]["verified"] and rep["inputs"]["movie1"]["tracking"]["verified"]
