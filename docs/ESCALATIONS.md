@@ -52,3 +52,15 @@ the fallback if there's no reply in 2 hours (non-blocking items only).
      1–2 behaviors and propose an identity method (brightness won't separate flies).
    - Fallback: the 2026 Scientific Data zebrafish dyads dataset, if its license is open.
    - Write an ADR and get Aniket's approval before committing any second-species data.
+
+## 2026-10-28 ~08:30 UTC: tier-1 Fireworks spend on the test run (over $5, not covered by the pre-approval)
+Your pre-approval covers the test **SAM** pass (up to $20). The headline zero-shot arm also needs tier-1
+adjudication (Muse Spark Open on Fireworks) on the test windows.
+- **Estimate:** about $15 (range $7.5–23), covering both arms. The few-shot arm's shared windows hit the cache.
+- **Fireworks after this:** about $25 of the $90 cap.
+
+**Recommend:** approve up to $25 on Fireworks for test run 1.
+
+**Blocking:** only the tier-1 arms. Meanwhile I'll run the SAM pass and the rules-only arms, which are
+approved and cost nothing extra. I won't start tier-1 on test until you reply; no fallback, since it's
+spend over $5.
