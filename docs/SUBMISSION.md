@@ -12,6 +12,7 @@ morning.
   - [ ] no secrets in git history (pre-submission audit: `git log -p | grep` for key patterns, plus the reviewer
     and the Codex `pre-submission` gate);
   - [ ] no raw data: CalMS21 and Fly vs. Fly videos, .mat files and annotation arrays stay in gitignored `data/`;
+  - [ ] no `pub:job:` rows (visitor job ids) in the committed `ops/spend.jsonl` (DECISIONS 2026-10-28);
   - [ ] `LICENSE` (Apache-2.0) and `NOTICE` (SAM-License files, dependencies, dataset credits) are present;
   - [ ] the README runs from a fresh clone and includes "How this was built" (Claude Code, Codex).
 - [ ] **Video:** 3:00 or shorter (hard limit), on YouTube as **Unlisted** (not Private).
