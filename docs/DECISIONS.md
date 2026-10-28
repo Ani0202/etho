@@ -231,3 +231,17 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
 - 2026-10-28: ADR-002 fly path, tracking adapter (branch worktree-agent-ac6e626dd37570d7d; frozen CalMS21 modules untouched, new `etho/tracking/fly_*.py`). SAM probe on train movie 1 (2 windows x 50 consecutive samples, 6 requests, $0.06): phrase "fly" returned 0 objects at native and 4x; "fruit fly" works. Native 144 px beat 4x upscale: exactly-2-masks 90%/98% (native) vs 70%/80% (4x), and the 4x run truncated a fly's mask once (area 146 vs ~200 px). Chosen: native, phrase "fruit fly", 30 fps, 60 s chunks with 1 s overlap. Dev tracking (train movies 1-2, frames 22500-31499): $1.824 each, 73-75 s wall (0.25x real time), both flies in 99.9% / 99.5% of samples. Thresholds: identity unknown when centroids < 1 body length (27.2 px); a stitch is ambiguous (new identity epoch) only when the best pairing beats the alternative by < 0.5 body lengths per fly.
 - 2026-10-28: ADR-002 fly path, review fixes ($0, re-derived from raw RLE). Gateway always built from ETHO_ROOT (shared ledger); `run_fly.py` prints a job estimate and refuses > $5 without `--i-have-approval`; `public_data` and `gw` are required args. Velocity features now use a body-only centroid (3x3 opening) and are NaN (`vel_ok`/`vel_ok_s` = 0) within 0.1 s / 0.5 s of an identity-epoch change or an id_unknown run edge, and within 0.1 s of an abrupt (> 25%) mask-area change (a wing appearing in the mask). Contact runs are tested for a silent SAM id swap and relabeled (new epoch). Stitch with an empty slot is ambiguous (neutral cost 3 BL). Overlap default stays 1 s (movies 1-2 stay cache-identical; a changed default would re-bill $3.65): use `--overlap-s 2` for new runs.
 - 2026-10-28: (Aniket) Demo plan approved with changes (ESCALATIONS, ~14:15 ET). Up to $5 of `demo-reserve` is unlocked on Nov 2 for the rough cut, which is before the gateway's Nov 3 unlock; this needs a gateway config change on Nov 2, limited to $5.
+- 2026-10-28: App tier-1 concurrency goes from 8 to 16 (`ETHO_APP_TIER1_CONCURRENCY`).
+  - Measured with `scripts/speed_sweep.py` on fresh unused-train clips (mouse024, mouse010, mouse009, about 5 min each, uncached, one clip per setting):
+
+    | Concurrency | Tier-1 | End to end |
+    |---|---|---|
+    | 6 | 0.88x | 1.12x |
+    | 12 | 0.50x | 0.72x |
+    | 16 | 0.39x | 0.60x |
+
+  - No HTTP 429s; 40 gave 429s on Oct 28. Fireworks median latency was ~12 s at every setting.
+  - Cost is unchanged; the sweep spent $3.15 (`dev`).
+  - The test-run claim stays 0.88x, since it is what was measured on test; the sweep is a fresh-clip measurement, not a re-score.
+  - Why test (0.88x) looked ~4x slower than dev (0.22x): the dev figure excluded tier-1. Without tier-1, test is ~0.27x.
+  - Reverse: set the env var back to 8.
