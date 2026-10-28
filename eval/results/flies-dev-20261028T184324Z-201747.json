@@ -1,0 +1,498 @@
+{
+ "run_id": "flies-dev-20261028T184324Z-201747",
+ "kind": "flies-score",
+ "dataset": "flyvsfly",
+ "split": "flies-dev",
+ "purpose": "ablation:wing-10fps-subsample",
+ "git_commit": "800caaddc79f406379f1a6e65e1e9c4264aa82b8",
+ "git_dirty": true,
+ "git_dirty_paths": [
+  "etho/flies/extras.py",
+  "etho/flies/predict.py",
+  "etho/flies/synth.py",
+  "eval/results/runs.jsonl",
+  "tests/test_flies_etho.py",
+  "configs/detectors/F1_flies.json",
+  "eval/results/flies-dev-20261028T182615Z-73f606.json",
+  "eval/results/flies-dev-20261028T182708Z-419657.json",
+  "eval/results/flies-dev-20261028T182726Z-bc4432.json",
+  "eval/results/flies-dev-20261028T182729Z-ed979d.json",
+  "eval/results/flies-dev-20261028T182731Z-5750dc.json",
+  "eval/results/flies-dev-20261028T183252Z-2079f6.json",
+  "eval/results/flies-dev-20261028T183256Z-431a15.json",
+  "eval/results/flies-dev-20261028T183300Z-3d87b8.json",
+  "eval/results/flies-dev-20261028T183314Z-88c0b7.json",
+  "eval/results/flies-dev-20261028T183319Z-114701.json",
+  "eval/results/flies-dev-20261028T183323Z-dba247.json",
+  "eval/results/flies-dev-20261028T183326Z-fbc232.json",
+  "eval/results/flies-dev-20261028T183331Z-18eb64.json",
+  "eval/results/flies-dev-20261028T183336Z-09a3b6.json",
+  "eval/results/flies-dev-20261028T183720Z-90059d.json",
+  "eval/results/flies-dev-20261028T183723Z-14919a.json",
+  "eval/results/flies-dev-20261028T183725Z-4d5461.json",
+  "eval/results/flies-dev-20261028T183727Z-80ba47.json",
+  "eval/results/flies-dev-20261028T183729Z-13b123.json",
+  "eval/results/flies-dev-20261028T183731Z-be357b.json",
+  "eval/results/flies-dev-20261028T183733Z-482e7e.json",
+  "eval/results/flies-dev-20261028T183736Z-6bf95f.json",
+  "eval/results/flies-dev-20261028T183738Z-59b5e3.json",
+  "eval/results/flies-dev-20261028T183808Z-6eceb9.json",
+  "eval/results/flies-dev-20261028T183811Z-ce5a60.json",
+  "eval/results/flies-dev-20261028T183814Z-9978a1.json",
+  "eval/results/flies-dev-20261028T183818Z-35d196.json",
+  "eval/results/flies-dev-20261028T183821Z-bd0b7f.json",
+  "eval/results/flies-dev-20261028T183854Z-5396ae.json",
+  "eval/results/flies-dev-20261028T183943Z-9fb49a.json",
+  "eval/results/flies-dev-20261028T184214Z-db8bc8.json",
+  "eval/results/flies-dev-20261028T184216Z-d976c9.json",
+  "eval/results/flies-dev-20261028T184220Z-5e3e0a.json",
+  "eval/results/flies-dev-20261028T184223Z-180208.json",
+  "eval/results/flies-dev-20261028T184226Z-58769a.json",
+  "eval/results/flies-dev-20261028T184230Z-774931.json",
+  "eval/results/flies-dev-20261028T184233Z-c8e26c.json",
+  "eval/results/flies-dev-20261028T184249Z-cbb9ff.json",
+  "eval/results/flies-dev-20261028T184253Z-2a09d9.json",
+  "eval/results/flies-dev-20261028T184256Z-254793.json",
+  "eval/results/flies-dev-20261028T184259Z-f00914.json",
+  "eval/results/flies-dev-20261028T184322Z-d0d6db.json",
+  "scripts/freeze_flies.py"
+ ],
+ "window": "mid5",
+ "window_frames": [
+  22500,
+  31500
+ ],
+ "behaviors": [
+  "wing_threat"
+ ],
+ "movies": [
+  1,
+  2
+ ],
+ "partial": false,
+ "pred_dir": "/home/ubuntu/work/etho/data/runs/F1_etho/fps10_final/pred",
+ "predictions_sha256": "95cba3b9616827ff12ecf21bb6ebe40ce33becac945bbd2d9fb043572e2cc9fc",
+ "predictions_files_sha256": {
+  "movie1.npz": "93b65975adef827b46ca5554e39e7de5b1ed1fccfd19b010147d53139b427df0",
+  "movie2.npz": "8b49ab8838214cc544eb75cd9280edaa4d3a5b6a22eaf81f5160789633b8ff09",
+  "manifest.json": "fdf873cadf31eccffef6d4c6659b8a8384019724746ed3427a8cd3ecb209adba"
+ },
+ "sample_fps": [
+  "10.0"
+ ],
+ "config": {
+  "pipeline": "etho.flies",
+  "note": "30 fps features subsampled x3 (diagnostic)",
+  "run_commit": "800caaddc79f406379f1a6e65e1e9c4264aa82b8",
+  "run_dirty_paths": [
+   "etho/flies/extras.py",
+   "etho/flies/predict.py",
+   "etho/flies/synth.py",
+   "eval/results/runs.jsonl",
+   "tests/test_flies_etho.py",
+   "configs/detectors/F1_flies.json",
+   "eval/results/flies-dev-20261028T182615Z-73f606.json",
+   "eval/results/flies-dev-20261028T182708Z-419657.json",
+   "eval/results/flies-dev-20261028T182726Z-bc4432.json",
+   "eval/results/flies-dev-20261028T182729Z-ed979d.json",
+   "eval/results/flies-dev-20261028T182731Z-5750dc.json",
+   "eval/results/flies-dev-20261028T183252Z-2079f6.json",
+   "eval/results/flies-dev-20261028T183256Z-431a15.json",
+   "eval/results/flies-dev-20261028T183300Z-3d87b8.json",
+   "eval/results/flies-dev-20261028T183314Z-88c0b7.json",
+   "eval/results/flies-dev-20261028T183319Z-114701.json",
+   "eval/results/flies-dev-20261028T183323Z-dba247.json",
+   "eval/results/flies-dev-20261028T183326Z-fbc232.json",
+   "eval/results/flies-dev-20261028T183331Z-18eb64.json",
+   "eval/results/flies-dev-20261028T183336Z-09a3b6.json",
+   "eval/results/flies-dev-20261028T183720Z-90059d.json",
+   "eval/results/flies-dev-20261028T183723Z-14919a.json",
+   "eval/results/flies-dev-20261028T183725Z-4d5461.json",
+   "eval/results/flies-dev-20261028T183727Z-80ba47.json",
+   "eval/results/flies-dev-20261028T183729Z-13b123.json",
+   "eval/results/flies-dev-20261028T183731Z-be357b.json",
+   "eval/results/flies-dev-20261028T183733Z-482e7e.json",
+   "eval/results/flies-dev-20261028T183736Z-6bf95f.json",
+   "eval/results/flies-dev-20261028T183738Z-59b5e3.json",
+   "eval/results/flies-dev-20261028T183808Z-6eceb9.json",
+   "eval/results/flies-dev-20261028T183811Z-ce5a60.json",
+   "eval/results/flies-dev-20261028T183814Z-9978a1.json",
+   "eval/results/flies-dev-20261028T183818Z-35d196.json",
+   "eval/results/flies-dev-20261028T183821Z-bd0b7f.json",
+   "eval/results/flies-dev-20261028T183854Z-5396ae.json",
+   "eval/results/flies-dev-20261028T183943Z-9fb49a.json",
+   "eval/results/flies-dev-20261028T184214Z-db8bc8.json",
+   "eval/results/flies-dev-20261028T184216Z-d976c9.json",
+   "eval/results/flies-dev-20261028T184220Z-5e3e0a.json",
+   "eval/results/flies-dev-20261028T184223Z-180208.json",
+   "eval/results/flies-dev-20261028T184226Z-58769a.json",
+   "eval/results/flies-dev-20261028T184230Z-774931.json",
+   "eval/results/flies-dev-20261028T184233Z-c8e26c.json",
+   "eval/results/flies-dev-20261028T184249Z-cbb9ff.json",
+   "eval/results/flies-dev-20261028T184253Z-2a09d9.json",
+   "eval/results/flies-dev-20261028T184256Z-254793.json",
+   "eval/results/flies-dev-20261028T184259Z-f00914.json",
+   "eval/results/flies-dev-20261028T184322Z-d0d6db.json",
+   "scripts/freeze_flies.py"
+  ]
+ },
+ "config_sha256": "7fa4934e1cb3d7e5cab8d3e5552c55e79a80a6248f5bb7eebe7bbc327920a396",
+ "frozen_config": null,
+ "decision_record_sha256": null,
+ "baselines": null,
+ "criteria_file": "eval/flies_criteria_v1.json",
+ "criteria_sha256": "af68c109793ddaafc13c30f10e50d57fe1be8fc9a602dd3d1fd6afe022aa94b9",
+ "scorer": {
+  "reps": 10000,
+  "ref_reps": 200,
+  "shift_reps": 1000,
+  "seed": 20261028,
+  "bout_thresholds": [
+   "any",
+   "0.3",
+   "0.5"
+  ],
+  "bout_matching": "censored maximum-cardinality one-to-one, IoU tie-break"
+ },
+ "cost": {
+  "usd": 0.0
+ },
+ "wall_clock_s": null,
+ "calls": 0,
+ "notes": "R43 FINAL wing detectors on 30fps features subsampled to 10 fps (diagnostic)",
+ "time_utc": "2026-10-28T18:43:25+00:00",
+ "status": "ok",
+ "labels_loaded": true,
+ "scorer_wall_clock_s": 0.502,
+ "verdicts": null,
+ "metrics": {
+  "convention": "pair-level frame F1 at 30 fps, pooled over all scored frames of all movies; frames where either fly is 'unknown' excluded",
+  "movies": [
+   1,
+   2
+  ],
+  "behaviors": {
+   "wing_threat": {
+    "frame": {
+     "tp": 1138,
+     "fp": 248,
+     "fn": 48,
+     "gt_frames": 1186,
+     "pred_frames": 1386,
+     "precision": 0.8210678210678211,
+     "recall": 0.9595278246205734,
+     "f1": 0.8849144634525661
+    },
+    "frame_ci95": {
+     "precision": [
+      0.8210678210678211,
+      0.8210678210678211
+     ],
+     "recall": [
+      0.9595278246205734,
+      0.9595278246205734
+     ],
+     "f1": [
+      0.8849144634525661,
+      0.8849144634525661
+     ],
+     "f1_undefined_frac": 0.2498,
+     "informative": false,
+     "no_gt_resample_frac": 0.2498
+    },
+    "bouts": {
+     "any": {
+      "n_gt": 6,
+      "n_pred": 6,
+      "matched": 3,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5
+     },
+     "0.3": {
+      "n_gt": 6,
+      "n_pred": 6,
+      "matched": 3,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5
+     },
+     "0.5": {
+      "n_gt": 6,
+      "n_pred": 6,
+      "matched": 3,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5
+     }
+    },
+    "bout_any_ci95": {
+     "precision": [
+      0.5,
+      0.5
+     ],
+     "recall": [
+      0.5,
+      0.5
+     ],
+     "f1": [
+      0.5,
+      0.5
+     ],
+     "f1_undefined_frac": 0.2498,
+     "informative": false
+    },
+    "bout_iou0.3_ci95": {
+     "precision": [
+      0.5,
+      0.5
+     ],
+     "recall": [
+      0.5,
+      0.5
+     ],
+     "f1": [
+      0.5,
+      0.5
+     ],
+     "f1_undefined_frac": 0.2498,
+     "informative": false
+    },
+    "movies_with_behavior": [
+     2
+    ],
+    "false_positive_bouts_per_min": 0.3,
+    "negative_movies": [
+     1
+    ],
+    "pred_bouts_per_min_on_negative_movies": 0.0,
+    "leave_one_movie_out_f1": {
+     "movie1": 0.8849144634525661,
+     "movie2": 0.0
+    },
+    "circular_shift_test": {
+     "reps": 1000,
+     "seed": 20261028,
+     "shift_range": "[W/10, 9W/10] per movie",
+     "mean_f1": 0.08391757387247278,
+     "p95_f1": 0.23720839813374803,
+     "p_value": 0.000999000999000999
+    },
+    "actor_unassigned_samples": 0,
+    "random_reference": {
+     "n_frames_kept": 18000,
+     "prevalence": 0.06588888888888889,
+     "iid_expected_f1": 0.06588888888888889,
+     "iid_sim_mean_f1": 0.06629439326696923,
+     "always_positive_f1": 0.12363181486500573,
+     "oracle_bout_placement_mean_frame_f1": 0.1383389544688027,
+     "oracle_bout_placement_mean_bout_f1": 0.2333333333333333,
+     "oracle_bout_placement_bout_f1_p95": 0.5,
+     "oracle_bout_placement_realized": {
+      "mean_observable_bouts": 6.0,
+      "mean_kept_prevalence": 0.06588888888888889
+     },
+     "reps": 200,
+     "seed": 20261028,
+     "dev_prior_rate": 0.06588888888888889,
+     "dev_prior_expected_f1": 0.06588888888888889
+    },
+    "per_fly_baseline_copy_to_both": {
+     "tp": 1138,
+     "fp": 1634,
+     "fn": 48,
+     "gt_frames": 1186,
+     "pred_frames": 2772,
+     "precision": 0.41053391053391053,
+     "recall": 0.9595278246205734,
+     "f1": 0.5750378979282466
+    },
+    "per_fly_frame": {
+     "tp": 904,
+     "fp": 482,
+     "fn": 282,
+     "gt_frames": 1186,
+     "pred_frames": 1386,
+     "precision": 0.6522366522366523,
+     "recall": 0.7622259696458684,
+     "f1": 0.702954898911353
+    },
+    "per_fly_frame_ci95": {
+     "precision": [
+      0.6522366522366523,
+      0.6522366522366523
+     ],
+     "recall": [
+      0.7622259696458684,
+      0.7622259696458684
+     ],
+     "f1": [
+      0.702954898911353,
+      0.702954898911353
+     ],
+     "f1_undefined_frac": 0.2498,
+     "informative": false,
+     "no_gt_resample_frac": 0.2498
+    },
+    "per_fly_baseline_persistent_actor": {
+     "tp": 1138,
+     "fp": 248,
+     "fn": 48,
+     "gt_frames": 1186,
+     "pred_frames": 1386,
+     "precision": 0.8210678210678211,
+     "recall": 0.9595278246205734,
+     "f1": 0.8849144634525661
+    }
+   }
+  },
+  "per_movie": {
+   "movie1": {
+    "wing_threat": {
+     "frame": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "gt_frames": 0,
+      "pred_frames": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "bout_any": {
+      "n_gt": 0,
+      "n_pred": 0,
+      "matched": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "bout_iou0.3": {
+      "n_gt": 0,
+      "n_pred": 0,
+      "matched": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "per_fly_frame": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "gt_frames": 0,
+      "pred_frames": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     }
+    }
+   },
+   "movie2": {
+    "wing_threat": {
+     "frame": {
+      "tp": 1138,
+      "fp": 248,
+      "fn": 48,
+      "gt_frames": 1186,
+      "pred_frames": 1386,
+      "precision": 0.8210678210678211,
+      "recall": 0.9595278246205734,
+      "f1": 0.8849144634525661
+     },
+     "bout_any": {
+      "n_gt": 6,
+      "n_pred": 6,
+      "matched": 3,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5
+     },
+     "bout_iou0.3": {
+      "n_gt": 6,
+      "n_pred": 6,
+      "matched": 3,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5
+     },
+     "per_fly_frame": {
+      "tp": 904,
+      "fp": 482,
+      "fn": 282,
+      "gt_frames": 1186,
+      "pred_frames": 1386,
+      "precision": 0.6522366522366523,
+      "recall": 0.7622259696458684,
+      "f1": 0.702954898911353
+     }
+    }
+   }
+  },
+  "n_frames_scored": 18000,
+  "n_frames_excluded": 0,
+  "identity": {
+   "per_movie": {
+    "movie1": {
+     "n_samples": 3000,
+     "n_evaluable": 2226,
+     "permutation": "swap",
+     "majority_tie": false,
+     "identity_accuracy": 0.9537286612758311,
+     "identity_accuracy_unambiguous": 0.9537286612758311,
+     "n_unambiguous": 2226,
+     "switches_per_min": 0.2,
+     "error_episodes_per_min": 0.2,
+     "n_switches": 1,
+     "n_error_episodes": 1,
+     "pct_unknown_or_missing": 0.258,
+     "pct_declared_unknown": 0.25733333333333336,
+     "pct_track_missing": 0.0006666666666666666,
+     "both_tracks_present_frac": 0.9993333333333333,
+     "both_localized_frac": 0.9993333333333333,
+     "both_localized_frac_close_contact": 1.0,
+     "n_close_contact_samples": 14,
+     "median_matched_centroid_dist_px": 3.9730667879464687,
+     "both_localized_frac_during_wing_threat": null,
+     "identity_accuracy_per_epoch_permutation": 1.0,
+     "n_epochs": 2
+    },
+    "movie2": {
+     "n_samples": 3000,
+     "n_evaluable": 2433,
+     "permutation": "swap",
+     "majority_tie": false,
+     "identity_accuracy": 0.5170571311138512,
+     "identity_accuracy_unambiguous": 0.5170571311138512,
+     "n_unambiguous": 2433,
+     "switches_per_min": 1.2,
+     "error_episodes_per_min": 0.6,
+     "n_switches": 6,
+     "n_error_episodes": 3,
+     "pct_unknown_or_missing": 0.189,
+     "pct_declared_unknown": 0.185,
+     "pct_track_missing": 0.004,
+     "both_tracks_present_frac": 0.996,
+     "both_localized_frac": 0.995,
+     "both_localized_frac_close_contact": 0.8777777777777778,
+     "n_close_contact_samples": 90,
+     "median_matched_centroid_dist_px": 4.6170777164759675,
+     "both_localized_frac_during_wing_threat": 1.0,
+     "identity_accuracy_per_epoch_permutation": 0.8364159473900534,
+     "n_epochs": 7
+    }
+   },
+   "pooled": {
+    "identity_accuracy": 0.7256922086284611,
+    "switches_per_min": 0.7,
+    "error_episodes_per_min": 0.4,
+    "pct_unknown_or_missing": 0.2235,
+    "identity_accuracy_per_epoch_permutation": 0.9182079736950267,
+    "both_tracks_present_frac": 0.9976666666666667,
+    "both_localized_frac": 0.9971666666666666,
+    "both_localized_frac_close_contact": 0.9388888888888889,
+    "both_localized_frac_during_wing_threat": 1.0,
+    "note": "accuracy pooled over evaluable samples; other entries are means over equal-length windows"
+   }
+  }
+ }
+}

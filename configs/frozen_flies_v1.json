@@ -1,0 +1,145 @@
+{
+ "name": "flies_v1",
+ "frozen_at_commit": "868137c1e0bb6adef4ec5f714f642c3e92f2aecf",
+ "branches": {
+  "GO": {
+   "window": "mid5",
+   "sample_fps": 30,
+   "behaviors": [
+    "wing_threat",
+    "lunge"
+   ]
+  },
+  "NO-GO": {
+   "window": "mid10",
+   "sample_fps": 10,
+   "behaviors": [
+    "wing_threat"
+   ]
+  }
+ },
+ "window": {
+  "GO": [
+   22500,
+   31500
+  ],
+  "NO-GO": [
+   18000,
+   36000
+  ]
+ },
+ "tracking_params": {
+  "phrase": "fruit fly",
+  "scale": 1,
+  "chunk_s": 60.0,
+  "overlap_s": 1.0,
+  "src_fps": 30.0
+ },
+ "models": {
+  "wing_threat": {
+   "model": "muse-spark-1.3-contributor",
+   "effort": "high",
+   "public_data": true
+  },
+  "lunge": {
+   "model": "muse-spark-1.3-contributor",
+   "effort": "high",
+   "public_data": true
+  }
+ },
+ "note": "Rules-only: the detectors are model-written code frozen in configs/detectors/F1_flies.json; prediction makes no model call. Dev movies 1-2 were used to choose the prompt variant, the candidate selection rule and the post-processing.",
+ "assets": {
+  "definitions": [
+   {
+    "path": "configs/flies_definitions.json",
+    "sha256": "d7a1e96c6ba928b6e0acd52482f9aae11068b0654976ef0d161564b1166649e4"
+   }
+  ],
+  "detectors": [
+   {
+    "path": "configs/detectors/F1_flies.json",
+    "sha256": "78f9662761045cb54d55807292cf471bcebd03cd833f4c49203654583048e42f"
+   }
+  ],
+  "tracking": [
+   {
+    "path": "configs/flies_tracking.json",
+    "sha256": "6354eb2d7b285889d9143aae6d06fa716f06aeebda6d86f41b18334a88f57a31"
+   },
+   {
+    "path": "etho/tracking/fly_pipeline.py",
+    "sha256": "4cf6933feacb0b0a000cebc6099d5b1c8f4355a6ac5aa7375f1da17989f2f290"
+   },
+   {
+    "path": "etho/tracking/fly_identity.py",
+    "sha256": "fdc73cdd7107d3c9a9331cd9eb1b3db3f0ef5e98cc9cd71ca4eac3fedeca2d1a"
+   },
+   {
+    "path": "etho/tracking/fly_features.py",
+    "sha256": "f19f829f2be957e077fd1b3db74bd5aa349d89bae0c2dd64813a82b8b217fc95"
+   },
+   {
+    "path": "etho/tracking/fly_video.py",
+    "sha256": "3c9b6d463e58b61e563c04eed3e7f82e00ddfe713a4da2d9f1c05e9a0e4e9c34"
+   },
+   {
+    "path": "etho/tracking/features.py",
+    "sha256": "d20002fdf8bb870b4983f0476581f4fd7bc7c7557a46fce12bee5d02a8326257"
+   },
+   {
+    "path": "etho/tracking/sam_parse.py",
+    "sha256": "d0370e7c4d327e440ec98bac9dd10ff94af94ad0f6873899f7cb25ac382ef564"
+   },
+   {
+    "path": "etho/tracking/mask_codec.py",
+    "sha256": "fb6f3cd02f315a6f9553ec59e8269be7798e939a91ef6b28dc1e4d45374478d5"
+   },
+   {
+    "path": "etho/tracking/pipeline.py",
+    "sha256": "7bc04a48dc79acedaa09ed01c801ac35b347ca88a6513b710e011f524617482e"
+   }
+  ],
+  "runner": [
+   {
+    "path": "scripts/run_fly.py",
+    "sha256": "70b060bd8e66292cde7ca2d57242ab31fae0d263ab185cee5171d6f18a2035b4"
+   },
+   {
+    "path": "scripts/run_fly_etho.py",
+    "sha256": "c51c7b12d1959a994c3c37624a93650e31591c90285fd563c4569cddcb8110a8"
+   },
+   {
+    "path": "etho/flies/predict.py",
+    "sha256": "bcca6351698afb7f070bcddb744098282bbcda95898c9897c83eae3823ff99b1"
+   },
+   {
+    "path": "etho/flies/extras.py",
+    "sha256": "cd959f8f53af18b3291053cf5e0b58278558184d8acef776ca862c1dec847c3a"
+   },
+   {
+    "path": "etho/flies/frozen.py",
+    "sha256": "43094a0818da6b28bc2224d4ace9982f8d619862353fd93ed3519e067cec374b"
+   },
+   {
+    "path": "etho/rules/sandbox.py",
+    "sha256": "4c87e02878ba791b6fcebf8d9e701e560cbd7c1908f8798110226f9e531ccd3e"
+   }
+  ],
+  "prompts": [
+   {
+    "path": "etho/flies/synth.py",
+    "sha256": "8eb0d1bb58f466f4bc3d8ef0fe299548302744a5158fdcb7b2bec92effd0f156"
+   }
+  ],
+  "other": [
+   {
+    "path": "etho/rules/synthesize.py",
+    "sha256": "862d9974c8987e78992d62516c476eb05e4358806e8a6f84ec7265483746637a"
+   },
+   {
+    "path": "scripts/freeze_flies.py",
+    "sha256": "9ec74bf5b46c6bd4b8ce2d453f511e729c5b44d386b5e9a8245ee5c31b2dbdb1"
+   }
+  ]
+ }
+}

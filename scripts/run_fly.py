@@ -51,7 +51,19 @@ def main() -> None:
     ap.add_argument("--allow-test", action="store_true", help="movies 6-10 (test split): not for dev runs")
     ap.add_argument("--i-have-approval", action="store_true", help="allow a job estimated over $5")
     ap.add_argument("--tag", default="ablation")
+    ap.add_argument("--branch", choices=["GO", "NO-GO"],
+                    help="take window, stride, phrase, overlap, scale and workers from the frozen tracking config")
+    ap.add_argument("--tracking-config", type=Path,
+                    default=Path(__file__).resolve().parents[1] / "configs/flies_tracking.json")
     a = ap.parse_args()
+    if a.branch:  # the frozen pipeline's tracking parameters (configs/flies_tracking.json), not the flags above
+        tc = json.loads(a.tracking_config.read_text())
+        br = tc["branches"][a.branch]
+        a.start, a.stop, a.stride = br["start"], br["stop"], br["stride"]
+        a.phrase, a.overlap_s, a.scale = tc["phrase"], tc["overlap_s"], tc["scale"]
+        a.workers, a.tag = tc["workers"], tc["tag"]
+        print(f"tracking config {a.tracking_config.name}, branch {a.branch}: frames [{a.start}, {a.stop}) stride "
+              f"{a.stride}, phrase {a.phrase!r}, overlap {a.overlap_s} s", flush=True)
     if not a.allow_test and any(m not in DEV_MOVIES for m in a.movies):
         raise SystemExit("movies 6-10 are the test split; pass --allow-test only for the frozen test run")
     if not os.environ.get("ETHO_ROOT"):
