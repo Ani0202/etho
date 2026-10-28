@@ -11,6 +11,7 @@
   <a class="brand" href="/">Etho</a>
   <span class="tag" id="tag"></span>
   <span class="spend" id="spend"></span>
+  <a class="present-toggle" id="present-toggle" href="?present=1">presentation mode</a>
 </div></header>
 <main>
   <div class="card">
@@ -24,6 +25,24 @@
 
   <h2 id="show-h">Precomputed showcase runs <span class="sub">(open instantly, zero spend)</span></h2>
   <div class="show" id="showcases" aria-labelledby="show-h"><div class="sub">Loading...</div></div>
+
+  <section class="card sample" id="sample-card" aria-labelledby="sample-h" style="margin-top:20px">
+    <h2 id="sample-h">Try it yourself: a 60 s sample clip</h2>
+    <p class="sub" style="margin:0 0 8px">Download this clip, unlock live uploads below with the access code, and score it with the definitions
+      shown here. The whole pipeline takes about 90 s on this clip. The clip is from the dataset's development split.</p>
+    <p class="attr" style="margin:0 0 4px">Clip from CalMS21 (Sun et al. 2021, Caltech), licensed CC BY 4.0</p>
+    <p class="hint" style="margin:0 0 8px">Links: <a href="https://data.caltech.edu/records/s0vdx-0k302" target="_blank" rel="noopener noreferrer">CalMS21 dataset</a>,
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0 licence</a>.
+      <span id="sample-trim">This clip was trimmed to 60 s and re-encoded from a longer CalMS21 recording.</span></p>
+    <div class="row" style="margin:8px 0">
+      <div class="fit"><a class="btn primary" id="sample-dl" href="/api/sample/clip" download hidden>Download the sample clip</a></div>
+      <div class="sub" id="sample-info" aria-live="polite">Checking for the sample clip...</div>
+    </div>
+    <h3>Behavior definitions to paste</h3>
+    <p class="hint" style="margin:0 0 4px">The dataset authors' definitions (Segalin et al., MARS, eLife 2021). They are already filled in on the upload form;
+      paste them as they are if you edit the form. Subject: <span id="sample-subject"></span>. Partner: <span id="sample-partner"></span>.</p>
+    <dl id="sample-defs"></dl>
+  </section>
 
   <div class="card" id="access-card" style="margin-top:20px" hidden>
     <h2>Unlock live uploads</h2>
