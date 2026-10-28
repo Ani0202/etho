@@ -13,6 +13,9 @@ ALLOWED_EXT = (".mp4", ".mov", ".avi")
 ET = ZoneInfo("America/New_York")
 # Hosted live mode switches itself off after this moment (Aniket, 2026-10-28); read-only browsing stays up.
 DEFAULT_LIVE_UNTIL = datetime(2026, 11, 10, 23, 59, 59, tzinfo=ET)
+# Judging window (Aniket, 2026-10-28): the public daily cap is raised from Nov 4 00:00 ET through Nov 9 ET.
+JUDGING_FROM = datetime(2026, 11, 4, 0, 0, 0, tzinfo=ET)
+JUDGING_UNTIL = datetime(2026, 11, 10, 0, 0, 0, tzinfo=ET)
 MIN_ACCESS_CODE_LEN = 16
 _UNSET = "unset"      # "not given": __post_init__ picks the default for the deployment kind
 
@@ -96,8 +99,12 @@ class AppConfig:
     synth_workers: int = 8                     # detector-writing calls in flight (at most one per behavior)
     # Per-day app spend cap (UTC day) and the pre-estimate used to refuse a job that would cross it. Rates are
     # measured costs with margin: SAM $0.002/s of video at 10 fps, tier-1 $0.0012/s (docs/STATE.md).
-    # The "day" is a rolling 24 hours, not a calendar day, so spend cannot be doubled around midnight. (public: $3)
+    # The "day" is a rolling 24 hours, not a calendar day, so spend cannot be doubled around midnight.
+    # (public: $3; $8 in the judging window)
     daily_cap_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_DAILY_CAP_USD", None, float))
+    # Daily cap during the judging window [JUDGING_FROM, JUDGING_UNTIL) (public: $8; None = no raise).
+    judging_daily_cap_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_JUDGING_DAILY_CAP_USD", None,
+                                                                             float))
     # Per-job ceiling = min(max(mult x estimate, estimate + extra), headroom); reserved when the job is admitted.
     # (public: 1.5 and $0.25, so two 120 s jobs fit under $3 a day; measured cost is 0.4 to 0.6 of the estimate)
     job_ceiling_mult: float | None = field(default_factory=lambda: _env("ETHO_APP_CEILING_MULT", None, float))
@@ -141,8 +148,10 @@ class AppConfig:
             self.tag = "demo-reserve" if pub else "dev"
         if self.daily_cap_usd is None:
             self.daily_cap_usd = 3.0 if pub else 5.0
+        if self.judging_daily_cap_usd is None and pub:
+            self.judging_daily_cap_usd = 8.0
         if self.total_cap_usd is None and pub:
-            self.total_cap_usd = 20.0
+            self.total_cap_usd = 30.0
         if self.max_upload_mb is None:
             self.max_upload_mb = 50.0 if pub else 200.0
         if self.max_duration_s is None:
@@ -151,6 +160,12 @@ class AppConfig:
             self.live_until = DEFAULT_LIVE_UNTIL if pub else None
         if self.gateway_cache_root is None and pub:
             self.gateway_cache_root = self.data_dir / "gateway_cache"
+
+    def daily_cap_at(self, now: datetime) -> float:
+        """The rolling-24 h cap in force at `now`: the judging-window cap inside the window, else `daily_cap_usd`."""
+        if self.judging_daily_cap_usd is not None and JUDGING_FROM <= now < JUDGING_UNTIL:
+            return self.judging_daily_cap_usd
+        return self.daily_cap_usd
 
     @property
     def detector_cache_dir(self) -> Path:

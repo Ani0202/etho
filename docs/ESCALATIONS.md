@@ -253,3 +253,10 @@ exported arrays stay uncommitted in gitignored `data/demo/` unless you want them
 4. **ADR-005** (pre-freeze additions: "Ask your experiment", live-product polish, other): written; recommendation (b)+(c1)+(c2), ~$1.5 dev; recommend one, get
    approval, don't start before approval. OPEN.
 5. Send the full v3 voice-over script. Sent.
+
+## 2026-10-28 ~19:30 ET: Aniket's FORM_FINAL review
+Applied: access code at the end of #4 full (no notes field); public caps $8/day Nov 4-9 ET and $30 total from
+demo-reserve (code + tests); Nov 3 Discord question on public pages / private notes; rotate the code after Nov 9;
+impact sentence (ICH S7A; OECD TG 424) in #4 short and full; #9 flagged lines kept and reworded; #10 429 line
+reworded, no-JSON kept, n>1 cut; X post rewritten with a hook and a handle/hashtag placeholder. Open: the
+handle/hashtag (Aniket checking the participants page).

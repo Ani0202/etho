@@ -6,6 +6,8 @@ publishes, or changes repo visibility.
 **Official deadline: Wed Nov 4, 9:00 PM, via the CV platform. Late submissions are not considered.** The
 participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10-28).
 **Internal target: Nov 4, 12:00 PM ET** (our own margin; it stays there).
+- [ ] **Nov 3:** ask in Discord whether submission pages are public and whether there's a private notes field; if
+  yes, move the access code there (it is in the #4 Project Description for now, because the form has no notes field).
 - [ ] **Nov 3:** the form is fully filled and ready to submit, so any platform issue can be raised in Discord that
   day (Nov 3 is the last full day for submission questions and troubleshooting). Find out whether submissions
   can be edited after sending.
@@ -29,15 +31,17 @@ participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10
   (`docs/HOSTING.md`).
   - [ ] Up from submission through Nov 9 (finals); live mode turns itself off on Nov 10 ET.
   - [ ] The watchdog and the 15-min external uptime check run, and `ops/uptime.jsonl` shows no gaps.
-  - [ ] Caps of $3 a day and $20 in total from `demo-reserve`; when a cap is hit, the app falls back to the
+  - [ ] Caps from `demo-reserve`: $3 a day before Nov 4, **$8 a day Nov 4-9 ET** (judging window), **$30 in total**; when a cap is hit, the app falls back to the
     showcase with a message.
-  - [ ] The access code goes in the submission notes only, never on the public page.
+  - [ ] The access code goes only in the submission form (end of #4), never on the public page.
 
 ## Form
 - [ ] Only Aniket listed as a team member.
 - [ ] Paste the answers from `docs/FORM_FINAL.md` (one code block per field, short and full versions, sources
   table at the end). Fill the placeholders: repo URL, unlisted video URL, live app URL, X post link if any.
-- [ ] Access code in the notes field only, never on the public page.
+- [ ] The access code is at the end of the #4 full description (the form has no notes field). It is never on the
+  public page. If Discord confirms a private notes field on Nov 3, move it there.
+- [ ] **After Nov 9:** rotate the access code (`docs/HOSTING.md`: write a new value to `/etc/etho-app/access_code`).
 
 ## Before submitting (Nov 4 morning, before the 12:00 PM ET internal target)
 - [ ] Pre-submission audit: the Claude reviewer plus `bin/codex-ask --gate pre-submission`.

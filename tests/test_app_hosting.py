@@ -72,7 +72,8 @@ def test_public_deployment_defaults_follow_the_approved_plan(monkeypatch):
         if k.startswith("ETHO_APP_"):
             monkeypatch.delenv(k)
     cfg = AppConfig(public=True)
-    assert cfg.tag == "demo-reserve" and cfg.daily_cap_usd == 3.0 and cfg.total_cap_usd == 20.0
+    assert cfg.tag == "demo-reserve" and cfg.daily_cap_usd == 3.0 and cfg.total_cap_usd == 30.0
+    assert cfg.judging_daily_cap_usd == 8.0
     assert cfg.retention_hours == 24.0 and cfg.max_upload_mb == 50.0
     assert cfg.live_until == datetime(2026, 11, 10, 23, 59, 59, tzinfo=ET) == DEFAULT_LIVE_UNTIL
     assert cfg.live_until.utcoffset() == timedelta(hours=-5)            # EST: Nov 10 is after the DST change
@@ -80,6 +81,27 @@ def test_public_deployment_defaults_follow_the_approved_plan(monkeypatch):
     assert cfg.work_dir == cfg.data_dir / "work" and cfg.chunk_cache_dir == cfg.work_dir / "cache" / "chunks"
     local = AppConfig()
     assert not local.public and local.live_until is None and local.total_cap_usd is None and not local.private_gateway_cache
+
+
+def test_daily_cap_is_raised_only_in_the_judging_window(tmp_path, monkeypatch):
+    for k in list(__import__("os").environ):
+        if k.startswith("ETHO_APP_"):
+            monkeypatch.delenv(k)
+    cfg = AppConfig(public=True, root=tmp_path)
+    at = lambda *a: datetime(*a, tzinfo=ET)                                       # noqa: E731
+    assert cfg.daily_cap_at(at(2026, 11, 3, 23, 59, 59)) == 3.0
+    assert cfg.daily_cap_at(at(2026, 11, 4, 0, 0, 0)) == 8.0
+    assert cfg.daily_cap_at(at(2026, 11, 9, 23, 59, 59)) == 8.0
+    assert cfg.daily_cap_at(at(2026, 11, 10, 0, 0, 0)) == 3.0                   # Nov 10: back to $3 until auto-off
+    assert AppConfig(root=tmp_path).daily_cap_at(at(2026, 11, 5, 12, 0, 0)) == 5.0    # local: no judging raise
+    led = AppLedger(cfg.ledger_path)
+    inside = SpendGuard(cfg, led, now=lambda: at(2026, 11, 5, 12, 0, 0).astimezone(timezone.utc))
+    outside = SpendGuard(cfg, led, now=lambda: at(2026, 11, 3, 12, 0, 0).astimezone(timezone.utc))
+    assert inside.status()["daily_cap_usd"] == 8.0 and outside.status()["daily_cap_usd"] == 3.0
+    inside.check(5.0)                                                           # fits under $8
+    with pytest.raises(Refused) as e:
+        outside.check(5.0)
+    assert e.value.code == "daily_cap"
 
 
 def test_config_comes_from_env_and_paths_need_not_be_under_home(monkeypatch, tmp_path):
@@ -673,7 +695,7 @@ def test_health_reports_mode_sandbox_and_caps_without_secrets(tmp_path, monkeypa
     unlock(client)
     h = client.get("/api/health").json()
     assert h["ok"] and h["mode"] == "live" and h["reasons"] == [] and h["sandbox"]["mode"] == "bwrap"
-    assert h["caps"]["daily_cap_usd"] == 3.0 and h["caps"]["total_cap_usd"] == 20.0
+    assert h["caps"]["daily_cap_usd"] == 3.0 and h["caps"]["total_cap_usd"] == 30.0   # before Nov 4 ET
     assert {"daily_remaining_usd", "total_remaining_usd", "reserved_usd", "spent_24h_usd", "spent_total_usd",
             "remaining_usd"} <= set(h["caps"])
     assert h["live_until"].startswith("2026-11-10T23:59:59") and h["access_required"] and h["retention_hours"] == 24.0

@@ -50,6 +50,9 @@ class SpendGuard:
         self._lock = threading.RLock()
 
     # ---- numbers ---------------------------------------------------------------------
+    def daily_cap(self) -> float:
+        return self.cfg.daily_cap_at(self.now())
+
     def spent_24h(self) -> float:
         return self.ledger.spend_window(self.now(), tag=self.cfg.tag)
 
@@ -65,7 +68,7 @@ class SpendGuard:
     def headroom(self, outstanding_usd: float | None = None) -> tuple[float, str]:
         """(money still available under the tighter cap after what live jobs may still spend, which cap binds)."""
         out = self.outstanding() if outstanding_usd is None else outstanding_usd
-        day = self.cfg.daily_cap_usd - self.spent_24h() - out
+        day = self.daily_cap() - self.spent_24h() - out
         if self.cfg.total_cap_usd is None:
             return max(0.0, day), "daily_cap"
         tot = self.cfg.total_cap_usd - self.spent_total() - out
@@ -78,8 +81,9 @@ class SpendGuard:
         out = self.outstanding()
         day, total = self.spent_24h(), self.spent_total()
         cfg = self.cfg
-        return {"tag": cfg.tag, "daily_cap_usd": cfg.daily_cap_usd, "spent_24h_usd": round(day, 4),
-                "daily_remaining_usd": round(max(0.0, cfg.daily_cap_usd - day - out), 4),
+        cap = self.daily_cap()
+        return {"tag": cfg.tag, "daily_cap_usd": cap, "spent_24h_usd": round(day, 4),
+                "daily_remaining_usd": round(max(0.0, cap - day - out), 4),
                 "total_cap_usd": cfg.total_cap_usd, "spent_total_usd": round(total, 4),
                 "total_remaining_usd": None if cfg.total_cap_usd is None
                 else round(max(0.0, cfg.total_cap_usd - total - out), 4),
@@ -88,15 +92,15 @@ class SpendGuard:
     # ---- checks ----------------------------------------------------------------------
     def _refuse_if(self, estimate_usd: float, outstanding_usd: float) -> dict:
         cfg = self.cfg
-        day, total = self.spent_24h(), self.spent_total()
+        day, total, cap = self.spent_24h(), self.spent_total(), self.daily_cap()
         info = {"estimate_usd": round(estimate_usd, 4), "spent_today_usd": round(day, 4),
                 "spent_total_usd": round(total, 4), "outstanding_usd": round(outstanding_usd, 4),
-                "cap_usd": cfg.daily_cap_usd, "total_cap_usd": cfg.total_cap_usd}
-        if day + outstanding_usd + estimate_usd > cfg.daily_cap_usd:
+                "cap_usd": cap, "total_cap_usd": cfg.total_cap_usd}
+        if day + outstanding_usd + estimate_usd > cap:
             raise Refused(
                 f"daily app spend cap: ${day:.2f} spent in the last 24 h + ${outstanding_usd:.2f} committed to "
                 f"queued and running jobs + ${estimate_usd:.2f} estimate for this job exceeds the "
-                f"${cfg.daily_cap_usd:.2f} cap", 429, "daily_cap")
+                f"${cap:.2f} cap", 429, "daily_cap")
         if cfg.total_cap_usd is not None and total + outstanding_usd + estimate_usd > cfg.total_cap_usd:
             raise Refused(
                 f"total app spend cap: ${total:.2f} spent so far + ${outstanding_usd:.2f} committed + "

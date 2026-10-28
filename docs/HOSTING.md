@@ -168,12 +168,15 @@ sudo chown root:etho-app /etc/etho-app/app.env && sudo chmod 0640 /etc/etho-app/
 * `demo-reserve` is locked by the gateway until Nov 3 05:00 UTC (Nov 3 00:00 ET; `DEMO_RESERVE_OPENS_UTC` in
   `etho/gateway/prices.py`), so before then live jobs fail at the gateway without spending anything.
 * **The caps count only this instance's own rows.** Its ledger rows carry the caller prefix `pub:job:`, and only those
-  count toward the $3 per 24 h and the $20. Your own localhost app (prefix `job:`) and recording runs on `demo-reserve`
-  do not use up the public budget; they do use the gateway's `demo-reserve` tag budget of $35, so the $20 + your $15
-  must still add up.
+  count toward the daily cap ($3 per 24 h, raised to $8 from Nov 4 00:00 ET through Nov 9 ET, the judging window) and
+  the $30 total (Aniket, 2026-10-28). Your own localhost app (prefix `job:`) and recording runs on `demo-reserve` do not
+  use up the public budget; they do use the gateway's `demo-reserve` tag budget of $35. That tag counts only Meta spend
+  (about two thirds of an app job; tier-1 is on Fireworks), so $30 of app spend is about $20 of the tag, leaving room
+  for the Nov 2 rough cut ($5) and the Nov 3 recording. If the tag runs out, the gateway refuses and the app falls back
+  to the showcase.
 * **`ETHO_APP_RATE_JOBS`.** Per client the limit is that many jobs per hour. If the proxy does not pass the visitor's
   address (section 7, check 1), every visitor is one client, and the number is a *total* for the whole site; 10 an hour
-  fits under the $3 a day cap (measured cost of a 60 s clip is $0.23 to $0.36).
+  fits under the $3 a day cap, and more easily under $8 in the judging window (measured cost of a 60 s clip is $0.23 to $0.36).
 * **The per-job ceiling and $3 a day.** Admitting a job reserves its ceiling, `max(1.5 x estimate, estimate + $0.25)`
   (public default; localhost keeps 2x and $0.50), and the job cannot spend past it. A 120 s upload with 3 behaviors is
   estimated at about $0.95 and reserves about $1.43, so two such jobs fit at once under $3 (the second one is refused if

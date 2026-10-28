@@ -244,7 +244,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             return guard.status()
         except Exception:
             logging.getLogger("etho.app").exception("could not read the spend ledger")
-            return {"tag": cfg.tag, "daily_cap_usd": cfg.daily_cap_usd, "spent_24h_usd": None,
+            return {"tag": cfg.tag, "daily_cap_usd": guard.daily_cap(), "spent_24h_usd": None,
                     "daily_remaining_usd": 0.0, "total_cap_usd": cfg.total_cap_usd, "spent_total_usd": None,
                     "total_remaining_usd": 0.0 if cfg.total_cap_usd is not None else None, "reserved_usd": None,
                     "remaining_usd": 0.0, "ledger_error": True}
@@ -294,7 +294,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                 "defaults": d,
                 "text": {"tagline": cfg.tagline, "tile_title": cfg.tile_title, "tile_value": cfg.tile_value,
                          "tile_sub": cfg.tile_sub},
-                "cap": {"cap_usd": cfg.daily_cap_usd, "spent_today_usd": cap["spent_24h_usd"],
+                "cap": {"cap_usd": cap["daily_cap_usd"], "spent_today_usd": cap["spent_24h_usd"],
                         "remaining_usd": cap["remaining_usd"], "total_cap_usd": cfg.total_cap_usd,
                         "total_remaining_usd": cap["total_remaining_usd"]},
                 "estimate": {"sam_usd_per_s": cfg.est_sam_usd_per_s, "tier1_usd_per_s": cfg.est_tier1_usd_per_s,
@@ -679,8 +679,9 @@ def main(argv: list[str] | None = None) -> None:
     app = create_app(cfg)
     st = app.state.live.snapshot()
     logging.getLogger("etho.app").info(
-        "mode %s %s; tag %s; caps $%.2f per 24 h and %s in total; retention %g h; live until %s",
-        st["mode"], st["reasons"], cfg.tag, cfg.daily_cap_usd,
+        "mode %s %s; tag %s; caps $%.2f per 24 h (%s in the judging window) and %s in total; retention %g h; "
+        "live until %s", st["mode"], st["reasons"], cfg.tag, cfg.daily_cap_usd,
+        "unchanged" if cfg.judging_daily_cap_usd is None else f"${cfg.judging_daily_cap_usd:.2f}",
         "no" if cfg.total_cap_usd is None else f"${cfg.total_cap_usd:.2f}", cfg.retention_hours, st["live_until"])
     uvicorn.run(app, host=a.host, port=a.port, log_level="info", proxy_headers=True,
                 forwarded_allow_ips=a.forwarded_allow_ips)
