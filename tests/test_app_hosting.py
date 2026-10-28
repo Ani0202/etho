@@ -688,3 +688,41 @@ def test_nothing_from_one_visitors_upload_is_visible_to_another(tmp_path, monkey
 def fresh_client(client):
     from fastapi.testclient import TestClient
     return TestClient(client.app, base_url="https://testserver")
+
+
+def test_the_handlers_refuse_on_their_own_even_if_the_middleware_let_a_request_through(tmp_path, monkeypatch):
+    import re
+
+    from etho.app import server as srv
+    monkeypatch.setattr(srv, "SAFE_POST", re.compile(r".*"))          # pretend the middleware gate is bypassed
+    client, c = hosted(tmp_path, monkeypatch, cfg_kw={"read_only": True})
+    unlock(client)
+    r = post_job(client, c.video)
+    assert r.status_code == 403 and r.json()["error"] == "read_only"
+    r = client.post("/api/projects/j1/revise", json=REVISE)
+    assert r.status_code == 403 and r.json()["error"] == "read_only"
+    assert spent_nothing(c)
+    client2, c2 = hosted(tmp_path / "nocode", monkeypatch)             # live, but no code entered
+    assert post_job(client2, c2.video).status_code == 401
+    assert client2.post("/api/projects/j1/revise", json=REVISE).status_code == 401
+    assert spent_nothing(c2)
+
+
+def test_the_app_gateway_keeps_the_shared_ledger_but_can_use_a_private_cache(tmp_path):
+    from etho.app.server import AppGatewayConfig
+    from etho.gateway import Gateway
+    shared = AppGatewayConfig(root=tmp_path)
+    assert shared.cache_dir == tmp_path / "cache" / "gateway" and shared.ledger_path == tmp_path / "ops" / "spend.jsonl"
+    private = AppGatewayConfig(root=tmp_path, cache_override=tmp_path / "mine")
+    gw = Gateway(private)
+    assert gw.cache.root == tmp_path / "mine" and gw.ledger.path == tmp_path / "ops" / "spend.jsonl"
+
+
+def test_paths_come_from_env_not_from_the_users_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("ETHO_SECRETS", str(tmp_path / "keys.env"))
+    from etho.gateway import GatewayConfig
+    assert GatewayConfig().secrets_path == tmp_path / "keys.env"
+    cfg = AppConfig(root=tmp_path / "repo", data_root=tmp_path / "data", public=True)
+    for p in (cfg.jobs_dir, cfg.detector_cache_dir, cfg.gateway_cache_root, cfg.work_dir, cfg.tmp_dir, cfg.kill_path,
+              cfg.readonly_path, cfg.chunk_cache_dir):
+        assert str(p).startswith(str(tmp_path)), p

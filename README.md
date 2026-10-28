@@ -47,18 +47,26 @@ makes you a private copy first; the showcase itself never changes.
 
 Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
 - gateway tag (`dev` now; the live demo uses `ETHO_APP_TAG=demo-reserve`);
-- a per-day app spend cap ($5, `ETHO_APP_DAILY_CAP_USD`) checked against a duration-based estimate of $0.003/s SAM +
-  $0.003/s tier-1 + $0.06 per behavior + $0.05 (measured costs are about $0.002/s and $0.0012/s), so a 5-minute upload
-  with 3 behaviors is estimated at about $2 and two fit in a day; each job also has its own spend ceiling
-  (max(2x estimate, estimate + $0.50), never more than the day's headroom);
+- an app spend cap per rolling 24 h ($5, `ETHO_APP_DAILY_CAP_USD`) and an optional cumulative cap
+  (`ETHO_APP_TOTAL_CAP_USD`), both computed from the shared ledger's rows for the app's own jobs on its tag, checked
+  against a duration-based estimate of $0.003/s SAM + $0.003/s tier-1 + $0.06 per behavior + $0.05 (measured costs are
+  about $0.002/s and $0.0012/s). Admitting a job reserves its spend ceiling (max(2x estimate, estimate + $0.50), never
+  more than the headroom) and the job's gateway reserves each call's worst case against it, so queued and parallel
+  work cannot pass either cap;
 - 3 jobs per hour per client (the address uvicorn reports; behind a reverse proxy start with
   `bin/app --forwarded-allow-ips <proxy ip>`, the app never reads `X-Forwarded-For` itself; IPv6 clients are keyed on
   their /64), at most 5 queued jobs, 2 concurrent uploads, 4 progress streams per client, 256 KB for any non-upload
   request body, one job at a time;
 - uploads are re-encoded to a clean 10 fps mp4 before the pipeline sees them, and project data is deleted after
-  `ETHO_APP_RETENTION_H` hours (48);
+  `ETHO_APP_RETENTION_H` hours (24) after the upload by a timer, together with the job's chunk videos and its entries
+  in the app's gateway cache (what cannot be deleted is listed in `etho/app/retention.py` and `docs/HOSTING.md`);
 - uploads use Standard (non-contributor) models; a showcase's `result.json` decides whether its copies may use
   contributor models.
+Public hosting (`ETHO_APP_PUBLIC=1`): the showcases are open read-only; uploads and revisions need an access code kept in a
+file, a kill-switch file and a read-only flag file work without a restart, live mode ends itself on a set date, and the
+service runs as its own unix user. Setup, the exact sudo commands and checks are in `docs/HOSTING.md`; `GET /api/health`
+reports the mode, the sandbox isolation and the caps left.
+
 UI wording is configurable: `ETHO_APP_TAGLINE`, `ETHO_APP_TILE_TITLE`, `ETHO_APP_TILE_VALUE`, `ETHO_APP_TILE_SUB`.
 
 ## Data and licenses
