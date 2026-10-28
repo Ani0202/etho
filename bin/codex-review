@@ -12,11 +12,13 @@ mkdir -p ops/codex
 ts=$(date +%Y%m%d-%H%M%S)
 git diff "$base"...HEAD > "ops/codex/diff-$ts.patch"
 [ -s "ops/codex/diff-$ts.patch" ] || { echo "no diff vs $base"; exit 0; }
+rc=0
 codex_run gpt-6-astra gpt-6.1-sol xhigh read-only "ops/codex/review-$ts.md" "ops/codex/review-$ts.log" \
 "Read AGENTS.md, then review the change in ops/codex/diff-$ts.patch (diff vs $base).
 Look for: correctness bugs, missing tests, model calls that bypass etho/gateway or its cache,
 unbounded per-frame loops or missing fps subsampling, secrets in code, and anything that could
 leak eval labels into product code. $focus
 Rank findings by severity with file:line, evidence, and a concrete fix. If nothing is wrong, say so.
-Don't invent issues to seem thorough."
+Don't invent issues to seem thorough." || rc=$?
 echo "ops/codex/review-$ts.md"
+exit "$rc"

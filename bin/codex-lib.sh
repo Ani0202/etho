@@ -29,8 +29,11 @@ codex_run() {
     codex exec --sandbox "$sandbox" -m "$m" -c model_reasoning_effort="$effort" "$prompt" \
       </dev/null > "$body" 2>> "$log" || rc=$?
     [ "$rc" -eq 0 ] && break
-    # Only fall back on model errors, judged from this attempt's part of the log.
-    if sed -n "/^=== codex exec -m $m /,\$p" "$log" | grep -qiE \
+    # Fall back only on a model error: judge Codex's own final "ERROR:" line from this attempt,
+    # never the transcript (prompts and tool output can mention model errors).
+    local last_err
+    last_err=$(sed -n "/^=== codex exec -m $m /,\$p" "$log" | grep '^ERROR:' | tail -1 || true)
+    if printf '%s' "$last_err" | grep -qiE \
       "model_not_found|unknown model|unsupported model|invalid model|model .*(not (found|supported|available|exist)|does not exist|unavailable|no access|not allowed)|(do not|don't) have access to .*model"; then
       if [ "$m" != "${models[-1]}" ]; then
         note=" (fallback: $m failed with a model error)"
@@ -41,12 +44,12 @@ codex_run() {
     break
   done
   local ran_model ran_effort
-  ran_model=$(grep '^model:' "$log" | tail -1 | cut -d' ' -f2-)
-  ran_effort=$(grep '^reasoning effort:' "$log" | tail -1 | cut -d' ' -f3-)
+  ran_model=$(grep '^model:' "$log" | tail -1 | cut -d' ' -f2- || true)
+  ran_effort=$(grep '^reasoning effort:' "$log" | tail -1 | cut -d' ' -f3- || true)
   {
     echo "codex model: ${ran_model:-$m (no header; requested)} | reasoning effort: ${ran_effort:-$effort (requested)}${note}$([ "$rc" -ne 0 ] && echo " | FAILED exit $rc, see $log")"
     echo
-    cat "$body"
+    cat "$body" 2>/dev/null || true
   } > "$out"
   rm -f "$body"
   return "$rc"

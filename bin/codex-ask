@@ -10,8 +10,10 @@ ctx=$1; shift
 root=$(git rev-parse --show-toplevel); cd "$root"
 source "$root/bin/codex-lib.sh"
 mkdir -p ops/codex; ts=$(date +%Y%m%d-%H%M%S)
+rc=0
 codex_run gpt-6-astra gpt-6.1-sol xhigh read-only "ops/codex/ask-$ts.md" "ops/codex/ask-$ts.log" \
 "Read AGENTS.md and $ctx. Question: $*
 Answer independently: give your recommendation, the strongest argument against it, what evidence
-would change your mind, and anything in the context you think is wrong or unverified."
+would change your mind, and anything in the context you think is wrong or unverified." || rc=$?
 echo "ops/codex/ask-$ts.md"
+exit "$rc"
