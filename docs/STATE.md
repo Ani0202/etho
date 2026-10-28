@@ -1,6 +1,6 @@
 # Etho state
 
-_Updated 2026-10-28 19:00 UTC (15:00 ET)._
+_Updated 2026-10-28 21:00 UTC (17:00 ET)._
 
 ## Status (updated 2026-10-28 17:35 UTC / 13:35 ET)
 
@@ -39,19 +39,25 @@ _Updated 2026-10-28 19:00 UTC (15:00 ET)._
   - eval plan frozen (F1), and Aniket's claim bar added (ADR-004 / F2: CI lower > r, F1 >= 0.40, shown next to the simple baseline).
 - **Hosting (ADR-003, approved):** guards built on a branch, and Meta file delete is live-verified. The Claude review says merge after fixes and NO-GO for go-live as written; the fixes are in progress.
 
-### In progress
-- Fly rule synthesis and tuning on dev movies 1-2, then `configs/frozen_flies_v1.json` (implementer, worktree).
-- Hosting review fixes (implementer, worktree), then merge. Codex review queued for tomorrow.
+### Fly vs. Fly: finished, qualitative (2026-10-28 20:50 UTC)
+- **Lunge gate (dev 1-2):** GO, branch mid5 at 30 fps.
+- **Wing gate (train 1-5):** NO-GO. F1 0.584, but the CI lower bound 0.009 is below r = 0.043.
+- **Outcome:** no fly claim and no fly test; the demo uses the NO-GO line. The README reports train numbers and baselines.
+- **Spend:** $9.33 of the $19.5 approved.
+
+### Hosting
+- Merged (6fcdf2d). Go-live needs Aniket's sudo steps (docs/HOSTING.md sections 3-6), the section 7 checks, and Nov 3. Codex review queued.
 
 ### Next
-1. Fly: lunge gate (dev 1-2), then decide, then track train 3-5 for the branch, then the wing gate by Oct 31 23:59 ET; test only if GO.
-2. App: an optional fix for discarded tier-1 verdicts (dev-tested only, never claimed in the test numbers).
+1. App: an optional fix for discarded tier-1 verdicts, dev-tested and never claimed in the test numbers.
+2. `docs/architecture.svg` for the demo's code beat.
 3. Oct 30 ET checkpoint report.
-4. README: results, baselines with the in-sample caveat, fly pair-level disclosure, "How this was built".
+4. README polish, and the pre-submission audit (deadline Nov 4 12:00 PM ET).
 
 ### Waiting on Aniket
-- Official Rules: max video length, hosting/format, required content, form fields.
-- Sudo commands in docs/HOSTING.md, after the hosting merge. Go live only after Nov 3.
+- The remaining submission-form fields.
+- The CLAUDE.md deadline update (proposed internal target Nov 4 9:00 AM ET).
+- The sudo steps for hosting.
 
 ## Day-by-day plan (ET)
 
