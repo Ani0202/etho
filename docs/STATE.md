@@ -3,78 +3,37 @@
 _Updated 2026-10-28 04:36 UTC (00:36 ET, Wed Oct 28). Phase 0 and Phase 1 are done; waiting on
 Aniket at the checkpoint._
 
-## Done (verified this session)
+## Phase 2 status (updated 2026-10-28 ~08:20 UTC / 04:20 ET)
 
-- **Repo skeleton:** uv project, `make check` (ruff + pytest, 43 tests, no network), plus
-  `docs/DECISIONS.md` and this file.
-- **Gateway (`etho/gateway/`):**
-  - providers: Meta Chat Completions and Responses, Files API, SAM 3.1 (image and streamed
-    video), Baseten, Fireworks, and Together (disabled without a key);
-  - policy: explicit effort on every call, validated per provider; Glimmer effort goes in the
-    system prompt; tags required; `-contributor` models need `public_data=True`; `demo-reserve` is
-    locked until Nov 3 ET;
-  - money: hard caps and Meta tag budgets, enforced with cross-process reservations;
-    50%/80% alerts go to `ops/alerts.jsonl`;
-  - plumbing: disk cache keyed by request hash (a hit costs $0 and is still logged); retries with
-    Retry-After; every call logged to `ops/spend.jsonl`.
-- **CLIs:** `bin/spend`, `bin/muse`, `bin/open`, `bin/fw`, `bin/sam`.
-- **`.claude/settings.json`:**
-  - allow and deny lists per the kickoff;
-  - a PreToolUse hook (`.claude/hooks/guard-bash.py`) blocks direct provider calls, force pushes,
-    and shell reads of secrets (tested).
-- **Smoke tests:**
-  - Meta, Baseten, and Fireworks (text and image) all work.
-  - Glimmer returned 404, as expected.
-  - SAM image and video work.
-  - Codex replied `ready`.
-- **CalMS21:**
-  - license CC BY 4.0;
-  - all 89 Task 1 sequences have video;
-  - labels and keypoints extracted to `data/calms21/seq/` (`eval/calms21_extract.py`).
-- **Split draft:** `eval/splits/calms21_v1.json` (dev 8 seqs, dev-holdout 5, test all 19), plus a
-  draft `docs/EVAL_PLAN.md` (targets TBD, not frozen).
-- **Spike:** `docs/SPIKE.md`. The recommendation is a **conditional GO**, revised after Codex's
-  blind critique.
-  - Single-phrase `"mouse"` SAM tracking keeps stable, correct identities.
-  - **The intruder disappears under the resident for the whole mount.**
-  - Color phrases fail on this grayscale video.
-  - Mask decode, not SAM, dominates tracking time.
-  - Baseten video works for coarse descriptions only.
-- **Codex gateway review:** found 7 issues (double-billing on ambiguous retries, unbounded
-  estimates, reservation expiry, per-key locking, truncated SAM streams, CLI fps and memory). All
-  are fixed, with 9 regression tests (52 tests total).
-- **Spend to date:** $0.35 total (Meta $0.33, Baseten $0.02, Fireworks $0.003).
+### Done and measured (dev / dev-holdout, frame-level F1, CalMS21 definition)
+| Pipeline | dev macro | holdout macro | holdout attack / inv / mount |
+|---|---|---|---|
+| zero-shot rules (Muse Spark writes detectors from the MARS definitions) | 0.366 | 0.337 | .472 / .205 / .336 |
+| + tier-1 strips (Fireworks Open, low, restricted to investigation/none) | **0.482** | **0.503** | .563 / .515 / .429 |
+| + tier-2 video (Baseten Open, high, on disagreements) | 0.487 | not run | adds +0.005 for $2.30, so not used |
+| few-shot: + 18 simulated corrections (revision with self-check) + tier-1 | pending | **0.563** | .543 / .634 / .513 |
 
-## In progress
+Random floor 0.139 (dev). Supervised CalMS21 baseline 0.793 (same metric; test split).
 
-- ADR-001 (tracking identity: one `"mouse"` call + intensity identity; chunking as the fallback)
-  is written in `docs/DECISIONS.md`. Its blind Codex critique is still running.
+Other results:
+- **Speed, uncached, end to end** (5-min video, chunk + SAM + decode + rules): 65 s = 0.22x real time.
+  Tier-1 adds about 0.2x on long videos (174 windows on a 7-min video in 97 s at 6 concurrent calls).
+- **Identity vs keypoints (dev):** error 0.19%; both mice labeled in 99.2% of samples.
+- **Mount occlusion:** once a track exists it survives the mount (spike test with preceding footage).
+- **Cost:** SAM $0.12/video-min; tier-1 about $0.07/video-min.
+- **Built:** a fast decoder (about 0.7 ms/mask, bit-exact) and a perception planner (Muse Spark proposes
+  phrases; SAM image check + 5 s video probe; under 4 cents per video).
 
-## Next (Phase 2, pending Aniket's checkpoint answers)
+### Next
+1. A tier-1 prompt with per-tile features (zero-shot lever).
+2. Report generation (ethogram, metrics, methods paragraph).
+3. Freeze the EVAL_PLAN targets, then the Codex eval-plan gate.
+4. Test-split SAM pass (pre-approved up to $20).
+5. Web app.
+6. Fly vs. Fly once Aniket approves ADR-002.
 
-1. **Long-video tracking test:** one full dev sequence through SAM (about $0.25). Measure ID
-   persistence over minutes, request latency, and frame alignment with mask centroids.
-   Also test intruder re-seeding through mounts with a SAM box/point prompt ($0.04).
-2. **Go/no-go checkpoint (Codex's condition, adopted):** a rules-only (+ tier 1) dev run on full
-   sequences, with per-behavior P/R/F1 and coverage during each behavior, **before** any UI work.
-3. **Tracking module:**
-   - a fast mask decoder (decode once, then a compiled port);
-   - track cleanup: arena ROI, two persistent tracks, identity from intensity, gap bridging;
-   - per-frame features, with masks stored as RLE only.
-4. **Perception planner:** propose a phrase, verify it on sampled frames, and fall back to generic
-   nouns.
-5. **Rule synthesis:** English definition → Python scorer over features (sandboxed) → bouts. Then
-   the first rules-only dev F1.
-6. **Adjudication cascade:**
-   - tier 1: Fireworks frame strips;
-   - tier 2: Baseten clips (crop around the mice; the spike suggests full-frame video arrives as
-     low-resolution thumbnails);
-   - report the cost and accuracy of each tier.
-7. **Correction loop, report, then the web app.**
-
-## Blocked / waiting on Aniket
-
-See `docs/ESCALATIONS.md`: test-set spend approval (later), the MABe22 license, and demo claim framing.
+### Waiting on Aniket
+ADR-002 (second species) approval.
 
 ## Day-by-day plan (ET)
 
