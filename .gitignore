@@ -27,3 +27,4 @@ ops/codex/notify.jsonl
 ops/codex/gate-blocked-*.json
 ops/codex/.*.lock
 ops/codex/.*.tmp
+.claude/worktrees/
