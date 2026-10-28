@@ -453,3 +453,44 @@ def test_targets_speed_and_levels(test_env):
     assert sp["minimum_credible"]["components"]["pooled"]["point"] == pytest.approx(rec["speed"]["pooled_x_realtime"])
     assert sp["good"]["components"]["pooled"]["verdict"] == "NOT MET"
     assert all(c["verdict"] != "MET ROBUSTLY" for lv in sp.values() for c in lv["components"].values())
+
+
+def test_web_app_is_outside_the_freeze(test_env):
+    """etho/app/ may change between the frozen and run commits, and may be dirty, without refusing."""
+    repo = test_env["repo"]
+    (repo / "etho" / "app").mkdir()
+    (repo / "etho" / "app" / "server.py").write_text("print('web app')\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "add web app after the freeze")
+    new = _git(repo, "rev-parse", "HEAD")
+
+    def tweak(arm, d, man):
+        man["config"]["run_git_dirty_paths"] = ["etho/app/server.py", "docs/notes.md"]
+
+    rec = score_arms.run_arms("test", test_env["write_arms"](commit=new, tweak=tweak), "zs_t1", **test_env["kw"])
+    ex = _records(test_env["log"])[0]["preflight"]["execution"]
+    assert rec["status"] == "ok" and ex["product_diff_empty"] is True and ex["frozen_code_imports_app"] is False
+
+
+def test_web_app_exclusion_refused_if_frozen_code_imports_it(test_env, monkeypatch):
+    repo = test_env["repo"]
+    (repo / "etho" / "app").mkdir()
+    (repo / "etho" / "app" / "__init__.py").write_text("X = 1\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "add web app")
+    app_commit = _git(repo, "rev-parse", "HEAD")
+    # the runner (not frozen, but checked) starts importing the app
+    (repo / "scripts").mkdir()
+    (repo / "scripts" / "test_run.py").write_text("from etho.app import X\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "runner imports app")
+    rec = _refused(test_env, test_env["write_arms"](commit=_git(repo, "rev-parse", "HEAD")), "imports etho/app",
+                   monkeypatch)
+    assert app_commit and not any("is not empty" in p for p in rec["problems"])
+
+
+def test_dirty_frozen_path_outside_app_still_refused(test_env, monkeypatch):
+    def tweak(arm, d, man):
+        man["config"]["run_git_dirty_paths"] = ["etho/app/server.py", "etho/rules/sandbox.py"]
+    rec = _refused(test_env, test_env["write_arms"](tweak=tweak), "uncommitted changes in frozen paths", monkeypatch)
+    assert any("etho/rules/sandbox.py" in p and "server.py" not in p for p in rec["problems"])

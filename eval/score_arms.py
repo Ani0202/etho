@@ -32,9 +32,10 @@ a scoring execution, so it does not use up a test run) and the scorer exits.
   A length mismatch can be accepted only by naming it: `--accept-length-mismatch SEQ=REASON` (logged).
 - Execution check (`verify_execution`, whenever `--frozen-config` is given; strict on test): the four named
   arms and the primary arm; each manifest's `config` (frozen sha256, frozen_at_commit, run_commit, dirty
-  paths at run time); `git diff <frozen_at_commit> <run_commit> -- etho/` empty; the tier-1 prompt at
-  run_commit hashes to `tier1.prompt_sha256`; the frozen config and every frozen asset are identical at
-  run_commit.
+  paths at run time, where etho/app/ may be dirty); `git diff <frozen_at_commit> <run_commit> -- etho/
+  ':!etho/app'` empty (the web app never runs in scoring), and no frozen file or the runner imports etho.app;
+  the tier-1 prompt at run_commit hashes to `tier1.prompt_sha256`; the frozen config and every frozen asset
+  are identical at run_commit.
 - Prediction payload hashes (`payload_sha256`, the per-sequence files only) are logged separately from the
   manifest hash, because manifests legitimately carry timing and provenance that change between executions.
 
@@ -65,8 +66,13 @@ TEST_ARMS = ("zs_t1", "zs_rules", "fs_t1", "fs_rules")  # EVAL_PLAN 7.1
 TEST_PRIMARY = "zs_t1"
 TEST_COMPARES = (("zs_rules", "zs_t1"), ("zs_t1", "fs_t1"), ("fs_rules", "fs_t1"), ("zs_rules", "fs_rules"))
 PROMPT_FILE = "etho/adjudication/tier1.py"  # tier-1 prompt template, module constant PROMPT
-FROZEN_TREES = ("etho/",)  # must be identical between frozen_at_commit and run_commit
+# Must be identical between frozen_at_commit and run_commit. etho/app/ (the web app) never runs in the scoring
+# pipeline, so it is outside the freeze (amendment A1, lead's direction); APP_IMPORT_RE below checks that the
+# frozen code and the runner don't import it, which is what makes excluding it safe.
+FROZEN_TREES = ("etho/", ":!etho/app")
+UNFROZEN_PREFIXES = ("etho/app/",)
 NO_DIRTY_PREFIXES = ("etho/", "configs/", "scripts/test_run.py")  # must be clean when the runner ran
+APP_IMPORT_RE = r"(etho\.app|from etho import app|from \.+ import app|from \.+app)"
 OTHER_CODE = common.VOCAB["other"]
 BOOTSTRAP_SCOPE = ("Sequence-level bootstrap: resamples the scored sequences with replacement, conditional on "
                    "this fitted pipeline and these realized predictions. It does not cover the development "
@@ -387,7 +393,8 @@ def verify_execution(frozen_info: dict, cfg: dict, arms: dict, manifests: dict, 
         elif not isinstance(dirty, list):
             problems.append(f"{name}: config.run_git_dirty_paths must be a list")
         else:
-            bad = [p for p in dirty if str(p).startswith(NO_DIRTY_PREFIXES)]
+            bad = [p for p in dirty if str(p).startswith(NO_DIRTY_PREFIXES)
+                   and not str(p).startswith(UNFROZEN_PREFIXES)]
             if bad:
                 problems.append(f"{name}: runner ran with uncommitted changes in frozen paths: {bad}")
     if len(run_commits) > 1:
@@ -404,6 +411,11 @@ def verify_execution(frozen_info: dict, cfg: dict, arms: dict, manifests: dict, 
         if not rep["product_diff_empty"]:
             problems.append(f"git diff {frozen_at[:10]} {run_commit[:10]} -- {' '.join(FROZEN_TREES)} is not "
                             f"empty:\n{out.decode(errors='replace').strip()}")
+        rc, out = _git("grep", "-n", "-E", APP_IMPORT_RE, run_commit, "--", *FROZEN_TREES, "scripts/test_run.py")
+        rep["frozen_code_imports_app"] = rc == 0
+        if rc == 0:  # 0 = matches found, 1 = none
+            problems.append("frozen code or the runner imports etho/app at run_commit, so etho/app can't be "
+                            f"excluded from the freeze:\n{out.decode(errors='replace').strip()}")
         want = (cfg.get("zero_shot_arm") or {}).get("tier1", {}).get("prompt_sha256")
         got = prompt_sha_at(run_commit)
         rep["tier1_prompt_sha256_at_run_commit"] = got

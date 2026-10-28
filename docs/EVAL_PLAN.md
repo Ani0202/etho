@@ -509,8 +509,8 @@ execution on one set of SAM tracks**:
    - **[A1] fields the scorer now requires on test** (it refuses before the `started` record without them):
      `arm` (= the arm id); `config.frozen_sha256`, `config.frozen_at_commit`, `config.run_commit`, and
      `config.run_git_dirty_paths` (the `git status --porcelain` paths when the runner started; none may be under
-     `etho/`, `configs/`, or `scripts/test_run.py`); `frames.<seq>.src_frames` (decoded frame count) and
-     `frames.<seq>.n_samples` (null only for a failed sequence); `failed_sequences` (a list, `[]` if none).
+     `etho/` (except `etho/app/`), `configs/`, or `scripts/test_run.py`); `frames.<seq>.src_frames` (decoded
+     frame count) and `frames.<seq>.n_samples` (null only for a failed sequence); `failed_sequences` (a list, `[]` if none).
      For the speed verdict: `wall_clock_s.per_video.<seq>.{track_s, rules_s, tier1_s}`.
    - **[A1] Label-free check of the outputs**, before step 3, without using a test run:
      `uv run python -m eval.score_arms --split test --preflight-only --frozen-config configs/frozen_test_v1.json
@@ -540,7 +540,8 @@ execution on one set of SAM tracks**:
    - *Freeze coverage:* exactly the arms `zs_t1, zs_rules, fs_t1, fs_rules`, primary `zs_t1` (and the targets
      file's `primary_arm`), all four comparisons of this command; every manifest's `config` matches the frozen
      config's sha256 and `frozen_at_commit`, all arms share one `run_commit`; `git diff <frozen_at_commit>
-     <run_commit> -- etho/` is empty; the tier-1 `PROMPT` in `etho/adjudication/tier1.py` at `run_commit` hashes
+     <run_commit> -- etho/ ':!etho/app'` is empty (the web app is outside the freeze, see A1 item 4), and no file
+     in that frozen tree, nor `scripts/test_run.py`, imports `etho.app` at `run_commit`; the tier-1 `PROMPT` in `etho/adjudication/tier1.py` at `run_commit` hashes
      to `tier1.prompt_sha256` (read with `ast`, not imported); the frozen config and each frozen asset are
      byte-identical at `run_commit`. The runner script's sha256 at `run_commit` is recorded (it is not frozen).
    It then writes one `started` record holding every arm's per-file sha256, payload and manifest hashes, the
@@ -1017,7 +1018,13 @@ in-place edits are tagged [A1]; v1-final's wording is in e68f1e7.
    - exactly the four named arms, primary `zs_t1`, and all four planned comparisons;
    - each manifest's `arm` and `config` (frozen sha256, `frozen_at_commit`, a single `run_commit`, and
      `run_git_dirty_paths` with nothing under `etho/`, `configs/`, or `scripts/test_run.py`);
-   - `git diff <frozen_at_commit> <run_commit> -- etho/` is empty;
+   - `git diff <frozen_at_commit> <run_commit> -- etho/ ':!etho/app'` is empty. **The web app (`etho/app/`) is
+     outside the freeze**, by the lead's direction (2026-10-28): it will be merged to main before test scoring
+     and never runs in the scoring pipeline. `scripts/test_run.py` uses the same pathspec. `etho/app/` paths may
+     also be dirty when the runner starts. What makes the exclusion safe is a check the scorer runs: at
+     `run_commit`, `git grep` finds no import of `etho.app` (absolute or relative) in the frozen tree or in
+     `scripts/test_run.py`. If it finds one, the run is refused. At the time of writing `etho/app/` doesn't exist
+     at HEAD and no such import exists;
    - the tier-1 prompt hash at `run_commit` equals `tier1.prompt_sha256` (computed with `ast`; it reproduces
      `bb53933f...` at 4ada51c and at 69ab02c);
    - the frozen config and its assets are byte-identical at `run_commit`.
@@ -1055,7 +1062,8 @@ parameters.
 - "Decide the planner configuration explicitly": still open item 5 (lead's).
 - Complete uncached-vs-marginal cost reconstruction: a runner requirement, listed in section 11 item 4.
 
-**Verification.** `uv run pytest -q eval/tests`: 87 passed (2026-10-28). Label-free strict preflight of the
+**Verification.** `uv run pytest -q eval/tests`: 87 passed (2026-10-28); 90 passed after the `etho/app`
+exclusion and its three tests were added. Label-free strict preflight of the
 dev-holdout pre-flight outputs: `score-dev_holdout-20261028T084711Z-05b1b3` (refused only for the missing
 `run_git_dirty_paths`). Non-strict preflight of existing dev directories passed (scratch log, not in
 `runs.jsonl`).
