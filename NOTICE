@@ -1,0 +1,50 @@
+Etho
+Copyright 2026 The Etho authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE), except where noted below.
+
+-------------------------------------------------------------------------------
+Code under a different license
+-------------------------------------------------------------------------------
+etho/tracking/mask_codec.py and etho/tracking/sam_lines.py
+  Derived from meta-sam-parser (Meta Platforms, Inc.) and distributed under the
+  SAM License (Last Updated: November 19, 2025), NOT under Apache-2.0. A copy of
+  the SAM License is in third_party/meta-sam-parser/LICENSE.
+
+-------------------------------------------------------------------------------
+Third-party Python dependencies (installed by uv; not vendored)
+-------------------------------------------------------------------------------
+fastapi (MIT), httpx (BSD-3-Clause), ijson (BSD-3-Clause AND ISC),
+meta-sam-parser (SAM License), numba (BSD-2-Clause), numpy (BSD-3-Clause and
+others), opencv-python-headless (MIT wrapper; OpenCV Apache-2.0), pycocotools
+(BSD-2-Clause), python-multipart (Apache-2.0), scipy (BSD-3-Clause),
+uvicorn (BSD-3-Clause). See each package's own license for details.
+
+-------------------------------------------------------------------------------
+Models
+-------------------------------------------------------------------------------
+Etho calls Meta models (SAM 3.1, Muse Spark, Muse Spark Open) through their
+hosted APIs. No model weights are distributed in this repository.
+
+-------------------------------------------------------------------------------
+Datasets (not redistributed; download instructions in README)
+-------------------------------------------------------------------------------
+CalMS21: Caltech Mouse Social Interactions dataset, CC BY 4.0.
+  Sun, J. J., Karigo, T., Chakraborty, D., Mohanty, S. P., Wild, B., Sun, Q.,
+  Chen, C., Anderson, D. J., Perona, P., Yue, Y., Kennedy, A. "The Multi-Agent
+  Behavior Dataset: Mouse Dyadic Social Interactions." NeurIPS Datasets and
+  Benchmarks 2021. arXiv:2104.02710. Data: https://data.caltech.edu/records/s0vdx-0k302
+  Behavior definitions quoted from Segalin, C., et al. "The Mouse Action
+  Recognition System (MARS) software pipeline for automated analysis of social
+  behaviors in mice." eLife 10:e63720 (2021). doi:10.7554/eLife.63720
+  Any CalMS21 annotation shown in Etho's materials is an excerpt rendered as a
+  timeline, credited to the authors above, otherwise unmodified.
+
+Fly vs. Fly (Aggression subset): CC0 (public domain dedication).
+  Eyjolfsdottir, E., Branson, S., Burgos-Artizzu, X. P., Hoopfer, E. D.,
+  Schor, J., Anderson, D. J., Perona, P. "Detecting Social Actions of Fruit
+  Flies." ECCV 2014, LNCS 8690. doi:10.1007/978-3-319-10605-2_50.
+  Data: CaltechDATA, doi:10.22002/D1.1893
+  Fly behavior definitions quoted from Chen, S., Lee, A. Y., Bowens, N. M.,
+  Huber, R., Kravitz, E. A. "Fighting fruit flies: a model system for the study
+  of aggression." PNAS 99(8):5664-5668 (2002). doi:10.1073/pnas.082102599

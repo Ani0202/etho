@@ -68,6 +68,10 @@ UI wording is configurable: `ETHO_APP_TAGLINE`, `ETHO_APP_TILE_TITLE`, `ETHO_APP
 
 ## Data and licenses
 
+Etho is licensed under Apache-2.0 (`LICENSE`), except the SAM-derived decoder files noted below,
+which stay under the SAM License. Third-party licenses and dataset credits are listed in `NOTICE`.
+
+
 - **CalMS21** (Caltech Mouse Social Interactions), CC BY 4.0. Sun et al., "The Multi-Agent Behavior
   Dataset: Mouse Dyadic Social Interactions", arXiv:2104.02710 (2021).
   https://data.caltech.edu/records/s0vdx-0k302. Raw data is never committed; fetch it with the
