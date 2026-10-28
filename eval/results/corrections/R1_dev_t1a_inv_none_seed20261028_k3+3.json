@@ -1,0 +1,4501 @@
+{
+ "version": 1,
+ "generator": "eval/simulate_corrections.py",
+ "run_id": "corrections-dev-20261028T070154Z-4df3b7",
+ "split": "dev",
+ "sample_fps": 10,
+ "sample_step_frames": 3,
+ "config": {
+  "k_fp": 3,
+  "k_fn": 3,
+  "seed": 20261028,
+  "overlap_thr": 0.2,
+  "max_window_s": 3.0,
+  "max_window_samples": 30,
+  "sample_fps": 10,
+  "min_bout_samples": 1
+ },
+ "pred_dir": "data/runs/R1/pred_dev_t1a_inv_none",
+ "predictions_sha256": "1c7826281d0e2281824f0537723db31502a3c1cacde0e785cc1875ca58cf4b75",
+ "features_dir": "data/runs/R1",
+ "git_commit": "2f3c44877c45538e07b8b5ecd942dc81d70e0b48",
+ "git_dirty": true,
+ "supervision": "few-shot: windows and correct labels come from dev expert labels; never zero-shot",
+ "protocol": "Simulated user for the correction loop (docs/EVAL_PLAN.md section 6a). No model calls.\n\nA real user looks at Etho's ethogram, finds a few mistakes, and fixes them. This script plays that user\nreproducibly from the **dev** split's expert labels, so \"accuracy with N corrections\" can be measured.\nIt reads labels (so it lives in eval/) and never imports product code (etho/).\n\nProtocol (all at the prediction sample grid, default 10 fps; sample k = source frame step*k, step = 30/fps):\n  1. Ground truth per sample = the 30 fps label at frame step*k. Predictions are loaded with the scorer's own\n     loader (eval.score.load_prediction: per-sample npz or 30 fps bouts jsonl) and read at the same frames.\n  2. Bouts are maximal runs of one behavior (no gap merging, no minimum length unless --min-bout-samples).\n     overlap(bout) = fraction of the bout's samples where the *other* side has the same behavior.\n       FP bout of b: a predicted bout of b with overlap(GT == b) < 0.2.\n       FN bout of b: a GT bout of b with overlap(pred == b) < 0.2.\n  3. For each (behavior, kind) stratum, candidates are pooled over all dev sequences (split-file order, then\n     start sample) and K are drawn uniformly **without replacement** with\n     numpy.random.default_rng([seed, behavior_index, kind_index]) (behavior_index in attack, investigation,\n     mount; kind_index fp 0, fn 1), so each stratum's draw is independent of the others. Fewer than K\n     candidates: all are taken and the shortfall is logged.\n  4. A bout longer than the window cap (3 s = 30 samples at 10 fps) is clipped to a cap-length window at a\n     uniformly drawn offset (same stratum RNG, drawn in selection order). Shorter bouts are used whole.\n  5. Each correction carries the per-sample predicted and correct labels in the window, their majority\n     labels (ties -> lower VOCAB code), and median/min/max of every feature in <features-dir>/<seq>/features.npz\n     over the window (NaN-aware; null if no finite value).\nWindows of different strata may overlap (e.g. a predicted attack on GT investigation is an attack FP and can\nalso sit inside an investigation FN); overlaps are counted in the output, not removed.\n\n`frames_30fps` = [f0, f1) is the 30 fps frame range the scorer maps onto the window's samples (nearest-sample\nupsampling, eval.score.upsample_samples); use it to score \"dev minus the corrected windows\".\n\nRun log: one \"started\" record (predictions sha256) before any label is opened, then an \"ok\"/\"failed\" record\nwith the output sha256 and per-stratum counts, in eval/results/runs.jsonl (kind \"simulate-corrections\").",
+ "strata": {
+  "attack/fp": {
+   "candidates": 58,
+   "requested": 3,
+   "selected": 3,
+   "shortfall": 0,
+   "candidate_len_samples": {
+    "min": 3,
+    "median": 11.5,
+    "max": 66
+   }
+  },
+  "attack/fn": {
+   "candidates": 5,
+   "requested": 3,
+   "selected": 3,
+   "shortfall": 0,
+   "candidate_len_samples": {
+    "min": 1,
+    "median": 28.0,
+    "max": 71
+   }
+  },
+  "investigation/fp": {
+   "candidates": 33,
+   "requested": 3,
+   "selected": 3,
+   "shortfall": 0,
+   "candidate_len_samples": {
+    "min": 1,
+    "median": 6.0,
+    "max": 30
+   }
+  },
+  "investigation/fn": {
+   "candidates": 61,
+   "requested": 3,
+   "selected": 3,
+   "shortfall": 0,
+   "candidate_len_samples": {
+    "min": 1,
+    "median": 9.0,
+    "max": 118
+   }
+  },
+  "mount/fp": {
+   "candidates": 52,
+   "requested": 3,
+   "selected": 3,
+   "shortfall": 0,
+   "candidate_len_samples": {
+    "min": 5,
+    "median": 15.0,
+    "max": 109
+   }
+  },
+  "mount/fn": {
+   "candidates": 3,
+   "requested": 3,
+   "selected": 3,
+   "shortfall": 0,
+   "candidate_len_samples": {
+    "min": 11,
+    "median": 11.0,
+    "max": 12
+   }
+  }
+ },
+ "n_corrections": 18,
+ "n_overlapping_pairs": 0,
+ "corrections": [
+  {
+   "id": "attack-fp-0",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 439,
+   "s1": 443,
+   "frames_30fps": [
+    1316,
+    1328
+   ],
+   "behavior": "attack",
+   "kind": "fp",
+   "predicted_label": "attack",
+   "correct_label": "investigation",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack"
+   ],
+   "correct_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "source_bout": {
+    "s0": 439,
+    "s1": 443,
+    "overlap": 0.0,
+    "candidate_index": 0,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -205.4166081337354,
+     "min": -231.45635582821802,
+     "max": -114.46672079136995,
+     "n_finite": 4
+    },
+    "dist": {
+     "median": 122.55176144525566,
+     "min": 85.68900145234839,
+     "max": 163.03160407272188,
+     "n_finite": 4
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.4142135381698608,
+     "n_finite": 4
+    },
+    "i_angle": {
+     "median": -0.2103747490322389,
+     "min": -0.28463659401899993,
+     "max": -0.1770362683040477,
+     "n_finite": 4
+    },
+    "i_area": {
+     "median": 19336.0,
+     "min": 18014.0,
+     "max": 19641.0,
+     "n_finite": 4
+    },
+    "i_cx": {
+     "median": 725.801531216226,
+     "min": 714.5527367602975,
+     "max": 750.7122855251769,
+     "n_finite": 4
+    },
+    "i_cy": {
+     "median": 444.88128190518614,
+     "min": 441.4027798991905,
+     "max": 446.8938603308538,
+     "n_finite": 4
+    },
+    "i_elong": {
+     "median": 3.7580023351616543,
+     "min": 3.5381316792805606,
+     "max": 3.8653805893708464,
+     "n_finite": 4
+    },
+    "i_facing": {
+     "median": 0.9478239367770738,
+     "min": 0.7564887554708446,
+     "max": 1.3054037457741563,
+     "n_finite": 4
+    },
+    "i_head_to_r": {
+     "median": 53.63343331820248,
+     "min": 45.10224793201383,
+     "max": 70.33061526317188,
+     "n_finite": 4
+    },
+    "i_head_x": {
+     "median": 857.1576310698218,
+     "min": 840.8101061806354,
+     "max": 882.7447007902123,
+     "n_finite": 4
+    },
+    "i_head_y": {
+     "median": 416.6638380621523,
+     "min": 402.77259772261374,
+     "max": 424.305242620139,
+     "n_finite": 4
+    },
+    "i_heading": {
+     "median": -0.2103747490322388,
+     "min": -0.28463659401899993,
+     "max": -0.17703626830404784,
+     "n_finite": 4
+    },
+    "i_intensity": {
+     "median": 162.63284481461477,
+     "min": 159.72393693793717,
+     "max": 163.56835357273152,
+     "n_finite": 4
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 4
+    },
+    "i_speed": {
+     "median": 107.33291992620948,
+     "min": 69.51278004934866,
+     "max": 122.12200942286364,
+     "n_finite": 4
+    },
+    "i_visible_ratio": {
+     "median": 1.15777498353392,
+     "min": 1.0786180468235436,
+     "max": 1.1760373630321537,
+     "n_finite": 4
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 4
+    },
+    "r_angle": {
+     "median": -0.8998583552615651,
+     "min": -1.3112338177223022,
+     "max": -0.5820951958531567,
+     "n_finite": 4
+    },
+    "r_area": {
+     "median": 15631.5,
+     "min": 14673.0,
+     "max": 18742.0,
+     "n_finite": 4
+    },
+    "r_cx": {
+     "median": 776.4591247631256,
+     "min": 749.0633870451393,
+     "max": 811.557282082737,
+     "n_finite": 4
+    },
+    "r_cy": {
+     "median": 334.1015806979437,
+     "min": 315.86171880324406,
+     "max": 355.7296446483833,
+     "n_finite": 4
+    },
+    "r_elong": {
+     "median": 2.230342009708434,
+     "min": 1.7373435361423193,
+     "max": 3.328145623371641,
+     "n_finite": 4
+    },
+    "r_facing": {
+     "median": 0.4781312427129196,
+     "min": 0.2641109101903676,
+     "max": 0.9929318702372232,
+     "n_finite": 4
+    },
+    "r_head_to_i": {
+     "median": 10.19379301778583,
+     "min": 2.762171084345042,
+     "max": 27.425838497912178,
+     "n_finite": 4
+    },
+    "r_head_x": {
+     "median": 718.5796646100086,
+     "min": 637.9301153349534,
+     "max": 780.4562842551051,
+     "n_finite": 4
+    },
+    "r_head_y": {
+     "median": 405.2008541748186,
+     "min": 396.4801735046541,
+     "max": 431.28918783572374,
+     "n_finite": 4
+    },
+    "r_heading": {
+     "median": 2.241734298328228,
+     "min": 1.8303588358674907,
+     "max": 2.5594974577366365,
+     "n_finite": 4
+    },
+    "r_intensity": {
+     "median": 49.10569676702298,
+     "min": 45.682069106522185,
+     "max": 52.705901184505386,
+     "n_finite": 4
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 4
+    },
+    "r_speed": {
+     "median": 219.07436247042588,
+     "min": 162.6251067900304,
+     "max": 256.49638161950696,
+     "n_finite": 4
+    },
+    "r_visible_ratio": {
+     "median": 0.8940971229194075,
+     "min": 0.8392724360807642,
+     "max": 1.0720128124463766,
+     "n_finite": 4
+    }
+   }
+  },
+  {
+   "id": "attack-fp-1",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 1972,
+   "s1": 1981,
+   "frames_30fps": [
+    5915,
+    5942
+   ],
+   "behavior": "attack",
+   "kind": "fp",
+   "predicted_label": "attack",
+   "correct_label": "other",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack"
+   ],
+   "correct_labels": [
+    "investigation",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other"
+   ],
+   "source_bout": {
+    "s0": 1972,
+    "s1": 1981,
+    "overlap": 0.0,
+    "candidate_index": 9,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -185.12361542341452,
+     "min": -412.1061726901348,
+     "max": -59.80195611896505,
+     "n_finite": 9
+    },
+    "dist": {
+     "median": 212.4179065372163,
+     "min": 135.71713923701702,
+     "max": 308.5212211493045,
+     "n_finite": 9
+    },
+    "gap": {
+     "median": 3.0,
+     "min": 1.0,
+     "max": 44.04542922973633,
+     "n_finite": 9
+    },
+    "i_angle": {
+     "median": 1.4475786914014435,
+     "min": 1.4161486634019123,
+     "max": 1.4734873861248718,
+     "n_finite": 9
+    },
+    "i_area": {
+     "median": 16480.0,
+     "min": 14066.0,
+     "max": 16987.0,
+     "n_finite": 9
+    },
+    "i_cx": {
+     "median": 794.6226941747573,
+     "min": 792.9398363454407,
+     "max": 795.7446313065976,
+     "n_finite": 9
+    },
+    "i_cy": {
+     "median": 287.45679611650485,
+     "min": 281.73403952793973,
+     "max": 294.6150741994272,
+     "n_finite": 9
+    },
+    "i_elong": {
+     "median": 2.959751841013158,
+     "min": 2.529671782695564,
+     "max": 3.067499621656224,
+     "n_finite": 9
+    },
+    "i_facing": {
+     "median": 0.6458770100220597,
+     "min": 0.011362648309585666,
+     "max": 1.0269566243489692,
+     "n_finite": 9
+    },
+    "i_head_to_r": {
+     "median": 20.33115948165455,
+     "min": 2.3010078915804772,
+     "max": 81.65180120202909,
+     "n_finite": 9
+    },
+    "i_head_x": {
+     "median": 782.0224600195869,
+     "min": 780.9730439794179,
+     "max": 784.1789152827014,
+     "n_finite": 9
+    },
+    "i_head_y": {
+     "median": 185.81728169522825,
+     "min": 180.20734633997853,
+     "max": 201.9121841478082,
+     "n_finite": 9
+    },
+    "i_heading": {
+     "median": -1.6940139621883494,
+     "min": -1.7254439901878804,
+     "max": -1.668105267464922,
+     "n_finite": 9
+    },
+    "i_intensity": {
+     "median": 158.285446313066,
+     "min": 156.27655339115597,
+     "max": 161.45852710896568,
+     "n_finite": 9
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 9
+    },
+    "i_speed": {
+     "median": 19.53479670698982,
+     "min": 4.509190243231268,
+     "max": 38.49936397301923,
+     "n_finite": 9
+    },
+    "i_visible_ratio": {
+     "median": 0.9867672594455422,
+     "min": 0.8422250164660798,
+     "max": 1.0171247230704747,
+     "n_finite": 9
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 2.0,
+     "n_finite": 9
+    },
+    "r_angle": {
+     "median": 0.02618167856765493,
+     "min": -0.16366353836940267,
+     "max": 0.5672967191529398,
+     "n_finite": 9
+    },
+    "r_area": {
+     "median": 19803.0,
+     "min": 14578.0,
+     "max": 22561.0,
+     "n_finite": 9
+    },
+    "r_cx": {
+     "median": 645.2070406607994,
+     "min": 513.6545321837507,
+     "max": 828.7002227171492,
+     "n_finite": 9
+    },
+    "r_cy": {
+     "median": 152.72387208612747,
+     "min": 141.80869609542256,
+     "max": 166.34675502742232,
+     "n_finite": 9
+    },
+    "r_elong": {
+     "median": 2.6963980389101176,
+     "min": 1.6532805424498782,
+     "max": 3.450621657027761,
+     "n_finite": 9
+    },
+    "r_facing": {
+     "median": 0.8640414562292125,
+     "min": 0.4525995247481154,
+     "max": 1.8793835443373563,
+     "n_finite": 9
+    },
+    "r_head_to_i": {
+     "median": 68.64315138205522,
+     "min": 0.48032812396621727,
+     "max": 102.51626471055941,
+     "n_finite": 9
+    },
+    "r_head_x": {
+     "median": 786.2971093801494,
+     "min": 671.7312592196172,
+     "max": 912.8251660567171,
+     "n_finite": 9
+    },
+    "r_head_y": {
+     "median": 142.83709254651822,
+     "min": 101.11360380531684,
+     "max": 184.37741372908272,
+     "n_finite": 9
+    },
+    "r_heading": {
+     "median": -0.058614926783987886,
+     "min": -2.5742959344368535,
+     "max": 0.20744691571692572,
+     "n_finite": 9
+    },
+    "r_intensity": {
+     "median": 48.6344618494189,
+     "min": 45.40115242145699,
+     "max": 53.56397974544957,
+     "n_finite": 9
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 9
+    },
+    "r_speed": {
+     "median": 379.24937774735207,
+     "min": 225.79502839021285,
+     "max": 492.8354337649116,
+     "n_finite": 9
+    },
+    "r_visible_ratio": {
+     "median": 1.1327003374706859,
+     "min": 0.8338385860550249,
+     "max": 1.290453583481096,
+     "n_finite": 9
+    }
+   }
+  },
+  {
+   "id": "attack-fp-2",
+   "seq": "mouse029_task1_annotator1",
+   "s0": 429,
+   "s1": 437,
+   "frames_30fps": [
+    1286,
+    1310
+   ],
+   "behavior": "attack",
+   "kind": "fp",
+   "predicted_label": "attack",
+   "correct_label": "other",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack"
+   ],
+   "correct_labels": [
+    "other",
+    "investigation",
+    "investigation",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other"
+   ],
+   "source_bout": {
+    "s0": 429,
+    "s1": 437,
+    "overlap": 0.0,
+    "candidate_index": 31,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -161.6876393006823,
+     "min": -341.08968194367634,
+     "max": 225.755587296956,
+     "n_finite": 8
+    },
+    "dist": {
+     "median": 162.18510797269383,
+     "min": 126.52083852413693,
+     "max": 259.45235670426115,
+     "n_finite": 8
+    },
+    "gap": {
+     "median": 8.505645751953125,
+     "min": 1.0,
+     "max": 41.0,
+     "n_finite": 8
+    },
+    "i_angle": {
+     "median": -0.01727546534359838,
+     "min": -0.10787609781490173,
+     "max": 0.09065259176418276,
+     "n_finite": 8
+    },
+    "i_area": {
+     "median": 12185.0,
+     "min": 10494.0,
+     "max": 16961.0,
+     "n_finite": 8
+    },
+    "i_cx": {
+     "median": 474.7675882889864,
+     "min": 457.5133125864454,
+     "max": 528.5129414539238,
+     "n_finite": 8
+    },
+    "i_cy": {
+     "median": 504.41771379196433,
+     "min": 501.427087044294,
+     "max": 506.8858772066865,
+     "n_finite": 8
+    },
+    "i_elong": {
+     "median": 2.786411289384806,
+     "min": 2.518736373760908,
+     "max": 4.103534439349676,
+     "n_finite": 8
+    },
+    "i_facing": {
+     "median": 1.1022519865108587,
+     "min": 0.29016593777719235,
+     "max": 2.2575249956328287,
+     "n_finite": 8
+    },
+    "i_head_to_r": {
+     "median": 86.62091738001892,
+     "min": 31.839020063778637,
+     "max": 130.41928122040375,
+     "n_finite": 8
+    },
+    "i_head_x": {
+     "median": 563.2994803374769,
+     "min": 535.0888984276742,
+     "max": 660.5607897764396,
+     "n_finite": 8
+    },
+    "i_head_y": {
+     "median": 504.79757199400046,
+     "min": 495.29835028017123,
+     "max": 514.1810803263533,
+     "n_finite": 8
+    },
+    "i_heading": {
+     "median": -0.0172754653435984,
+     "min": -0.10787609781490173,
+     "max": 0.09065259176418254,
+     "n_finite": 8
+    },
+    "i_intensity": {
+     "median": 167.21811576570093,
+     "min": 155.7150930272996,
+     "max": 194.31183302871293,
+     "n_finite": 8
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 8
+    },
+    "i_speed": {
+     "median": 76.41229891745553,
+     "min": 30.7583725899911,
+     "max": 181.91135615365073,
+     "n_finite": 8
+    },
+    "i_visible_ratio": {
+     "median": 1.0213746856663872,
+     "min": 0.8796311818943839,
+     "max": 1.421709974853311,
+     "n_finite": 8
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 8
+    },
+    "r_angle": {
+     "median": -0.08895825139431607,
+     "min": -0.5522573506536164,
+     "max": 0.07652078340583106,
+     "n_finite": 8
+    },
+    "r_area": {
+     "median": 17693.5,
+     "min": 15092.0,
+     "max": 18892.0,
+     "n_finite": 8
+    },
+    "r_cx": {
+     "median": 535.8792398632197,
+     "min": 339.0668060752806,
+     "max": 782.8185793798039,
+     "n_finite": 8
+    },
+    "r_cy": {
+     "median": 394.37469882061566,
+     "min": 378.9283366206443,
+     "max": 450.75622846541216,
+     "n_finite": 8
+    },
+    "r_elong": {
+     "median": 3.6477709611619966,
+     "min": 2.815640365241076,
+     "max": 4.349240828306913,
+     "n_finite": 8
+    },
+    "r_facing": {
+     "median": 1.0541857061488242,
+     "min": 0.13245439155471894,
+     "max": 1.8378463056365053,
+     "n_finite": 8
+    },
+    "r_head_to_i": {
+     "median": 47.08839833773982,
+     "min": 21.283319806968052,
+     "max": 86.49681556866345,
+     "n_finite": 8
+    },
+    "r_head_x": {
+     "median": 405.952870980889,
+     "min": 224.886176060813,
+     "max": 673.8037344929793,
+     "n_finite": 8
+    },
+    "r_head_y": {
+     "median": 433.2738271853106,
+     "min": 386.7944417386865,
+     "max": 459.1965170989998,
+     "n_finite": 8
+    },
+    "r_heading": {
+     "median": 2.686231783847658,
+     "min": -3.1118278961616843,
+     "max": 3.094394483543258,
+     "n_finite": 8
+    },
+    "r_intensity": {
+     "median": 57.078766310864964,
+     "min": 55.29647167523243,
+     "max": 60.63888152663663,
+     "n_finite": 8
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 8
+    },
+    "r_speed": {
+     "median": 602.0602994105953,
+     "min": 319.56244352721006,
+     "max": 874.0321731286245,
+     "n_finite": 8
+    },
+    "r_visible_ratio": {
+     "median": 1.170437256069326,
+     "min": 0.9983462327181319,
+     "max": 1.2497188595620825,
+     "n_finite": 8
+    }
+   }
+  },
+  {
+   "id": "attack-fn-0",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 1,
+   "s1": 2,
+   "frames_30fps": [
+    2,
+    5
+   ],
+   "behavior": "attack",
+   "kind": "fn",
+   "predicted_label": "investigation",
+   "correct_label": "attack",
+   "predicted_labels": [
+    "investigation"
+   ],
+   "correct_labels": [
+    "attack"
+   ],
+   "source_bout": {
+    "s0": 1,
+    "s1": 2,
+    "overlap": 0.0,
+    "candidate_index": 0,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -9.557820066265208,
+     "min": -9.557820066265208,
+     "max": -9.557820066265208,
+     "n_finite": 1
+    },
+    "dist": {
+     "median": 177.53981172636483,
+     "min": 177.53981172636483,
+     "max": 177.53981172636483,
+     "n_finite": 1
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 1
+    },
+    "i_angle": {
+     "median": -0.2152843771057282,
+     "min": -0.2152843771057282,
+     "max": -0.2152843771057282,
+     "n_finite": 1
+    },
+    "i_area": {
+     "median": 13572.0,
+     "min": 13572.0,
+     "max": 13572.0,
+     "n_finite": 1
+    },
+    "i_cx": {
+     "median": 556.2561892130858,
+     "min": 556.2561892130858,
+     "max": 556.2561892130858,
+     "n_finite": 1
+    },
+    "i_cy": {
+     "median": 344.46212791040375,
+     "min": 344.46212791040375,
+     "max": 344.46212791040375,
+     "n_finite": 1
+    },
+    "i_elong": {
+     "median": 2.3906419132940577,
+     "min": 2.3906419132940577,
+     "max": 2.3906419132940577,
+     "n_finite": 1
+    },
+    "i_facing": {
+     "median": 0.9295894493467429,
+     "min": 0.9295894493467429,
+     "max": 0.9295894493467429,
+     "n_finite": 1
+    },
+    "i_head_to_r": {
+     "median": 46.912145968151144,
+     "min": 46.912145968151144,
+     "max": 46.912145968151144,
+     "n_finite": 1
+    },
+    "i_head_x": {
+     "median": 478.897488425558,
+     "min": 478.897488425558,
+     "max": 478.897488425558,
+     "n_finite": 1
+    },
+    "i_head_y": {
+     "median": 361.37840024175415,
+     "min": 361.37840024175415,
+     "max": 361.37840024175415,
+     "n_finite": 1
+    },
+    "i_heading": {
+     "median": 2.9263082764840647,
+     "min": 2.9263082764840647,
+     "max": 2.9263082764840647,
+     "n_finite": 1
+    },
+    "i_intensity": {
+     "median": 163.8262599469496,
+     "min": 163.8262599469496,
+     "max": 163.8262599469496,
+     "n_finite": 1
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 1
+    },
+    "i_speed": {
+     "median": 59.81203164703649,
+     "min": 59.81203164703649,
+     "max": 59.81203164703649,
+     "n_finite": 1
+    },
+    "i_visible_ratio": {
+     "median": 0.8126459493443506,
+     "min": 0.8126459493443506,
+     "max": 0.8126459493443506,
+     "n_finite": 1
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 2.0,
+     "n_finite": 1
+    },
+    "r_angle": {
+     "median": 1.2990980064187159,
+     "min": 1.2990980064187159,
+     "max": 1.2990980064187159,
+     "n_finite": 1
+    },
+    "r_area": {
+     "median": 15720.0,
+     "min": 15720.0,
+     "max": 15720.0,
+     "n_finite": 1
+    },
+    "r_cx": {
+     "median": 422.11622137404584,
+     "min": 422.11622137404584,
+     "max": 422.11622137404584,
+     "n_finite": 1
+    },
+    "r_cy": {
+     "median": 228.15712468193385,
+     "min": 228.15712468193385,
+     "max": 228.15712468193385,
+     "n_finite": 1
+    },
+    "r_elong": {
+     "median": 2.446790508017232,
+     "min": 2.446790508017232,
+     "max": 2.446790508017232,
+     "n_finite": 1
+    },
+    "r_facing": {
+     "median": 0.5847929341777012,
+     "min": 0.5847929341777012,
+     "max": 0.5847929341777012,
+     "n_finite": 1
+    },
+    "r_head_to_i": {
+     "median": 29.293188844670066,
+     "min": 29.293188844670066,
+     "max": 29.293188844670066,
+     "n_finite": 1
+    },
+    "r_head_x": {
+     "median": 444.856830804327,
+     "min": 444.856830804327,
+     "max": 444.856830804327,
+     "n_finite": 1
+    },
+    "r_head_y": {
+     "median": 309.78540136455456,
+     "min": 309.78540136455456,
+     "max": 309.78540136455456,
+     "n_finite": 1
+    },
+    "r_heading": {
+     "median": 1.2990980064187156,
+     "min": 1.2990980064187156,
+     "max": 1.2990980064187156,
+     "n_finite": 1
+    },
+    "r_intensity": {
+     "median": 49.254262086514,
+     "min": 49.254262086514,
+     "max": 49.254262086514,
+     "n_finite": 1
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 1
+    },
+    "r_speed": {
+     "median": 37.115148312395604,
+     "min": 37.115148312395604,
+     "max": 37.115148312395604,
+     "n_finite": 1
+    },
+    "r_visible_ratio": {
+     "median": 0.8991591832065435,
+     "min": 0.8991591832065435,
+     "max": 0.8991591832065435,
+     "n_finite": 1
+    }
+   }
+  },
+  {
+   "id": "attack-fn-1",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 2879,
+   "s1": 2909,
+   "frames_30fps": [
+    8636,
+    8726
+   ],
+   "behavior": "attack",
+   "kind": "fn",
+   "predicted_label": "mount",
+   "correct_label": "attack",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "correct_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack"
+   ],
+   "source_bout": {
+    "s0": 2870,
+    "s1": 2913,
+    "overlap": 0.16279069767441862,
+    "candidate_index": 1,
+    "clipped": true
+   },
+   "features": {
+    "approach": {
+     "median": 10.349482590129835,
+     "min": -203.64158922505243,
+     "max": 100.31247215120871,
+     "n_finite": 30
+    },
+    "dist": {
+     "median": 95.59287778448194,
+     "min": 55.058486384730735,
+     "max": 131.6231680435864,
+     "n_finite": 30
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "i_angle": {
+     "median": 0.3040040330174998,
+     "min": -1.0998587129933668,
+     "max": 1.1823114862287962,
+     "n_finite": 30
+    },
+    "i_area": {
+     "median": 11200.0,
+     "min": 9075.0,
+     "max": 13467.0,
+     "n_finite": 30
+    },
+    "i_cx": {
+     "median": 272.60675815092145,
+     "min": 140.85841001409267,
+     "max": 331.1511101210366,
+     "n_finite": 30
+    },
+    "i_cy": {
+     "median": 180.91203924885804,
+     "min": 156.87070503373923,
+     "max": 225.69387755102042,
+     "n_finite": 30
+    },
+    "i_elong": {
+     "median": 2.3969608928618973,
+     "min": 1.8317339759045697,
+     "max": 3.774227750689734,
+     "n_finite": 30
+    },
+    "i_facing": {
+     "median": 1.5952026632392067,
+     "min": 0.6949208680334067,
+     "max": 2.573683390102052,
+     "n_finite": 30
+    },
+    "i_head_to_r": {
+     "median": 60.14944272650453,
+     "min": 27.502776819804634,
+     "max": 99.9688629193921,
+     "n_finite": 30
+    },
+    "i_head_x": {
+     "median": 338.5346009575729,
+     "min": 199.1497364891579,
+     "max": 385.3338652993532,
+     "n_finite": 30
+    },
+    "i_head_y": {
+     "median": 172.90061207094183,
+     "min": 87.45026656042452,
+     "max": 278.8101588370021,
+     "n_finite": 30
+    },
+    "i_heading": {
+     "median": -0.0026975467583213487,
+     "min": -2.3851183139796808,
+     "max": 1.1569155920643912,
+     "n_finite": 30
+    },
+    "i_intensity": {
+     "median": 147.23045914982544,
+     "min": 138.76282317732148,
+     "max": 163.15838716863445,
+     "n_finite": 30
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "i_speed": {
+     "median": 82.54177352981131,
+     "min": 28.645367517823765,
+     "max": 541.2060604543344,
+     "n_finite": 30
+    },
+    "i_visible_ratio": {
+     "median": 0.6706185258367763,
+     "min": 0.5433806358900665,
+     "max": 0.8063589006646309,
+     "n_finite": 30
+    },
+    "n_objects": {
+     "median": 4.0,
+     "min": 3.0,
+     "max": 4.0,
+     "n_finite": 30
+    },
+    "r_angle": {
+     "median": 0.5364451625759101,
+     "min": -1.522222068299381,
+     "max": 1.5613976767716686,
+     "n_finite": 30
+    },
+    "r_area": {
+     "median": 16607.0,
+     "min": 15233.0,
+     "max": 19164.0,
+     "n_finite": 30
+    },
+    "r_cx": {
+     "median": 242.94844261219436,
+     "min": 215.55083610091475,
+     "max": 296.71051503460103,
+     "n_finite": 30
+    },
+    "r_cy": {
+     "median": 275.2814654630235,
+     "min": 208.3734084742225,
+     "max": 302.7808618504436,
+     "n_finite": 30
+    },
+    "r_elong": {
+     "median": 2.734066634475883,
+     "min": 1.179540458148007,
+     "max": 3.398020463028414,
+     "n_finite": 30
+    },
+    "r_facing": {
+     "median": 0.4322795782129416,
+     "min": 0.017299884800284104,
+     "max": 2.7271850382905836,
+     "n_finite": 30
+    },
+    "r_head_to_i": {
+     "median": 19.6100778481446,
+     "min": 0.2504275321487684,
+     "max": 88.86707118738205,
+     "n_finite": 30
+    },
+    "r_head_x": {
+     "median": 231.0164156465751,
+     "min": 126.0762235359162,
+     "max": 376.02203111776487,
+     "n_finite": 30
+    },
+    "r_head_y": {
+     "median": 191.14307793284146,
+     "min": 121.09748628999952,
+     "max": 306.2263205151552,
+     "n_finite": 30
+    },
+    "r_heading": {
+     "median": -1.5512085225587526,
+     "min": -2.2907288400539523,
+     "max": 3.0662586969783074,
+     "n_finite": 30
+    },
+    "r_intensity": {
+     "median": 53.42554424201896,
+     "min": 49.193642936233964,
+     "max": 57.766026663264654,
+     "n_finite": 30
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "r_speed": {
+     "median": 63.10092621023624,
+     "min": 15.504470373278597,
+     "max": 173.0964340975346,
+     "n_finite": 30
+    },
+    "r_visible_ratio": {
+     "median": 0.9498941829205514,
+     "min": 0.8713035520219642,
+     "max": 1.0961505462449237,
+     "n_finite": 30
+    }
+   }
+  },
+  {
+   "id": "attack-fn-2",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 3249,
+   "s1": 3267,
+   "frames_30fps": [
+    9746,
+    9800
+   ],
+   "behavior": "attack",
+   "kind": "fn",
+   "predicted_label": "mount",
+   "correct_label": "attack",
+   "predicted_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "correct_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack"
+   ],
+   "source_bout": {
+    "s0": 3249,
+    "s1": 3267,
+    "overlap": 0.0,
+    "candidate_index": 3,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 4.7288711089475655,
+     "min": -19.45240401003325,
+     "max": 52.656803946749804,
+     "n_finite": 18
+    },
+    "dist": {
+     "median": 110.24914335602348,
+     "min": 103.39264331119007,
+     "max": 134.50052154977286,
+     "n_finite": 18
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.4142135381698608,
+     "n_finite": 18
+    },
+    "i_angle": {
+     "median": 0.0323704555341675,
+     "min": -0.006218228382019164,
+     "max": 0.23064425336167696,
+     "n_finite": 18
+    },
+    "i_area": {
+     "median": 9192.0,
+     "min": 7659.0,
+     "max": 9893.0,
+     "n_finite": 18
+    },
+    "i_cx": {
+     "median": 763.8804552163442,
+     "min": 728.9947773860818,
+     "max": 773.2854037267081,
+     "n_finite": 18
+    },
+    "i_cy": {
+     "median": 481.4632000724689,
+     "min": 478.593989910068,
+     "max": 487.21504112808464,
+     "n_finite": 18
+    },
+    "i_elong": {
+     "median": 3.300657406711823,
+     "min": 1.6402676773788332,
+     "max": 3.436149593723623,
+     "n_finite": 18
+    },
+    "i_facing": {
+     "median": 1.904582672895725,
+     "min": 1.842207064749162,
+     "max": 1.9970222829648225,
+     "n_finite": 18
+    },
+    "i_head_to_r": {
+     "median": 74.87830295210097,
+     "min": 62.42872208193771,
+     "max": 78.62791062379387,
+     "n_finite": 18
+    },
+    "i_head_x": {
+     "median": 675.2137436344972,
+     "min": 672.200812760129,
+     "max": 692.0501844376787,
+     "n_finite": 18
+    },
+    "i_head_y": {
+     "median": 478.3126030005755,
+     "min": 473.12517190311513,
+     "max": 484.9065216271087,
+     "n_finite": 18
+    },
+    "i_heading": {
+     "median": -3.105181130593719,
+     "min": -3.130785564614594,
+     "max": 3.140954745854644,
+     "n_finite": 18
+    },
+    "i_intensity": {
+     "median": 137.46570582588754,
+     "min": 135.43845902709762,
+     "max": 149.96735866301083,
+     "n_finite": 18
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 18
+    },
+    "i_speed": {
+     "median": 15.732457799776821,
+     "min": 1.7891730564685913,
+     "max": 85.97560776723135,
+     "n_finite": 18
+    },
+    "i_visible_ratio": {
+     "median": 0.5503862044188971,
+     "min": 0.4585952936949883,
+     "max": 0.5923597389377881,
+     "n_finite": 18
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 2.0,
+     "n_finite": 18
+    },
+    "r_angle": {
+     "median": -1.4801119835366985,
+     "min": -1.562457895212647,
+     "max": 1.570378578110504,
+     "n_finite": 18
+    },
+    "r_area": {
+     "median": 14661.5,
+     "min": 13753.0,
+     "max": 15864.0,
+     "n_finite": 18
+    },
+    "r_cx": {
+     "median": 803.5588821159605,
+     "min": 799.4653207424292,
+     "max": 810.6504659993096,
+     "n_finite": 18
+    },
+    "r_cy": {
+     "median": 378.259285541713,
+     "min": 368.0587504314808,
+     "max": 384.6796483230218,
+     "n_finite": 18
+    },
+    "r_elong": {
+     "median": 2.957136330439633,
+     "min": 2.6319512224759123,
+     "max": 3.3511960317202565,
+     "n_finite": 18
+    },
+    "r_facing": {
+     "median": 0.36376545271853056,
+     "min": 0.23395612184436,
+     "max": 0.48532561319343603,
+     "n_finite": 18
+    },
+    "r_head_to_i": {
+     "median": 12.294018472689933,
+     "min": 3.7643895066408004,
+     "max": 25.44375158550514,
+     "n_finite": 18
+    },
+    "r_head_x": {
+     "median": 802.2130431381054,
+     "min": 788.98738283806,
+     "max": 811.4173456493113,
+     "n_finite": 18
+    },
+    "r_head_y": {
+     "median": 485.3083491077015,
+     "min": 468.4041177236937,
+     "max": 503.71829060662236,
+     "n_finite": 18
+    },
+    "r_heading": {
+     "median": 1.5802245176803011,
+     "min": 1.5150611476485933,
+     "max": 1.7365216186094694,
+     "n_finite": 18
+    },
+    "r_intensity": {
+     "median": 50.03450322435738,
+     "min": 48.91196951780318,
+     "max": 51.11114946496375,
+     "n_finite": 18
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 18
+    },
+    "r_speed": {
+     "median": 11.783097164305543,
+     "min": 0.4062486171766019,
+     "max": 34.176864236163155,
+     "n_finite": 18
+    },
+    "r_visible_ratio": {
+     "median": 0.838614654235543,
+     "min": 0.7866498884630784,
+     "max": 0.9073957558771378,
+     "n_finite": 18
+    }
+   }
+  },
+  {
+   "id": "investigation-fp-0",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 1812,
+   "s1": 1815,
+   "frames_30fps": [
+    5435,
+    5444
+   ],
+   "behavior": "investigation",
+   "kind": "fp",
+   "predicted_label": "investigation",
+   "correct_label": "other",
+   "predicted_labels": [
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "correct_labels": [
+    "other",
+    "other",
+    "other"
+   ],
+   "source_bout": {
+    "s0": 1812,
+    "s1": 1815,
+    "overlap": 0.0,
+    "candidate_index": 10,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -9.921760669507762,
+     "min": -28.72548583363624,
+     "max": 93.07704276911522,
+     "n_finite": 3
+    },
+    "dist": {
+     "median": 256.8579042923319,
+     "min": 255.86590866013188,
+     "max": 264.99789031202783,
+     "n_finite": 3
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 3
+    },
+    "i_angle": {
+     "median": -0.6830811716037312,
+     "min": -0.7163311456563445,
+     "max": -0.6665908268703898,
+     "n_finite": 3
+    },
+    "i_area": {
+     "median": 16960.0,
+     "min": 16887.0,
+     "max": 17352.0,
+     "n_finite": 3
+    },
+    "i_cx": {
+     "median": 370.7965298750518,
+     "min": 365.5817806603774,
+     "max": 372.03567312125404,
+     "n_finite": 3
+    },
+    "i_cy": {
+     "median": 208.04364303902412,
+     "min": 207.31713923467035,
+     "max": 210.2759433962264,
+     "n_finite": 3
+    },
+    "i_elong": {
+     "median": 2.852433817537509,
+     "min": 2.642429341040919,
+     "max": 3.020980251200462,
+     "n_finite": 3
+    },
+    "i_facing": {
+     "median": 0.5178333429708797,
+     "min": 0.5068573209758278,
+     "max": 0.5470523764455981,
+     "n_finite": 3
+    },
+    "i_head_to_r": {
+     "median": 31.153346311157037,
+     "min": 23.01572965946555,
+     "max": 33.906786638605006,
+     "n_finite": 3
+    },
+    "i_head_x": {
+     "median": 459.34341082284834,
+     "min": 442.13554660417276,
+     "max": 467.9661913817112,
+     "n_finite": 3
+    },
+    "i_head_y": {
+     "median": 135.9868324482623,
+     "min": 131.846672033951,
+     "max": 143.6284202026345,
+     "n_finite": 3
+    },
+    "i_heading": {
+     "median": -0.6830811716037314,
+     "min": -0.7163311456563443,
+     "max": -0.6665908268703897,
+     "n_finite": 3
+    },
+    "i_intensity": {
+     "median": 164.37653301886792,
+     "min": 164.17889500799433,
+     "max": 164.44133241124942,
+     "n_finite": 3
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 3
+    },
+    "i_speed": {
+     "median": 29.825584766498515,
+     "min": 14.558753708826424,
+     "max": 54.918983026559076,
+     "n_finite": 3
+    },
+    "i_visible_ratio": {
+     "median": 1.0155080534099754,
+     "min": 1.011137057661218,
+     "max": 1.0389797018142626,
+     "n_finite": 3
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 2.0,
+     "n_finite": 3
+    },
+    "r_angle": {
+     "median": 0.10758816269390473,
+     "min": 0.04395720673796557,
+     "max": 0.13701384135682237,
+     "n_finite": 3
+    },
+    "r_area": {
+     "median": 19191.0,
+     "min": 18897.0,
+     "max": 19554.0,
+     "n_finite": 3
+    },
+    "r_cx": {
+     "median": 623.6764036619569,
+     "min": 617.7904776516314,
+     "max": 634.1069251211505,
+     "n_finite": 3
+    },
+    "r_cy": {
+     "median": 167.16983737342744,
+     "min": 163.01307085780812,
+     "max": 168.04194674587046,
+     "n_finite": 3
+    },
+    "r_elong": {
+     "median": 3.237709237753434,
+     "min": 3.076486347902412,
+     "max": 3.2704180477142533,
+     "n_finite": 3
+    },
+    "r_facing": {
+     "median": 0.2838120133218087,
+     "min": 0.21323597594871124,
+     "max": 0.28577132525633253,
+     "n_finite": 3
+    },
+    "r_head_to_i": {
+     "median": 5.952615788917485,
+     "min": 3.6300196698270453,
+     "max": 6.270445409444646,
+     "n_finite": 3
+    },
+    "r_head_x": {
+     "median": 468.69703921149517,
+     "min": 456.12783242946387,
+     "max": 475.2688437601989,
+     "n_finite": 3
+    },
+    "r_head_y": {
+     "median": 146.27449168267543,
+     "min": 146.14171641768348,
+     "max": 160.05901853874371,
+     "n_finite": 3
+    },
+    "r_heading": {
+     "median": -3.0340044908958883,
+     "min": -3.097635446851828,
+     "max": -3.004578812232971,
+     "n_finite": 3
+    },
+    "r_intensity": {
+     "median": 53.35215301217142,
+     "min": 52.31576440704874,
+     "max": 54.4161325621385,
+     "n_finite": 3
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 3
+    },
+    "r_speed": {
+     "median": 59.794726887207105,
+     "min": 41.50672422820574,
+     "max": 142.29678244648784,
+     "n_finite": 3
+    },
+    "r_visible_ratio": {
+     "median": 1.09769490362066,
+     "min": 1.08087856775153,
+     "max": 1.1184579305611164,
+     "n_finite": 3
+    }
+   }
+  },
+  {
+   "id": "investigation-fp-1",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 2438,
+   "s1": 2461,
+   "frames_30fps": [
+    7313,
+    7382
+   ],
+   "behavior": "investigation",
+   "kind": "fp",
+   "predicted_label": "investigation",
+   "correct_label": "other",
+   "predicted_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "correct_labels": [
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other"
+   ],
+   "source_bout": {
+    "s0": 2438,
+    "s1": 2461,
+    "overlap": 0.0,
+    "candidate_index": 13,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 36.515014631152525,
+     "min": -62.93255067781466,
+     "max": 273.30567582796436,
+     "n_finite": 23
+    },
+    "dist": {
+     "median": 121.84039845886711,
+     "min": 76.52374841501732,
+     "max": 139.72650088987348,
+     "n_finite": 23
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 2.2360680103302,
+     "n_finite": 23
+    },
+    "i_angle": {
+     "median": 1.0031208158107825,
+     "min": -1.357776465312653,
+     "max": 1.3431327146734908,
+     "n_finite": 23
+    },
+    "i_area": {
+     "median": 14779.0,
+     "min": 13552.0,
+     "max": 17729.0,
+     "n_finite": 23
+    },
+    "i_cx": {
+     "median": 821.1679142221324,
+     "min": 731.5662473912798,
+     "max": 830.7092160662969,
+     "n_finite": 23
+    },
+    "i_cy": {
+     "median": 368.7345741452559,
+     "min": 362.29326799071447,
+     "max": 380.61384396779215,
+     "n_finite": 23
+    },
+    "i_elong": {
+     "median": 2.7554234916761158,
+     "min": 1.0226213854033812,
+     "max": 3.039746522060485,
+     "n_finite": 23
+    },
+    "i_facing": {
+     "median": 0.9773234113363811,
+     "min": 0.2538704892643864,
+     "max": 1.5990967233939688,
+     "n_finite": 23
+    },
+    "i_head_to_r": {
+     "median": 24.575329009524243,
+     "min": 7.558553705725846,
+     "max": 59.1377476969828,
+     "n_finite": 23
+    },
+    "i_head_x": {
+     "median": 870.2091757144824,
+     "min": 752.5462848222949,
+     "max": 881.6058368727587,
+     "n_finite": 23
+    },
+    "i_head_y": {
+     "median": 443.90661981544815,
+     "min": 362.60476094309325,
+     "max": 466.6451158364376,
+     "n_finite": 23
+    },
+    "i_heading": {
+     "median": 1.015564698770253,
+     "min": -0.2128944281893548,
+     "max": 1.7838161882771397,
+     "n_finite": 23
+    },
+    "i_intensity": {
+     "median": 156.5543762824595,
+     "min": 152.50801813383856,
+     "max": 165.5213016621028,
+     "n_finite": 23
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 23
+    },
+    "i_speed": {
+     "median": 23.24687222065231,
+     "min": 2.460544971383784,
+     "max": 294.68280483317676,
+     "n_finite": 23
+    },
+    "i_visible_ratio": {
+     "median": 0.8849170708340818,
+     "min": 0.8114484162624993,
+     "max": 1.0615532004071613,
+     "n_finite": 23
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 2.0,
+     "n_finite": 23
+    },
+    "r_angle": {
+     "median": -0.08940395414567333,
+     "min": -0.47605659103074766,
+     "max": 1.4585238023643925,
+     "n_finite": 23
+    },
+    "r_area": {
+     "median": 16200.0,
+     "min": 15150.0,
+     "max": 20562.0,
+     "n_finite": 23
+    },
+    "r_cx": {
+     "median": 767.503266742053,
+     "min": 750.5141109766198,
+     "max": 815.2139777922926,
+     "n_finite": 23
+    },
+    "r_cy": {
+     "median": 485.36204620462047,
+     "min": 413.09413215496863,
+     "max": 494.9331412795583,
+     "n_finite": 23
+    },
+    "r_elong": {
+     "median": 2.8424251549666826,
+     "min": 2.3416277350276666,
+     "max": 3.65574993589197,
+     "n_finite": 23
+    },
+    "r_facing": {
+     "median": 1.389718587875132,
+     "min": 0.9857498253075363,
+     "max": 1.9045511742265564,
+     "n_finite": 23
+    },
+    "r_head_to_i": {
+     "median": 61.41583562805224,
+     "min": 14.851671347989216,
+     "max": 87.49949194954613,
+     "n_finite": 23
+    },
+    "r_head_x": {
+     "median": 871.2865801872499,
+     "min": 768.1230858063096,
+     "max": 937.6229271334074,
+     "n_finite": 23
+    },
+    "r_head_y": {
+     "median": 481.4146182710482,
+     "min": 438.98734526179635,
+     "max": 558.341247016437,
+     "n_finite": 23
+    },
+    "r_heading": {
+     "median": -0.08940395414567308,
+     "min": -0.4760565910307477,
+     "max": 1.4585238023643927,
+     "n_finite": 23
+    },
+    "r_intensity": {
+     "median": 46.22892319230048,
+     "min": 43.60489875898106,
+     "max": 51.52927764535185,
+     "n_finite": 23
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 23
+    },
+    "r_speed": {
+     "median": 72.0189363436307,
+     "min": 2.3009830286205686,
+     "max": 185.21849831422517,
+     "n_finite": 23
+    },
+    "r_visible_ratio": {
+     "median": 0.9266144254418578,
+     "min": 0.8665560830521077,
+     "max": 1.1761139392552766,
+     "n_finite": 23
+    }
+   }
+  },
+  {
+   "id": "investigation-fp-2",
+   "seq": "mouse016_task1_annotator1",
+   "s0": 1086,
+   "s1": 1106,
+   "frames_30fps": [
+    3257,
+    3317
+   ],
+   "behavior": "investigation",
+   "kind": "fp",
+   "predicted_label": "investigation",
+   "correct_label": "other",
+   "predicted_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "correct_labels": [
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other"
+   ],
+   "source_bout": {
+    "s0": 1086,
+    "s1": 1106,
+    "overlap": 0.0,
+    "candidate_index": 19,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 30.771657528794236,
+     "min": 6.74954552049968,
+     "max": 226.35701551268454,
+     "n_finite": 20
+    },
+    "dist": {
+     "median": 164.97465772690316,
+     "min": 131.41832562343524,
+     "max": 265.75084103752465,
+     "n_finite": 20
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 10.0,
+     "n_finite": 20
+    },
+    "i_angle": {
+     "median": -1.1353991647478654,
+     "min": -1.2988118485686309,
+     "max": -0.959911760474449,
+     "n_finite": 20
+    },
+    "i_area": {
+     "median": 11618.0,
+     "min": 10522.0,
+     "max": 12242.0,
+     "n_finite": 20
+    },
+    "i_cx": {
+     "median": 137.3229970897122,
+     "min": 134.97727461225844,
+     "max": 151.83741140735742,
+     "n_finite": 20
+    },
+    "i_cy": {
+     "median": 242.23283313370766,
+     "min": 230.24956456830057,
+     "max": 254.65110565110564,
+     "n_finite": 20
+    },
+    "i_elong": {
+     "median": 2.133000477407811,
+     "min": 1.6623040347514617,
+     "max": 2.6394913783557645,
+     "n_finite": 20
+    },
+    "i_facing": {
+     "median": 1.6353143605570413,
+     "min": 1.4732354048024718,
+     "max": 1.9015400639656643,
+     "n_finite": 20
+    },
+    "i_head_to_r": {
+     "median": 90.28019383816383,
+     "min": 60.92271417483291,
+     "max": 126.89855252649876,
+     "n_finite": 20
+    },
+    "i_head_x": {
+     "median": 169.46875861644017,
+     "min": 159.5644460873266,
+     "max": 190.49763898742472,
+     "n_finite": 20
+    },
+    "i_head_y": {
+     "median": 174.8820550605814,
+     "min": 142.09057413753197,
+     "max": 199.27110818976058,
+     "n_finite": 20
+    },
+    "i_heading": {
+     "median": -1.1353991647478654,
+     "min": -1.2988118485686306,
+     "max": -0.9599117604744488,
+     "n_finite": 20
+    },
+    "i_intensity": {
+     "median": 158.00953015637685,
+     "min": 153.31386861313868,
+     "max": 162.57597697138868,
+     "n_finite": 20
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 20
+    },
+    "i_speed": {
+     "median": 24.813947664128456,
+     "min": 6.986617080293418,
+     "max": 49.90391282354699,
+     "n_finite": 20
+    },
+    "i_visible_ratio": {
+     "median": 0.8567214807167614,
+     "min": 0.7759014821915788,
+     "max": 0.9027357864464273,
+     "n_finite": 20
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 3.0,
+     "n_finite": 20
+    },
+    "r_angle": {
+     "median": 0.3910785165705416,
+     "min": -0.5585623578730055,
+     "max": 0.6743669549817128,
+     "n_finite": 20
+    },
+    "r_area": {
+     "median": 18280.5,
+     "min": 16377.0,
+     "max": 19414.0,
+     "n_finite": 20
+    },
+    "r_cx": {
+     "median": 277.6643545448942,
+     "min": 254.0114265927978,
+     "max": 371.7727100373761,
+     "n_finite": 20
+    },
+    "r_cy": {
+     "median": 317.24512883363775,
+     "min": 295.7365315395055,
+     "max": 393.9026054926602,
+     "n_finite": 20
+    },
+    "r_elong": {
+     "median": 2.4095799617381726,
+     "min": 1.7360449259003938,
+     "max": 3.0879207529877397,
+     "n_finite": 20
+    },
+    "r_facing": {
+     "median": 2.4548214146594525,
+     "min": 0.021787783121830273,
+     "max": 3.121316636585414,
+     "n_finite": 20
+    },
+    "r_head_to_i": {
+     "median": 221.9591224895275,
+     "min": 0.20500611219112813,
+     "max": 336.9934760034651,
+     "n_finite": 20
+    },
+    "r_head_x": {
+     "median": 401.72501679250274,
+     "min": 133.02520447006395,
+     "max": 500.24202495901704,
+     "n_finite": 20
+    },
+    "r_head_y": {
+     "median": 273.65240512573024,
+     "min": 226.1977230652222,
+     "max": 455.74257246576724,
+     "n_finite": 20
+    },
+    "r_heading": {
+     "median": -0.20981820287793318,
+     "min": -2.7622754865121895,
+     "max": 0.6743669549817125,
+     "n_finite": 20
+    },
+    "r_intensity": {
+     "median": 53.7108914007581,
+     "min": 51.00853408231608,
+     "max": 56.94282173836077,
+     "n_finite": 20
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 20
+    },
+    "r_speed": {
+     "median": 68.32626893583358,
+     "min": 7.304218348776991,
+     "max": 219.9781736132115,
+     "n_finite": 20
+    },
+    "r_visible_ratio": {
+     "median": 1.1826297913634158,
+     "min": 1.0594856865599223,
+     "max": 1.2559598900210254,
+     "n_finite": 20
+    }
+   }
+  },
+  {
+   "id": "investigation-fn-0",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 44,
+   "s1": 46,
+   "frames_30fps": [
+    131,
+    137
+   ],
+   "behavior": "investigation",
+   "kind": "fn",
+   "predicted_label": "other",
+   "correct_label": "investigation",
+   "predicted_labels": [
+    "other",
+    "other"
+   ],
+   "correct_labels": [
+    "investigation",
+    "investigation"
+   ],
+   "source_bout": {
+    "s0": 44,
+    "s1": 46,
+    "overlap": 0.0,
+    "candidate_index": 0,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -133.79386569187795,
+     "min": -134.9292608538741,
+     "max": -132.65847052988178,
+     "n_finite": 2
+    },
+    "dist": {
+     "median": 179.97051040682646,
+     "min": 173.1261465033513,
+     "max": 186.81487431030163,
+     "n_finite": 2
+    },
+    "gap": {
+     "median": 49.61898231506348,
+     "min": 47.75981521606445,
+     "max": 51.4781494140625,
+     "n_finite": 2
+    },
+    "i_angle": {
+     "median": 0.09941065933641376,
+     "min": 0.09250705424539687,
+     "max": 0.10631426442743064,
+     "n_finite": 2
+    },
+    "i_area": {
+     "median": 16943.5,
+     "min": 16295.0,
+     "max": 17592.0,
+     "n_finite": 2
+    },
+    "i_cx": {
+     "median": 401.0146302606097,
+     "min": 399.0279104138245,
+     "max": 403.0013501073949,
+     "n_finite": 2
+    },
+    "i_cy": {
+     "median": 322.04094191326055,
+     "min": 320.8454127032832,
+     "max": 323.23647112323783,
+     "n_finite": 2
+    },
+    "i_elong": {
+     "median": 3.3498533522842853,
+     "min": 3.1877139072023044,
+     "max": 3.511992797366266,
+     "n_finite": 2
+    },
+    "i_facing": {
+     "median": 1.7359891624683144,
+     "min": 1.6163149429711554,
+     "max": 1.8556633819654733,
+     "n_finite": 2
+    },
+    "i_head_to_r": {
+     "median": 75.92914171568043,
+     "min": 68.19420252845518,
+     "max": 83.6640809029057,
+     "n_finite": 2
+    },
+    "i_head_x": {
+     "median": 291.22150128040647,
+     "min": 291.21641944783147,
+     "max": 291.2265831129815,
+     "n_finite": 2
+    },
+    "i_head_y": {
+     "median": 311.07582266547894,
+     "min": 308.9161015574712,
+     "max": 313.23554377348665,
+     "n_finite": 2
+    },
+    "i_heading": {
+     "median": -3.0421819942533794,
+     "min": -3.049085599344396,
+     "max": -3.0352783891623627,
+     "n_finite": 2
+    },
+    "i_intensity": {
+     "median": 166.0336131405653,
+     "min": 165.31036834924967,
+     "max": 166.75685793188094,
+     "n_finite": 2
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 2
+    },
+    "i_speed": {
+     "median": 17.341735105330415,
+     "min": 16.38500428168658,
+     "max": 18.298465928974245,
+     "n_finite": 2
+    },
+    "i_visible_ratio": {
+     "median": 1.0145200886174481,
+     "min": 0.9756900784384168,
+     "max": 1.0533500987964792,
+     "n_finite": 2
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 2
+    },
+    "r_angle": {
+     "median": -0.34158806571921735,
+     "min": -0.3758691236079597,
+     "max": -0.307307007830475,
+     "n_finite": 2
+    },
+    "r_area": {
+     "median": 19701.0,
+     "min": 19486.0,
+     "max": 19916.0,
+     "n_finite": 2
+    },
+    "r_cx": {
+     "median": 448.5391146613374,
+     "min": 422.84796143803976,
+     "max": 474.2302678846351,
+     "n_finite": 2
+    },
+    "r_cy": {
+     "median": 149.9497476051371,
+     "min": 148.14266652981627,
+     "max": 151.75682868045794,
+     "n_finite": 2
+    },
+    "r_elong": {
+     "median": 3.1276559690565713,
+     "min": 2.9695928137362344,
+     "max": 3.285719124376908,
+     "n_finite": 2
+    },
+    "r_facing": {
+     "median": 1.6630930934943298,
+     "min": 1.0569015327652806,
+     "max": 2.269284654223379,
+     "n_finite": 2
+    },
+    "r_head_to_i": {
+     "median": 150.81675395148466,
+     "min": 82.75071223640523,
+     "max": 218.88279566656405,
+     "n_finite": 2
+    },
+    "r_head_x": {
+     "median": 444.4942844664776,
+     "min": 284.0549324974553,
+     "max": 604.9336364354999,
+     "n_finite": 2
+    },
+    "r_head_y": {
+     "median": 156.5956844301361,
+     "min": 106.6625490483269,
+     "max": 206.52881981194528,
+     "n_finite": 2
+    },
+    "r_heading": {
+     "median": 1.2292082610756792,
+     "min": -0.30730700783047493,
+     "max": 2.7657235299818335,
+     "n_finite": 2
+    },
+    "r_intensity": {
+     "median": 47.800571728468846,
+     "min": 47.658415344446674,
+     "max": 47.94272811249102,
+     "n_finite": 2
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 2
+    },
+    "r_speed": {
+     "median": 423.01522749524463,
+     "min": 405.55385018524186,
+     "max": 440.47660480524746,
+     "n_finite": 2
+    },
+    "r_visible_ratio": {
+     "median": 1.1268660984956815,
+     "min": 1.1145684379111136,
+     "max": 1.1391637590802495,
+     "n_finite": 2
+    }
+   }
+  },
+  {
+   "id": "investigation-fn-1",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 1402,
+   "s1": 1432,
+   "frames_30fps": [
+    4205,
+    4295
+   ],
+   "behavior": "investigation",
+   "kind": "fn",
+   "predicted_label": "mount",
+   "correct_label": "investigation",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "correct_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "source_bout": {
+    "s0": 1397,
+    "s1": 1500,
+    "overlap": 0.1553398058252427,
+    "candidate_index": 11,
+    "clipped": true
+   },
+   "features": {
+    "approach": {
+     "median": -52.69750909723271,
+     "min": -285.7251184342805,
+     "max": 264.8526533206384,
+     "n_finite": 30
+    },
+    "dist": {
+     "median": 186.36177013258657,
+     "min": 92.14676653091927,
+     "max": 241.25612678850138,
+     "n_finite": 30
+    },
+    "gap": {
+     "median": 2.509882390499115,
+     "min": 1.0,
+     "max": 39.84971618652344,
+     "n_finite": 30
+    },
+    "i_angle": {
+     "median": 1.16034728884925,
+     "min": -1.5621986331251982,
+     "max": 1.4393123508639438,
+     "n_finite": 30
+    },
+    "i_area": {
+     "median": 16449.0,
+     "min": 14889.0,
+     "max": 19384.0,
+     "n_finite": 30
+    },
+    "i_cx": {
+     "median": 800.2157511539806,
+     "min": 770.4671414509872,
+     "max": 842.7092876919205,
+     "n_finite": 30
+    },
+    "i_cy": {
+     "median": 401.5431783650848,
+     "min": 248.0377297437225,
+     "max": 429.30048661800487,
+     "n_finite": 30
+    },
+    "i_elong": {
+     "median": 2.78219999210294,
+     "min": 1.6065745376165266,
+     "max": 3.5408397909967295,
+     "n_finite": 30
+    },
+    "i_facing": {
+     "median": 2.7344044030119696,
+     "min": 2.029064206354814,
+     "max": 3.042801209295522,
+     "n_finite": 30
+    },
+    "i_head_to_r": {
+     "median": 173.0805282137121,
+     "min": 122.37549987245245,
+     "max": 281.8283239081714,
+     "n_finite": 30
+    },
+    "i_head_x": {
+     "median": 863.4417501484986,
+     "min": 771.5720994069359,
+     "max": 883.8810411051797,
+     "n_finite": 30
+    },
+    "i_head_y": {
+     "median": 496.28465209042616,
+     "min": 315.21722997206354,
+     "max": 517.0220940166574,
+     "n_finite": 30
+    },
+    "i_heading": {
+     "median": 1.2257267381274697,
+     "min": 0.6115475554667549,
+     "max": 1.7524438458554692,
+     "n_finite": 30
+    },
+    "i_intensity": {
+     "median": 158.54817475463585,
+     "min": 148.0805774612058,
+     "max": 167.91240468662824,
+     "n_finite": 30
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "i_speed": {
+     "median": 60.42919363927439,
+     "min": 10.060196847463176,
+     "max": 285.6320208227031,
+     "n_finite": 30
+    },
+    "i_visible_ratio": {
+     "median": 0.9849110831686725,
+     "min": 0.8915035027842644,
+     "max": 1.1606490629303634,
+     "n_finite": 30
+    },
+    "n_objects": {
+     "median": 4.0,
+     "min": 3.0,
+     "max": 4.0,
+     "n_finite": 30
+    },
+    "r_angle": {
+     "median": 0.7236799484865554,
+     "min": -1.3856615064728373,
+     "max": 1.511261239642526,
+     "n_finite": 30
+    },
+    "r_area": {
+     "median": 15898.0,
+     "min": 12973.0,
+     "max": 20107.0,
+     "n_finite": 30
+    },
+    "r_cx": {
+     "median": 835.3334285563751,
+     "min": 563.0412971175166,
+     "max": 853.7612380808234,
+     "n_finite": 30
+    },
+    "r_cy": {
+     "median": 219.35381359050717,
+     "min": 132.27721853359034,
+     "max": 363.5,
+     "n_finite": 30
+    },
+    "r_elong": {
+     "median": 2.4972380185812284,
+     "min": 1.732967334928964,
+     "max": 3.6472088755869416,
+     "n_finite": 30
+    },
+    "r_facing": {
+     "median": 0.5861199645839856,
+     "min": 0.0049053674811747605,
+     "max": 1.4887311704466653,
+     "n_finite": 30
+    },
+    "r_head_to_i": {
+     "median": 51.68605940354263,
+     "min": 4.06396184399115,
+     "max": 124.93106356327898,
+     "n_finite": 30
+    },
+    "r_head_x": {
+     "median": 867.394100522208,
+     "min": 656.9852841048845,
+     "max": 906.3792703710528,
+     "n_finite": 30
+    },
+    "r_head_y": {
+     "median": 282.6467945214156,
+     "min": 107.14383078645342,
+     "max": 426.4427565928042,
+     "n_finite": 30
+    },
+    "r_heading": {
+     "median": 0.8984556217926476,
+     "min": -1.0005803183552096,
+     "max": 1.7559311471169559,
+     "n_finite": 30
+    },
+    "r_intensity": {
+     "median": 47.5383979021336,
+     "min": 41.25137431284358,
+     "max": 51.418962203715566,
+     "n_finite": 30
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "r_speed": {
+     "median": 100.93981531438462,
+     "min": 41.56750794721602,
+     "max": 614.9276450123681,
+     "n_finite": 30
+    },
+    "r_visible_ratio": {
+     "median": 0.9093405022021392,
+     "min": 0.7420351198306927,
+     "max": 1.1500886575530516,
+     "n_finite": 30
+    }
+   }
+  },
+  {
+   "id": "investigation-fn-2",
+   "seq": "mouse029_task1_annotator1",
+   "s0": 496,
+   "s1": 500,
+   "frames_30fps": [
+    1487,
+    1499
+   ],
+   "behavior": "investigation",
+   "kind": "fn",
+   "predicted_label": "attack",
+   "correct_label": "investigation",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack"
+   ],
+   "correct_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "source_bout": {
+    "s0": 496,
+    "s1": 500,
+    "overlap": 0.0,
+    "candidate_index": 37,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -245.08026142794395,
+     "min": -340.0117773652762,
+     "max": -187.37881368933444,
+     "n_finite": 4
+    },
+    "dist": {
+     "median": 117.28803012460327,
+     "min": 60.210912691989556,
+     "max": 159.12761781006503,
+     "n_finite": 4
+    },
+    "gap": {
+     "median": 1.2071067690849304,
+     "min": 1.0,
+     "max": 4.242640495300293,
+     "n_finite": 4
+    },
+    "i_angle": {
+     "median": 0.4064124334993475,
+     "min": 0.34269692311250105,
+     "max": 0.4260394876203365,
+     "n_finite": 4
+    },
+    "i_area": {
+     "median": 11911.5,
+     "min": 6764.0,
+     "max": 13332.0,
+     "n_finite": 4
+    },
+    "i_cx": {
+     "median": 771.2853461230636,
+     "min": 738.3181549379066,
+     "max": 775.9063906390639,
+     "n_finite": 4
+    },
+    "i_cy": {
+     "median": 494.82230998159525,
+     "min": 479.2569485511532,
+     "max": 497.0133714496496,
+     "n_finite": 4
+    },
+    "i_elong": {
+     "median": 4.137306153176514,
+     "min": 3.5128235877618277,
+     "max": 4.72757342525945,
+     "n_finite": 4
+    },
+    "i_facing": {
+     "median": 1.9714203547374272,
+     "min": 1.3575642574530757,
+     "max": 2.0562148498280663,
+     "n_finite": 4
+    },
+    "i_head_to_r": {
+     "median": 59.58216345872412,
+     "min": 11.433558453926214,
+     "max": 83.11676474707332,
+     "n_finite": 4
+    },
+    "i_head_x": {
+     "median": 869.5293005404376,
+     "min": 861.8832241469926,
+     "max": 873.9460042066781,
+     "n_finite": 4
+    },
+    "i_head_y": {
+     "median": 533.2975426828232,
+     "min": 527.1802240917364,
+     "max": 544.7439048081762,
+     "n_finite": 4
+    },
+    "i_heading": {
+     "median": 0.4064124334993474,
+     "min": 0.3426969231125013,
+     "max": 0.4260394876203365,
+     "n_finite": 4
+    },
+    "i_intensity": {
+     "median": 164.42564565383134,
+     "min": 130.89902424600828,
+     "max": 165.74034979582402,
+     "n_finite": 4
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 4
+    },
+    "i_speed": {
+     "median": 109.2630917525828,
+     "min": 31.96705573955294,
+     "max": 209.68023037975638,
+     "n_finite": 4
+    },
+    "i_visible_ratio": {
+     "median": 0.9984492875104778,
+     "min": 0.5669740150880134,
+     "max": 1.1175188600167645,
+     "n_finite": 4
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 4
+    },
+    "r_angle": {
+     "median": 1.0531513137986486,
+     "min": 0.9930330481043317,
+     "max": 1.0932892302244541,
+     "n_finite": 4
+    },
+    "r_area": {
+     "median": 15289.0,
+     "min": 14228.0,
+     "max": 16560.0,
+     "n_finite": 4
+    },
+    "r_cx": {
+     "median": 768.5370715738818,
+     "min": 764.5840455840456,
+     "max": 776.5964998594321,
+     "n_finite": 4
+    },
+    "r_cy": {
+     "median": 379.53364085869043,
+     "min": 334.75881880521405,
+     "max": 428.11316425120776,
+     "n_finite": 4
+    },
+    "r_elong": {
+     "median": 3.2536003352876115,
+     "min": 3.0128930627899266,
+     "max": 3.8920939479160666,
+     "n_finite": 4
+    },
+    "r_facing": {
+     "median": 0.5646374946384867,
+     "min": 0.4359760911068884,
+     "max": 1.033436089024765,
+     "n_finite": 4
+    },
+    "r_head_to_i": {
+     "median": 12.798172770540928,
+     "min": 1.2406704203129628,
+     "max": 38.46251498594147,
+     "n_finite": 4
+    },
+    "r_head_x": {
+     "median": 823.1820575403531,
+     "min": 817.4648495922022,
+     "max": 839.589536969309,
+     "n_finite": 4
+    },
+    "r_head_y": {
+     "median": 475.66403467117743,
+     "min": 431.4393402172926,
+     "max": 529.7942045003249,
+     "n_finite": 4
+    },
+    "r_heading": {
+     "median": 1.0531513137986486,
+     "min": 0.9930330481043316,
+     "max": 1.0932892302244537,
+     "n_finite": 4
+    },
+    "r_intensity": {
+     "median": 64.21313041363412,
+     "min": 60.61913881509854,
+     "max": 69.36393027832443,
+     "n_finite": 4
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 4
+    },
+    "r_speed": {
+     "median": 300.78680087423743,
+     "min": 189.5002097933601,
+     "max": 354.54719981651346,
+     "n_finite": 4
+    },
+    "r_visible_ratio": {
+     "median": 1.0113779188992524,
+     "min": 0.9411920354567705,
+     "max": 1.0954554475094265,
+     "n_finite": 4
+    }
+   }
+  },
+  {
+   "id": "mount-fp-0",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 2570,
+   "s1": 2577,
+   "frames_30fps": [
+    7709,
+    7730
+   ],
+   "behavior": "mount",
+   "kind": "fp",
+   "predicted_label": "mount",
+   "correct_label": "investigation",
+   "predicted_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "correct_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "source_bout": {
+    "s0": 2570,
+    "s1": 2577,
+    "overlap": 0.0,
+    "candidate_index": 8,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 42.48616903050923,
+     "min": -122.1953563522301,
+     "max": 129.37124441810994,
+     "n_finite": 7
+    },
+    "dist": {
+     "median": 94.75192566431578,
+     "min": 59.719658469995544,
+     "max": 106.03232678222899,
+     "n_finite": 7
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 7
+    },
+    "i_angle": {
+     "median": 0.9933387538181336,
+     "min": 0.7642864090243606,
+     "max": 1.0567521875472754,
+     "n_finite": 7
+    },
+    "i_area": {
+     "median": 11522.0,
+     "min": 8953.0,
+     "max": 11801.0,
+     "n_finite": 7
+    },
+    "i_cx": {
+     "median": 317.3851553805325,
+     "min": 313.79617282881634,
+     "max": 322.68454746136865,
+     "n_finite": 7
+    },
+    "i_cy": {
+     "median": 249.6124057283281,
+     "min": 238.33353537102778,
+     "max": 265.92980132450333,
+     "n_finite": 7
+    },
+    "i_elong": {
+     "median": 2.3209670401110225,
+     "min": 2.118613603823018,
+     "max": 2.8320237976150757,
+     "n_finite": 7
+    },
+    "i_facing": {
+     "median": 1.2577926254933882,
+     "min": 1.147673147850297,
+     "max": 2.073038786314412,
+     "n_finite": 7
+    },
+    "i_head_to_r": {
+     "median": 56.08102441408762,
+     "min": 22.057445761585726,
+     "max": 128.65603590089114,
+     "n_finite": 7
+    },
+    "i_head_x": {
+     "median": 372.0674913010591,
+     "min": 216.25779661375788,
+     "max": 396.67618793793986,
+     "n_finite": 7
+    },
+    "i_head_y": {
+     "median": 350.6295067622283,
+     "min": 142.46953204255195,
+     "max": 369.77331581101413,
+     "n_finite": 7
+    },
+    "i_heading": {
+     "median": 0.9933387538181337,
+     "min": -2.3773062445654327,
+     "max": 1.0567521875472754,
+     "n_finite": 7
+    },
+    "i_intensity": {
+     "median": 153.3009067028218,
+     "min": 147.75963364235452,
+     "max": 163.03550090916963,
+     "n_finite": 7
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 7
+    },
+    "i_speed": {
+     "median": 38.406692038175,
+     "min": 6.179634854009596,
+     "max": 73.64358719135257,
+     "n_finite": 7
+    },
+    "i_visible_ratio": {
+     "median": 0.6898988084545835,
+     "min": 0.536075684090773,
+     "max": 0.7066043949464104,
+     "n_finite": 7
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 7
+    },
+    "r_angle": {
+     "median": -0.732131445387275,
+     "min": -1.4656652558655308,
+     "max": -0.2500559769490478,
+     "n_finite": 7
+    },
+    "r_area": {
+     "median": 18604.0,
+     "min": 16785.0,
+     "max": 20427.0,
+     "n_finite": 7
+    },
+    "r_cx": {
+     "median": 277.35329865581707,
+     "min": 254.48412272862674,
+     "max": 286.327940227908,
+     "n_finite": 7
+    },
+    "r_cy": {
+     "median": 323.61650282990763,
+     "min": 309.4032700421941,
+     "max": 340.7461836164266,
+     "n_finite": 7
+    },
+    "r_elong": {
+     "median": 1.7904576810399364,
+     "min": 1.4302161331690149,
+     "max": 2.421478863308807,
+     "n_finite": 7
+    },
+    "r_facing": {
+     "median": 0.3391045520973903,
+     "min": 0.04129878595490988,
+     "max": 1.0586964003410042,
+     "n_finite": 7
+    },
+    "r_head_to_i": {
+     "median": 5.644677310533208,
+     "min": 0.24385227108127355,
+     "max": 22.454542347319737,
+     "n_finite": 7
+    },
+    "r_head_x": {
+     "median": 357.60502799249343,
+     "min": 262.9320535937987,
+     "max": 408.45015188621323,
+     "n_finite": 7
+    },
+    "r_head_y": {
+     "median": 246.6308417712927,
+     "min": 224.71468401286893,
+     "max": 309.5559816292858,
+     "n_finite": 7
+    },
+    "r_heading": {
+     "median": -0.7321314453872749,
+     "min": -1.4656652558655308,
+     "max": -0.2500559769490479,
+     "n_finite": 7
+    },
+    "r_intensity": {
+     "median": 55.62246046898712,
+     "min": 54.281969408250504,
+     "max": 56.91825689097199,
+     "n_finite": 7
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 7
+    },
+    "r_speed": {
+     "median": 78.46870334204317,
+     "min": 57.75960895412385,
+     "max": 132.32406598590512,
+     "n_finite": 7
+    },
+    "r_visible_ratio": {
+     "median": 1.0641194303037236,
+     "min": 0.9600755019161471,
+     "max": 1.1683921523765943,
+     "n_finite": 7
+    }
+   }
+  },
+  {
+   "id": "mount-fp-1",
+   "seq": "mouse021_task1_annotator1",
+   "s0": 2400,
+   "s1": 2430,
+   "frames_30fps": [
+    7199,
+    7289
+   ],
+   "behavior": "mount",
+   "kind": "fp",
+   "predicted_label": "mount",
+   "correct_label": "investigation",
+   "predicted_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "correct_labels": [
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "source_bout": {
+    "s0": 2400,
+    "s1": 2430,
+    "overlap": 0.0,
+    "candidate_index": 35,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -2.282854393713407,
+     "min": -35.736958117769575,
+     "max": 93.18317031508776,
+     "n_finite": 30
+    },
+    "dist": {
+     "median": 150.96494262172047,
+     "min": 126.06541322625982,
+     "max": 171.83795310054055,
+     "n_finite": 30
+    },
+    "gap": {
+     "median": 2.414213538169861,
+     "min": 1.0,
+     "max": 15.0,
+     "n_finite": 30
+    },
+    "i_angle": {
+     "median": 0.42696169299590064,
+     "min": -0.6546529846243753,
+     "max": 0.5330995185380286,
+     "n_finite": 30
+    },
+    "i_area": {
+     "median": 9389.0,
+     "min": 4994.0,
+     "max": 12909.0,
+     "n_finite": 30
+    },
+    "i_cx": {
+     "median": 227.50908355589655,
+     "min": 208.48458149779736,
+     "max": 244.4576606521051,
+     "n_finite": 30
+    },
+    "i_cy": {
+     "median": 486.518338819776,
+     "min": 466.18982779335204,
+     "max": 500.7652289537106,
+     "n_finite": 30
+    },
+    "i_elong": {
+     "median": 1.6458071979039783,
+     "min": 1.1383168580008616,
+     "max": 2.171967426471628,
+     "n_finite": 30
+    },
+    "i_facing": {
+     "median": 2.308327261961337,
+     "min": 2.167688769882538,
+     "max": 3.1194214340563304,
+     "n_finite": 30
+    },
+    "i_head_to_r": {
+     "median": 92.34390771704255,
+     "min": 64.42145205076837,
+     "max": 138.01695805575278,
+     "n_finite": 30
+    },
+    "i_head_x": {
+     "median": 177.46972764082062,
+     "min": 169.89623167584762,
+     "max": 179.53851042807008,
+     "n_finite": 30
+    },
+    "i_head_y": {
+     "median": 464.67742698451286,
+     "min": 460.39427516503247,
+     "max": 498.05866778850816,
+     "n_finite": 30
+    },
+    "i_heading": {
+     "median": -2.666054271454832,
+     "min": -3.1405334869834367,
+     "max": 2.9933914258425594,
+     "n_finite": 30
+    },
+    "i_intensity": {
+     "median": 138.8720479231191,
+     "min": 132.90745361831398,
+     "max": 153.66480749864436,
+     "n_finite": 30
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "i_speed": {
+     "median": 24.451324959013956,
+     "min": 0.6150124687269486,
+     "max": 95.13744915387748,
+     "n_finite": 30
+    },
+    "i_visible_ratio": {
+     "median": 0.5850573280159521,
+     "min": 0.3111914257228315,
+     "max": 0.8043993020937188,
+     "n_finite": 30
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 30
+    },
+    "r_angle": {
+     "median": -0.4331920419653752,
+     "min": -0.7967525825222805,
+     "max": -0.0681084650483259,
+     "n_finite": 30
+    },
+    "r_area": {
+     "median": 13513.0,
+     "min": 8102.0,
+     "max": 16003.0,
+     "n_finite": 30
+    },
+    "r_cx": {
+     "median": 367.87330561474835,
+     "min": 343.06250412514026,
+     "max": 391.8058504073068,
+     "n_finite": 30
+    },
+    "r_cy": {
+     "median": 433.83856517474123,
+     "min": 419.53768191268193,
+     "max": 455.35958022572765,
+     "n_finite": 30
+    },
+    "r_elong": {
+     "median": 2.875101281238474,
+     "min": 2.4019503247409806,
+     "max": 3.6858874465647156,
+     "n_finite": 30
+    },
+    "r_facing": {
+     "median": 0.14462074325456564,
+     "min": 0.01197332454532507,
+     "max": 0.3473078274981871,
+     "n_finite": 30
+    },
+    "r_head_to_i": {
+     "median": 47.86411779812531,
+     "min": 45.535525675666086,
+     "max": 50.403998890491835,
+     "n_finite": 30
+    },
+    "r_head_x": {
+     "median": 117.45093585413822,
+     "min": 116.54290521592822,
+     "max": 118.05265986029016,
+     "n_finite": 30
+    },
+    "r_head_y": {
+     "median": 488.2588550859997,
+     "min": 487.4027093596059,
+     "max": 489.63906926406924,
+     "n_finite": 30
+    },
+    "r_heading": {
+     "median": 2.925743651858667,
+     "min": 2.8778200651038985,
+     "max": 3.002089667189095,
+     "n_finite": 30
+    },
+    "r_intensity": {
+     "median": 50.32718283145658,
+     "min": 48.89437435633368,
+     "max": 71.95223401629228,
+     "n_finite": 30
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 30
+    },
+    "r_speed": {
+     "median": 42.13552170577926,
+     "min": 2.581031311737068,
+     "max": 132.33271630541535,
+     "n_finite": 30
+    },
+    "r_visible_ratio": {
+     "median": 0.993968370724531,
+     "min": 0.595954394998161,
+     "max": 1.1771239426259654,
+     "n_finite": 30
+    }
+   }
+  },
+  {
+   "id": "mount-fp-2",
+   "seq": "mouse030_task1_annotator1",
+   "s0": 510,
+   "s1": 518,
+   "frames_30fps": [
+    1529,
+    1553
+   ],
+   "behavior": "mount",
+   "kind": "fp",
+   "predicted_label": "mount",
+   "correct_label": "other",
+   "predicted_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "correct_labels": [
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other"
+   ],
+   "source_bout": {
+    "s0": 510,
+    "s1": 518,
+    "overlap": 0.0,
+    "candidate_index": 50,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 18.33487302820817,
+     "min": -34.11571740543032,
+     "max": 31.552401591659418,
+     "n_finite": 8
+    },
+    "dist": {
+     "median": 132.76472037999486,
+     "min": 122.1543498378312,
+     "max": 139.53706974269758,
+     "n_finite": 8
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 8
+    },
+    "i_angle": {
+     "median": 0.943485235007961,
+     "min": 0.7811257467146834,
+     "max": 0.9571128093994519,
+     "n_finite": 8
+    },
+    "i_area": {
+     "median": 7826.5,
+     "min": 7585.0,
+     "max": 8228.0,
+     "n_finite": 8
+    },
+    "i_cx": {
+     "median": 872.7235184729524,
+     "min": 869.2045454545455,
+     "max": 873.3518093781855,
+     "n_finite": 8
+    },
+    "i_cy": {
+     "median": 252.50813076369974,
+     "min": 250.01243181529873,
+     "max": 253.85091743119267,
+     "n_finite": 8
+    },
+    "i_elong": {
+     "median": 1.7149786857752867,
+     "min": 1.6374243268345907,
+     "max": 1.9260629599565113,
+     "n_finite": 8
+    },
+    "i_facing": {
+     "median": 1.5107724548824866,
+     "min": 1.424559525327659,
+     "max": 1.7359407361475387,
+     "n_finite": 8
+    },
+    "i_head_to_r": {
+     "median": 77.03828577768653,
+     "min": 66.04218532796608,
+     "max": 87.90836631980565,
+     "n_finite": 8
+    },
+    "i_head_x": {
+     "median": 854.2039039171309,
+     "min": 840.0571075401731,
+     "max": 887.6209405740466,
+     "n_finite": 8
+    },
+    "i_head_y": {
+     "median": 406.4236148156051,
+     "min": 381.37420832771863,
+     "max": 442.3878862793572,
+     "n_finite": 8
+    },
+    "i_heading": {
+     "median": 1.6862360424694651,
+     "min": 1.457407928269211,
+     "max": 1.724700760636389,
+     "n_finite": 8
+    },
+    "i_intensity": {
+     "median": 162.6165840310864,
+     "min": 155.38420245398774,
+     "max": 166.0177115188583,
+     "n_finite": 8
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 8
+    },
+    "i_speed": {
+     "median": 9.352248365383259,
+     "min": 3.9034261673435444,
+     "max": 56.16670157658834,
+     "n_finite": 8
+    },
+    "i_visible_ratio": {
+     "median": 0.7714257552609531,
+     "min": 0.7476220984673008,
+     "max": 0.8109999507170667,
+     "n_finite": 8
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 8
+    },
+    "r_angle": {
+     "median": -0.3037982393794997,
+     "min": -0.36810681201884465,
+     "max": -0.22532784428946703,
+     "n_finite": 8
+    },
+    "r_area": {
+     "median": 13951.0,
+     "min": 12246.0,
+     "max": 15223.0,
+     "n_finite": 8
+    },
+    "r_cx": {
+     "median": 740.3754331428236,
+     "min": 729.8386411889596,
+     "max": 747.7497865072587,
+     "n_finite": 8
+    },
+    "r_cy": {
+     "median": 245.08800664247897,
+     "min": 244.21645472864986,
+     "max": 249.07580634566116,
+     "n_finite": 8
+    },
+    "r_elong": {
+     "median": 2.796221267517982,
+     "min": 2.553820839312115,
+     "max": 2.980463222300326,
+     "n_finite": 8
+    },
+    "r_facing": {
+     "median": 0.35883707106661333,
+     "min": 0.23299547666372344,
+     "max": 0.4176430122971513,
+     "n_finite": 8
+    },
+    "r_head_to_i": {
+     "median": 4.201618004894853,
+     "min": 0.3606335704888908,
+     "max": 10.963502119456258,
+     "n_finite": 8
+    },
+    "r_head_x": {
+     "median": 840.742067997635,
+     "min": 829.865069135456,
+     "max": 844.3541849701504,
+     "n_finite": 8
+    },
+    "r_head_y": {
+     "median": 213.98708772597007,
+     "min": 206.26279346415774,
+     "max": 226.93210611895674,
+     "n_finite": 8
+    },
+    "r_heading": {
+     "median": -0.3037982393794997,
+     "min": -0.36810681201884476,
+     "max": -0.225327844289467,
+     "n_finite": 8
+    },
+    "r_intensity": {
+     "median": 53.693312232080835,
+     "min": 52.90022527432599,
+     "max": 66.4959349593496,
+     "n_finite": 8
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 8
+    },
+    "r_speed": {
+     "median": 24.95223199718322,
+     "min": 16.152775905937016,
+     "max": 31.840994239396736,
+     "n_finite": 8
+    },
+    "r_visible_ratio": {
+     "median": 0.8999483937556444,
+     "min": 0.7899625854728423,
+     "max": 0.982002322280996,
+     "n_finite": 8
+    }
+   }
+  },
+  {
+   "id": "mount-fn-0",
+   "seq": "mouse008_task1_annotator1",
+   "s0": 1303,
+   "s1": 1315,
+   "frames_30fps": [
+    3908,
+    3944
+   ],
+   "behavior": "mount",
+   "kind": "fn",
+   "predicted_label": "other",
+   "correct_label": "mount",
+   "predicted_labels": [
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other",
+    "other"
+   ],
+   "correct_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "source_bout": {
+    "s0": 1303,
+    "s1": 1315,
+    "overlap": 0.0,
+    "candidate_index": 0,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 40.63280529488157,
+     "min": -85.34386146822001,
+     "max": 125.69255705098172,
+     "n_finite": 12
+    },
+    "dist": {
+     "median": 115.22599918014647,
+     "min": 85.54344257520421,
+     "max": 141.33396527508526,
+     "n_finite": 12
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 12
+    },
+    "i_angle": {
+     "median": -1.199588488368073,
+     "min": -1.4911783018353293,
+     "max": 1.5456081510040154,
+     "n_finite": 12
+    },
+    "i_area": {
+     "median": 8815.5,
+     "min": 3963.0,
+     "max": 12554.0,
+     "n_finite": 12
+    },
+    "i_cx": {
+     "median": 158.73970060549675,
+     "min": 154.43906919779548,
+     "max": 175.92091485257646,
+     "n_finite": 12
+    },
+    "i_cy": {
+     "median": 290.0037436531935,
+     "min": 264.5971801816154,
+     "max": 351.494888023369,
+     "n_finite": 12
+    },
+    "i_elong": {
+     "median": 2.9334728352256176,
+     "min": 1.6608026434426686,
+     "max": 3.64510860022411,
+     "n_finite": 12
+    },
+    "i_facing": {
+     "median": 0.4411677628189725,
+     "min": 0.06904906993468618,
+     "max": 0.7730025794352899,
+     "n_finite": 12
+    },
+    "i_head_to_r": {
+     "median": 6.107283495483459,
+     "min": 0.10479050000593744,
+     "max": 29.618131626602523,
+     "n_finite": 12
+    },
+    "i_head_x": {
+     "median": 189.93193687321428,
+     "min": 150.99254865451297,
+     "max": 239.01038613464277,
+     "n_finite": 12
+    },
+    "i_head_y": {
+     "median": 177.48211604423528,
+     "min": 112.38186931070425,
+     "max": 254.39293672877898,
+     "n_finite": 12
+    },
+    "i_heading": {
+     "median": -1.2937093582417174,
+     "min": -1.595984502585778,
+     "max": -1.0850308582143051,
+     "n_finite": 12
+    },
+    "i_intensity": {
+     "median": 140.796184610694,
+     "min": 122.28362351753722,
+     "max": 152.52911604524508,
+     "n_finite": 12
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 12
+    },
+    "i_speed": {
+     "median": 76.59785138208342,
+     "min": 8.370255098877887,
+     "max": 178.10838744425553,
+     "n_finite": 12
+    },
+    "i_visible_ratio": {
+     "median": 0.5278426441530447,
+     "min": 0.23729118016885217,
+     "max": 0.7516915154781151,
+     "n_finite": 12
+    },
+    "n_objects": {
+     "median": 4.0,
+     "min": 3.0,
+     "max": 4.0,
+     "n_finite": 12
+    },
+    "r_angle": {
+     "median": -0.21316466426817365,
+     "min": -0.928593429432458,
+     "max": 0.055525237966905,
+     "n_finite": 12
+    },
+    "r_area": {
+     "median": 21585.0,
+     "min": 20328.0,
+     "max": 23675.0,
+     "n_finite": 12
+    },
+    "r_cx": {
+     "median": 223.82449425559668,
+     "min": 182.95529509867507,
+     "max": 256.35612024121895,
+     "n_finite": 12
+    },
+    "r_cy": {
+     "median": 198.46596613253283,
+     "min": 188.31777561698385,
+     "max": 223.74119765871228,
+     "n_finite": 12
+    },
+    "r_elong": {
+     "median": 3.0132236184186043,
+     "min": 2.5089012716838117,
+     "max": 3.74584061630686,
+     "n_finite": 12
+    },
+    "r_facing": {
+     "median": 2.2846182192376503,
+     "min": 0.3152031829036597,
+     "max": 2.729301215504327,
+     "n_finite": 12
+    },
+    "r_head_to_i": {
+     "median": 126.27814139492114,
+     "min": 44.36779816963158,
+     "max": 234.32982697537943,
+     "n_finite": 12
+    },
+    "r_head_x": {
+     "median": 312.3882932229062,
+     "min": 50.63502771559473,
+     "max": 458.9708597392408,
+     "n_finite": 12
+    },
+    "r_head_y": {
+     "median": 194.1999425906913,
+     "min": 75.5183475200658,
+     "max": 312.941636576649,
+     "n_finite": 12
+    },
+    "r_heading": {
+     "median": -0.01402427656115581,
+     "min": -0.9285934294324582,
+     "max": 3.0388914073589666,
+     "n_finite": 12
+    },
+    "r_intensity": {
+     "median": 52.57179056455939,
+     "min": 48.64398726426647,
+     "max": 55.23877917414722,
+     "n_finite": 12
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 12
+    },
+    "r_speed": {
+     "median": 108.07759514111468,
+     "min": 67.79083704594146,
+     "max": 214.26059442102473,
+     "n_finite": 12
+    },
+    "r_visible_ratio": {
+     "median": 1.2346279242692901,
+     "min": 1.162729508665561,
+     "max": 1.3541726248355546,
+     "n_finite": 12
+    }
+   }
+  },
+  {
+   "id": "mount-fn-1",
+   "seq": "mouse021_task1_annotator1",
+   "s0": 3486,
+   "s1": 3497,
+   "frames_30fps": [
+    10457,
+    10490
+   ],
+   "behavior": "mount",
+   "kind": "fn",
+   "predicted_label": "attack",
+   "correct_label": "mount",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "correct_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "source_bout": {
+    "s0": 3486,
+    "s1": 3497,
+    "overlap": 0.0,
+    "candidate_index": 1,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": -83.0079229213132,
+     "min": -220.0922462497249,
+     "max": 86.90748970885593,
+     "n_finite": 11
+    },
+    "dist": {
+     "median": 202.9017760913611,
+     "min": 118.95131238410549,
+     "max": 260.6391283400591,
+     "n_finite": 11
+    },
+    "gap": {
+     "median": 2.0,
+     "min": 1.0,
+     "max": 73.59347534179688,
+     "n_finite": 11
+    },
+    "i_angle": {
+     "median": 0.05029971910681091,
+     "min": -0.22203890493673617,
+     "max": 0.3668581977345078,
+     "n_finite": 11
+    },
+    "i_area": {
+     "median": 7620.0,
+     "min": 2286.0,
+     "max": 18677.0,
+     "n_finite": 11
+    },
+    "i_cx": {
+     "median": 318.46285761398303,
+     "min": 287.0705666316894,
+     "max": 536.3066338277025,
+     "n_finite": 11
+    },
+    "i_cy": {
+     "median": 501.02896684905056,
+     "min": 470.864325105745,
+     "max": 523.5419947506562,
+     "n_finite": 11
+    },
+    "i_elong": {
+     "median": 2.17638870571298,
+     "min": 1.2339285849719916,
+     "max": 2.570342139099903,
+     "n_finite": 11
+    },
+    "i_facing": {
+     "median": 0.5977605604788652,
+     "min": 0.15255449865690718,
+     "max": 3.0477878272808674,
+     "n_finite": 11
+    },
+    "i_head_to_r": {
+     "median": 108.14456244390999,
+     "min": 11.84397847784903,
+     "max": 231.68235489930106,
+     "n_finite": 11
+    },
+    "i_head_x": {
+     "median": 428.23341297555595,
+     "min": 113.51985294117647,
+     "max": 779.2173966535433,
+     "n_finite": 11
+    },
+    "i_head_y": {
+     "median": 538.8402597402597,
+     "min": 480.87032480314963,
+     "max": 549.7414965986394,
+     "n_finite": 11
+    },
+    "i_heading": {
+     "median": 0.36746495643858285,
+     "min": -3.1408282801485434,
+     "max": 2.9302479144169284,
+     "n_finite": 11
+    },
+    "i_intensity": {
+     "median": 131.82007874015747,
+     "min": 85.88101487314086,
+     "max": 169.03582877616444,
+     "n_finite": 11
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 11
+    },
+    "i_speed": {
+     "median": 116.22811355376784,
+     "min": 48.76712024568464,
+     "max": 607.6671066803763,
+     "n_finite": 11
+    },
+    "i_visible_ratio": {
+     "median": 0.47482552342971085,
+     "min": 0.14244765702891327,
+     "max": 1.163821036889332,
+     "n_finite": 11
+    },
+    "n_objects": {
+     "median": 3.0,
+     "min": 3.0,
+     "max": 3.0,
+     "n_finite": 11
+    },
+    "r_angle": {
+     "median": -0.25756990076980246,
+     "min": -0.5113590016304942,
+     "max": 0.0005164260264078233,
+     "n_finite": 11
+    },
+    "r_area": {
+     "median": 15023.0,
+     "min": 10750.0,
+     "max": 16438.0,
+     "n_finite": 11
+    },
+    "r_cx": {
+     "median": 504.8270703600315,
+     "min": 431.49785575048736,
+     "max": 770.0093847758081,
+     "n_finite": 11
+    },
+    "r_cy": {
+     "median": 473.89492706854264,
+     "min": 426.2868315209295,
+     "max": 481.76760068934703,
+     "n_finite": 11
+    },
+    "r_elong": {
+     "median": 2.6475369209960093,
+     "min": 2.0567019266255273,
+     "max": 3.0229930854388294,
+     "n_finite": 11
+    },
+    "r_facing": {
+     "median": 0.1297414603034217,
+     "min": 0.006442702309136461,
+     "max": 0.41752975141510396,
+     "n_finite": 11
+    },
+    "r_head_to_i": {
+     "median": 32.33676323293759,
+     "min": 2.520655554269466,
+     "max": 96.42279541608634,
+     "n_finite": 11
+    },
+    "r_head_x": {
+     "median": 418.7126130205478,
+     "min": 342.64136373801114,
+     "max": 668.0094329580298,
+     "n_finite": 11
+    },
+    "r_head_y": {
+     "median": 497.13413574712223,
+     "min": 426.2341560864357,
+     "max": 518.6014824888011,
+     "n_finite": 11
+    },
+    "r_heading": {
+     "median": 2.8652449567534233,
+     "min": -3.1410762275633854,
+     "max": 3.06975296611875,
+     "n_finite": 11
+    },
+    "r_intensity": {
+     "median": 46.71199074669066,
+     "min": 43.397413597519474,
+     "max": 51.649531573184085,
+     "n_finite": 11
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 11
+    },
+    "r_speed": {
+     "median": 335.18745586135793,
+     "min": 28.173037375250885,
+     "max": 636.3754074662357,
+     "n_finite": 11
+    },
+    "r_visible_ratio": {
+     "median": 1.105038617138654,
+     "min": 0.7907318867230599,
+     "max": 1.2091210003677824,
+     "n_finite": 11
+    }
+   }
+  },
+  {
+   "id": "mount-fn-2",
+   "seq": "mouse041_task1_annotator1",
+   "s0": 25,
+   "s1": 36,
+   "frames_30fps": [
+    74,
+    107
+   ],
+   "behavior": "mount",
+   "kind": "fn",
+   "predicted_label": "investigation",
+   "correct_label": "mount",
+   "predicted_labels": [
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "attack",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation",
+    "investigation"
+   ],
+   "correct_labels": [
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount",
+    "mount"
+   ],
+   "source_bout": {
+    "s0": 25,
+    "s1": 36,
+    "overlap": 0.0,
+    "candidate_index": 2,
+    "clipped": false
+   },
+   "features": {
+    "approach": {
+     "median": 61.01707090044094,
+     "min": -95.05418361063683,
+     "max": 266.679138377533,
+     "n_finite": 11
+    },
+    "dist": {
+     "median": 131.5523131642241,
+     "min": 29.868629170620856,
+     "max": 155.43509003687453,
+     "n_finite": 11
+    },
+    "gap": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 11
+    },
+    "i_angle": {
+     "median": -0.4799693925692042,
+     "min": -0.6548301289151042,
+     "max": -0.41207943478480635,
+     "n_finite": 11
+    },
+    "i_area": {
+     "median": 10913.0,
+     "min": 5059.0,
+     "max": 15105.0,
+     "n_finite": 11
+    },
+    "i_cx": {
+     "median": 608.3659717051378,
+     "min": 581.8803262164391,
+     "max": 652.1478463329453,
+     "n_finite": 11
+    },
+    "i_cy": {
+     "median": 419.0758454789868,
+     "min": 373.18587504850603,
+     "max": 424.34267886144113,
+     "n_finite": 11
+    },
+    "i_elong": {
+     "median": 2.893615745938293,
+     "min": 2.0712851732225745,
+     "max": 5.783303749975709,
+     "n_finite": 11
+    },
+    "i_facing": {
+     "median": 2.7091005234143353,
+     "min": 0.8056750032825337,
+     "max": 2.9559203771531113,
+     "n_finite": 11
+    },
+    "i_head_to_r": {
+     "median": 83.47349205524159,
+     "min": 4.852703168877405,
+     "max": 133.65084437588314,
+     "n_finite": 11
+    },
+    "i_head_x": {
+     "median": 515.3800437125308,
+     "min": 485.64919405297945,
+     "max": 537.4329516173805,
+     "n_finite": 11
+    },
+    "i_head_y": {
+     "median": 460.8676569555624,
+     "min": 445.44192626483834,
+     "max": 473.98095777095216,
+     "n_finite": 11
+    },
+    "i_heading": {
+     "median": 2.6616232610205897,
+     "min": 2.486762524674689,
+     "max": 2.729513218804987,
+     "n_finite": 11
+    },
+    "i_intensity": {
+     "median": 175.74855676715845,
+     "min": 140.19806285827238,
+     "max": 188.28652763985434,
+     "n_finite": 11
+    },
+    "i_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 11
+    },
+    "i_speed": {
+     "median": 76.30385146360499,
+     "min": 21.25793842851178,
+     "max": 223.63462487073505,
+     "n_finite": 11
+    },
+    "i_visible_ratio": {
+     "median": 1.4551636775785053,
+     "min": 0.674578305220348,
+     "max": 2.0141342756183747,
+     "n_finite": 11
+    },
+    "n_objects": {
+     "median": 2.0,
+     "min": 2.0,
+     "max": 2.0,
+     "n_finite": 11
+    },
+    "r_angle": {
+     "median": -0.09755795515827874,
+     "min": -0.5184188162921618,
+     "max": 0.0819868740866935,
+     "n_finite": 11
+    },
+    "r_area": {
+     "median": 17286.0,
+     "min": 15277.0,
+     "max": 22489.0,
+     "n_finite": 11
+    },
+    "r_cx": {
+     "median": 716.4294036787328,
+     "min": 633.6997198630442,
+     "max": 761.4870731549278,
+     "n_finite": 11
+    },
+    "r_cy": {
+     "median": 405.169994108791,
+     "min": 380.0020496744635,
+     "max": 423.7489621606146,
+     "n_finite": 11
+    },
+    "r_elong": {
+     "median": 2.1229502639675695,
+     "min": 1.3159601921744477,
+     "max": 3.137178787935465,
+     "n_finite": 11
+    },
+    "r_facing": {
+     "median": 0.1587908474608315,
+     "min": 0.01043940260351306,
+     "max": 1.9276479154058332,
+     "n_finite": 11
+    },
+    "r_head_to_i": {
+     "median": 8.34524058503977,
+     "min": 0.1132275205673756,
+     "max": 15.386481225154283,
+     "n_finite": 11
+    },
+    "r_head_x": {
+     "median": 619.6226712339663,
+     "min": 493.66721655657,
+     "max": 669.6434881322198,
+     "n_finite": 11
+    },
+    "r_head_y": {
+     "median": 416.90049421765355,
+     "min": 402.8886392107329,
+     "max": 460.39476822786565,
+     "n_finite": 11
+    },
+    "r_heading": {
+     "median": 2.8727897028829608,
+     "min": -3.0596057795030998,
+     "max": 3.1125401744661834,
+     "n_finite": 11
+    },
+    "r_intensity": {
+     "median": 61.513007400762504,
+     "min": 56.45269344898425,
+     "max": 69.23312435327774,
+     "n_finite": 11
+    },
+    "r_present": {
+     "median": 1.0,
+     "min": 1.0,
+     "max": 1.0,
+     "n_finite": 11
+    },
+    "r_speed": {
+     "median": 145.11865420874912,
+     "min": 93.68342388515444,
+     "max": 219.76688457532225,
+     "n_finite": 11
+    },
+    "r_visible_ratio": {
+     "median": 1.006580096663367,
+     "min": 0.8895941303208525,
+     "max": 1.3095556978978629,
+     "n_finite": 11
+    }
+   }
+  }
+ ]
+}

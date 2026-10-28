@@ -20,6 +20,11 @@ Prediction directory (`--pred-dir`):
 Overlapping bouts are resolved by a priority order (default mount > attack > investigation). Frames
 with no bout, and frames past the end of the predictions, are "other"; nothing leaves the denominator.
 
+Exclusion (`--exclude-corrections <corrections.json>`, EVAL_PLAN section 6a, dev only): the 30 fps frames in
+each correction's `frames_30fps` are dropped from both ground truth and predictions before frame counts, the
+confusion matrix, the bootstrap, and the random baseline. For bout metrics the excluded frames are set to
+"other" in both (so a bout crossing a corrected window is cut there rather than joined across it).
+
 Integrity (EVAL_PLAN section 7): the predictions' sha256 is appended to the run log (status "started")
 *before* any label file is opened; the result is appended as a second record with the same run_id.
 
@@ -287,8 +292,10 @@ def bootstrap_ci(per_seq: np.ndarray, reps: int = 10_000, seed: int = common.SEE
 
 
 def score_split(gt_by_seq: dict, pred_by_seq: dict, reps: int = 10_000, seed: int = common.SEED,
-                bout_thresholds=BOUT_IOU_THRESHOLDS) -> dict:
-    """gt_by_seq: {seq: int8[T]}; pred_by_seq: {seq: (exclusive int8[T], ovr masks)}. Pure function."""
+                bout_thresholds=BOUT_IOU_THRESHOLDS, exclude: dict | None = None) -> dict:
+    """gt_by_seq: {seq: int8[T]}; pred_by_seq: {seq: (exclusive int8[T], ovr masks)}. Pure function.
+
+    exclude: optional {seq: bool[T]}, True = drop the frame (see module docstring, "Exclusion")."""
     seqs = list(gt_by_seq)
     per_seq = np.zeros((len(seqs), len(BEHAVIORS), 3), dtype=np.int64)
     per_seq_ovr = np.zeros_like(per_seq)
@@ -300,13 +307,25 @@ def score_split(gt_by_seq: dict, pred_by_seq: dict, reps: int = 10_000, seed: in
         excl, ovr = pred_by_seq[s]
         if len(excl) != len(gt):
             raise ValueError(f"{s}: prediction length {len(excl)} != labels {len(gt)}")
+        drop = exclude.get(s) if exclude else None
+        n_excluded = 0
+        if drop is not None and drop.any():
+            if len(drop) != len(gt):
+                raise ValueError(f"{s}: exclusion mask length {len(drop)} != labels {len(gt)}")
+            n_excluded = int(drop.sum())
+            gt_b, excl_b = gt.copy(), excl.copy()
+            gt_b[drop], excl_b[drop] = OTHER_CODE, OTHER_CODE
+            keep = ~drop
+            gt, excl, ovr = gt[keep], excl[keep], {b: m[keep] for b, m in ovr.items()}
+        else:
+            gt_b, excl_b = gt, excl
         per_seq[si] = counts(gt, {b: excl == VOCAB[b] for b in BEHAVIORS})
         per_seq_ovr[si] = counts(gt, ovr)
         conf += confusion(gt, excl)
-        bc = bout_counts(gt, excl, bout_thresholds)
+        bc = bout_counts(gt_b, excl_b, bout_thresholds)
         for thr in bout_thresholds:
             bouts[thr] += bc[thr]
-        per_sequence[s] = {"n_frames": int(len(gt)),
+        per_sequence[s] = {"n_frames": int(len(gt)), "n_excluded": n_excluded,
                            **{b: _metric_block(per_seq[si, i]) for i, b in enumerate(BEHAVIORS)}}
     pooled = per_seq.sum(axis=0)
     pooled_ovr = per_seq_ovr.sum(axis=0)
@@ -338,7 +357,8 @@ def score_split(gt_by_seq: dict, pred_by_seq: dict, reps: int = 10_000, seed: in
         "convention": "frame-level, 30 fps, pooled over all frames of all sequences (CalMS21 Sec. E); "
                       "macro = unweighted mean of attack/investigation/mount F1",
         "n_sequences": len(seqs),
-        "n_frames": int(sum(len(gt_by_seq[s]) for s in seqs)),
+        "n_frames": int(sum(per_sequence[s]["n_frames"] for s in seqs)),
+        "n_frames_excluded": int(sum(per_sequence[s]["n_excluded"] for s in seqs)),
         "behaviors": beh,
         "macro_f1": macro,
         "macro_f1_ci95": ci["macro_f1"],
@@ -388,7 +408,9 @@ def random_baseline(gt_by_seq: dict, simulate_reps: int = 0, seed: int = common.
 # --------------------------------------------------------------------------- report and CLI
 
 def format_report(m: dict, title: str) -> str:
-    lines = [title, f"{m['n_sequences']} sequences, {m['n_frames']} frames @30fps; {m['convention']}", "",
+    exc = (f" ({m['n_frames_excluded']} corrected-window frames excluded)"
+           if m.get("n_frames_excluded") else "")
+    lines = [title, f"{m['n_sequences']} sequences, {m['n_frames']} frames @30fps{exc}; {m['convention']}", "",
              f"{'behavior':<14}{'P':>8}{'R':>8}{'F1':>8}   {'F1 95% CI (seq bootstrap)':<26}"
              f"{'GT fr':>8}{'pred fr':>9}"]
     for b in BEHAVIORS:
@@ -414,6 +436,40 @@ def format_report(m: dict, title: str) -> str:
     return "\n".join(lines)
 
 
+def load_exclusions(path: Path, split: str, seqs: list[str]) -> tuple[dict, dict]:
+    """Read a corrections file (eval/simulate_corrections.py). Returns ({seq: [(f0, f1), ...]}, log info).
+
+    Only dev corrections can be excluded, and only when scoring dev: on dev-holdout the corrected windows
+    don't exist (exclusion would silently do nothing) and on test it is not part of the protocol."""
+    path = Path(path)
+    doc = json.loads(path.read_text())
+    if split != "dev" or doc.get("split") != "dev":
+        raise SystemExit(f"--exclude-corrections: only dev corrections on the dev split "
+                         f"(scoring {split}, corrections from {doc.get('split')!r})")
+    ranges: dict = {}
+    for c in doc["corrections"]:
+        f0, f1 = (int(x) for x in c["frames_30fps"])
+        if not 0 <= f0 < f1:
+            raise ValueError(f"{path}: correction {c.get('id')} has invalid frames_30fps {c['frames_30fps']}")
+        ranges.setdefault(c["seq"], []).append((f0, f1))
+    unknown = sorted(set(ranges) - set(seqs))  # e.g. scoring a --seqs subset; logged, not an error
+    info = {"file": str(path), "sha256": common.sha256_file(path), "corrections_run_id": doc.get("run_id"),
+            "n_corrections": len(doc["corrections"]), "seqs_not_scored": unknown}
+    return ranges, info
+
+
+def exclusion_masks(ranges: dict, n_frames_by_seq: dict) -> dict:
+    out = {}
+    for s, n in n_frames_by_seq.items():
+        m = np.zeros(n, dtype=bool)
+        for f0, f1 in ranges.get(s, []):
+            if f1 > n:
+                raise ValueError(f"{s}: excluded frames [{f0},{f1}) beyond {n} frames")
+            m[f0:f1] = True
+        out[s] = m
+    return out
+
+
 def _hash_predictions(pred_dir: Path, files: dict) -> tuple[str, dict]:
     per_file = {s: common.sha256_file(p) for s, p in files.items() if p is not None}
     man = Path(pred_dir) / "manifest.json"
@@ -426,9 +482,11 @@ def run(split: str, pred_dir: Path, purpose: str | None = None, priority=DEFAULT
         labels_dir: Path = common.LABELS_DIR, split_file: Path = common.SPLIT_FILE,
         log_path: Path = common.RUNS_LOG, out_dir: Path | None = None, seqs: list[str] | None = None,
         allow_missing: bool = False, reps: int = 10_000, confirm_test_run: bool = False,
-        notes: str = "") -> dict:
+        notes: str = "", exclude_corrections: Path | None = None) -> dict:
     split = common.canonical_split(split)
     purpose = purpose or {"dev": "tune", "dev_holdout": "holdout-check"}.get(split)
+    if exclude_corrections and split != "dev":  # checked before the test guard: never a test "run"
+        raise SystemExit(f"--exclude-corrections: only dev corrections on the dev split (scoring {split})")
     common.guard_test_run(split, confirm_test_run, purpose or "", "score", log_path)
     if split == "test" and (seqs or allow_missing):
         raise SystemExit("test split: --seqs and --allow-missing are not allowed (all 19 sequences)")
@@ -440,6 +498,8 @@ def run(split: str, pred_dir: Path, purpose: str | None = None, priority=DEFAULT
         seqs = [s for s in all_seqs if s in set(seqs)]
     else:
         seqs = all_seqs
+    ranges, excl_info = (load_exclusions(exclude_corrections, split, seqs) if exclude_corrections
+                         else ({}, None))
     pred_dir = Path(pred_dir)
     manifest = read_manifest(pred_dir)
     files = {s: find_pred_file(pred_dir, s) for s in seqs}
@@ -459,6 +519,7 @@ def run(split: str, pred_dir: Path, purpose: str | None = None, priority=DEFAULT
                    "bout_iou_thresholds": list(BOUT_IOU_THRESHOLDS), "allow_missing": allow_missing},
         "cost": manifest.get("cost"), "wall_clock_s": manifest.get("wall_clock_s"),
         "calls": manifest.get("calls"), "notes": notes or manifest.get("notes", ""),
+        "exclude_corrections": excl_info,
     }
     # Pre-registration: predictions hash is on disk before any label file is opened.
     common.append_run({**base, "time_utc": common.now_utc(), "status": "started"}, log_path)
@@ -479,8 +540,12 @@ def run(split: str, pred_dir: Path, purpose: str | None = None, priority=DEFAULT
                 continue
             excl, ovr, meta = load_prediction(files[s], len(gt), manifest, priority, warnings)
             pred_by_seq[s], pred_meta[s] = (excl, ovr), meta
-        metrics = score_split(gt_by_seq, pred_by_seq, reps=reps)
-        metrics["random_baseline"] = random_baseline(gt_by_seq)
+        masks = exclusion_masks(ranges, {s: len(g) for s, g in gt_by_seq.items()}) if excl_info else None
+        metrics = score_split(gt_by_seq, pred_by_seq, reps=reps, exclude=masks)
+        metrics["random_baseline"] = random_baseline(
+            {s: g[~masks[s]] for s, g in gt_by_seq.items()} if masks else gt_by_seq)
+        if excl_info:
+            metrics["excluded_frames_by_seq"] = {s: int(m.sum()) for s, m in masks.items() if m.any()}
         fps = sorted({str(m.get("sample_fps")) for m in pred_meta.values()})
         rec = {**base, "time_utc": common.now_utc(), "status": "ok", "labels_loaded": True, "metrics": metrics,
                "sample_fps": fps, "warnings": warnings, "scorer_wall_clock_s": round(time.time() - t0, 3)}
@@ -515,10 +580,12 @@ def main(argv=None) -> int:
     ap.add_argument("--reps", type=int, default=10_000, help="bootstrap resamples")
     ap.add_argument("--confirm-test-run", action="store_true")
     ap.add_argument("--notes", default="")
+    ap.add_argument("--exclude-corrections", type=Path,
+                    help="corrections.json from eval/simulate_corrections.py: drop its frames_30fps (dev only)")
     a = ap.parse_args(argv)
     rec = run(a.split, a.pred_dir, a.purpose, tuple(a.priority.split(",")), a.labels_dir, a.split_file,
               a.log, a.out_dir, a.seqs.split(",") if a.seqs else None, a.allow_missing, a.reps,
-              a.confirm_test_run, a.notes)
+              a.confirm_test_run, a.notes, a.exclude_corrections)
     print(format_report(rec["metrics"], f"run {rec['run_id']} split={rec['split']} purpose={rec['purpose']}"
                         + (" PARTIAL" if rec["partial"] else "")))
     for w in rec["warnings"]:

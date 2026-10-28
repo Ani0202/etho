@@ -258,3 +258,24 @@ def test_test_split_refuses_subset(dataset):
     with pytest.raises(SystemExit):
         score.run("test", root, purpose="test-1", confirm_test_run=True, seqs=["x"], split_file=sf,
                   log_path=root / "r.jsonl")
+
+
+def test_exclusion_drops_frames_from_both_and_cuts_bouts():
+    gt = np.array([A] * 10 + [O] * 10 + [A] * 10, np.int8)
+    pred = np.array([A] * 5 + [M] * 15 + [A] * 10, np.int8)
+    drop = np.zeros(30, bool)
+    drop[3:20] = True  # remove the mount FP and part of the first attack bout
+    m = score.score_split({"s": gt}, {"s": (pred, ovr(pred))}, reps=20, exclude={"s": drop})
+    keep = ~drop
+    ref = score.score_split({"s": gt[keep]}, {"s": (pred[keep], ovr(pred[keep]))}, reps=20)
+    for b in common.BEHAVIORS:  # frame metrics == scoring only the kept frames
+        assert {k: m["behaviors"][b][k] for k in ("tp", "fp", "fn")} == \
+            {k: ref["behaviors"][b][k] for k in ("tp", "fp", "fn")}
+    assert m["confusion"] == ref["confusion"] and m["n_frames"] == 13 and m["n_frames_excluded"] == 17
+    assert m["behaviors"]["mount"]["pred_frames"] == 0 and m["per_sequence"]["s"]["n_excluded"] == 17
+    # bouts: excluded frames become "other" in both, so the two attack bouts stay separate (2 GT, 2 pred)
+    assert m["bouts"]["by_threshold"]["0.5"]["attack"]["n_gt"] == 2
+    assert ref["bouts"]["by_threshold"]["0.5"]["attack"]["n_gt"] == 1  # concatenation would join them
+    none = score.score_split({"s": gt}, {"s": (pred, ovr(pred))}, reps=20, exclude={"s": np.zeros(30, bool)})
+    plain = score.score_split({"s": gt}, {"s": (pred, ovr(pred))}, reps=20)
+    assert none["behaviors"] == plain["behaviors"] and none["n_frames_excluded"] == 0

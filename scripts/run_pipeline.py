@@ -79,7 +79,7 @@ def cmd_synth(a) -> None:
 def cmd_predict(a) -> None:
     spec = json.loads(Path(a.detectors).read_text())
     dets = [Detector(**d) for d in spec["detectors"]]
-    out = Path("data/runs") / a.run / f"pred_{a.split}"
+    out = Path("data/runs") / a.run / (a.pred_name or f"pred_{a.split}")
     out.mkdir(parents=True, exist_ok=True)
     t_all = 0.0
     for seq, t in load_tables(a.run, a.split).items():
@@ -105,8 +105,9 @@ def cmd_adjudicate(a) -> None:
 
     defs = json.loads(Path(a.definitions).read_text())
     run_dir = Path("data/runs") / a.run
-    src = run_dir / f"pred_{a.split}"
-    out = run_dir / f"pred_{a.split}_t1"
+    src = run_dir / (a.pred_in or f"pred_{a.split}")
+    sfx = "" if a.effort_t1 == "low" else f"_{a.effort_t1}"
+    out = run_dir / (a.pred_out or f"pred_{a.split}_t1{sfx}")
     out.mkdir(parents=True, exist_ok=True)
     gw = Gateway()
     tables = load_tables(a.run, a.split)
@@ -115,7 +116,8 @@ def cmd_adjudicate(a) -> None:
         lab = np.load(src / f"{seq}.npz")["labels"]
         ws = make_windows(seq, lab, tables[seq], CODES, 10.0)
         t0 = time.monotonic()
-        v = adjudicate(run_dir, seq, ws, defs, gw=gw, effort=a.effort_t1, out_dir=run_dir / "strips" / a.split)
+        v = adjudicate(run_dir, seq, ws, defs, gw=gw, effort=a.effort_t1,
+                       out_dir=run_dir / "strips" / a.split)  # same strips for every effort
         return seq, lab, v, time.monotonic() - t0
 
     t0 = time.monotonic()
@@ -127,8 +129,10 @@ def cmd_adjudicate(a) -> None:
         np.savez_compressed(out / f"{seq}.npz", labels=new, sample_fps=np.float64(10.0), sample_stride=np.int64(3))
         allv += v
         print(seq, len(v), "windows", f"{dt:.0f}s", f"${sum(x['cost_usd'] for x in v):.3f}", flush=True)
-    (run_dir / f"verdicts_{a.split}_t1.jsonl").write_text("".join(json.dumps(x) + "\n" for x in allv))
+    (run_dir / f"verdicts_{out.name}.jsonl").write_text("".join(json.dumps(x) + "\n" for x in allv))
+    from etho.adjudication.tier1 import DEFAULT_ALLOW
     (out / "manifest.json").write_text(json.dumps({"sample_fps": 10, "tier1_model": "fireworks muse-spark-open",
+                                                   "input": str(src), "allow": sorted(DEFAULT_ALLOW),
                                                    "effort": a.effort_t1, "confident": a.confident or CONFIDENT,
                                                    "windows": len(allv),
                                                    "cost_usd": sum(x["cost_usd"] for x in allv),
@@ -136,9 +140,54 @@ def cmd_adjudicate(a) -> None:
     print(f"{len(allv)} windows, ${sum(x['cost_usd'] for x in allv):.3f}, {time.monotonic() - t0:.0f}s -> {out}")
 
 
+def cmd_adjudicate2(a) -> None:
+    from etho.adjudication.tier2 import adjudicate_clips, disagreements
+
+    defs = json.loads(Path(a.definitions).read_text())
+    run_dir = Path("data/runs") / a.run
+    v1 = [json.loads(x) for x in (run_dir / f"verdicts_{a.split}_t1.jsonl").read_text().splitlines()]
+    esc = disagreements(v1)
+    gw = Gateway()
+    t0 = time.monotonic()
+    by_seq = {}
+    for v in esc:
+        by_seq.setdefault(v["seq"], []).append(v)
+    allv = []
+    for seq, ws in by_seq.items():
+        r = adjudicate_clips(run_dir, seq, ws, defs, gw=gw, effort=a.effort_t2)
+        allv += r
+        print(seq, len(r), f"${sum(x['cost_usd'] for x in r):.3f}", flush=True)
+    (run_dir / f"verdicts_{a.split}_t2.jsonl").write_text("".join(json.dumps(x) + "\n" for x in allv))
+    print(f"{len(allv)} clips, ${sum(x['cost_usd'] for x in allv):.3f}, {time.monotonic() - t0:.0f}s")
+
+
+def cmd_revise(a) -> None:
+    from etho.rules.revise import revise
+
+    defs = json.loads(Path(a.definitions).read_text())
+    spec = json.loads(Path(a.detectors).read_text())
+    corr = json.loads(Path(a.corrections).read_text())
+    corr = corr["corrections"] if isinstance(corr, dict) else corr
+    tables = load_tables(a.run, "dev")
+    gw = Gateway()
+    out = []
+    for d in spec["detectors"]:
+        det = Detector(**d)
+        new = revise(det, defs["behaviors"][det.behavior], corr, tables, gw=gw, model=a.model, public_data=True,
+                     effort=a.effort)
+        out.append(new)
+        status = "revised" if new is not det else "unchanged"
+        print(det.behavior, status, [c["cost_usd"] for c in new.calls], flush=True)
+    path = Path("data/runs") / a.run / f"detectors_revised_{Path(a.corrections).stem}.json"
+    path.write_text(json.dumps({**{k: v for k, v in spec.items() if k != "detectors"}, "revised_from": a.detectors,
+                                "corrections": a.corrections, "n_corrections": len(corr),
+                                "detectors": [vars(x) for x in out]}, indent=1, default=float))
+    print(path)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["track", "synth", "predict", "adjudicate"])
+    ap.add_argument("cmd", choices=["track", "synth", "predict", "adjudicate", "adjudicate2", "revise"])
     ap.add_argument("--split", default="dev")
     ap.add_argument("--run", required=True)
     ap.add_argument("--workers", type=int, default=8)
@@ -149,8 +198,14 @@ def main() -> None:
     ap.add_argument("--detectors")
     ap.add_argument("--effort-t1", default="low")
     ap.add_argument("--confident", type=float)
+    ap.add_argument("--effort-t2", default="high")
+    ap.add_argument("--corrections")
+    ap.add_argument("--pred-in")
+    ap.add_argument("--pred-out")
+    ap.add_argument("--pred-name", help="output dir name for predict (default pred_<split>)")
     a = ap.parse_args()
-    {"track": cmd_track, "synth": cmd_synth, "predict": cmd_predict, "adjudicate": cmd_adjudicate}[a.cmd](a)
+    {"track": cmd_track, "synth": cmd_synth, "predict": cmd_predict, "adjudicate": cmd_adjudicate,
+     "adjudicate2": cmd_adjudicate2, "revise": cmd_revise}[a.cmd](a)
 
 
 if __name__ == "__main__":

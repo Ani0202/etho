@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,9 @@ from etho.tracking.pipeline import prepare_chunks
 from .strips import load_masks, read_samples, render_strip
 
 FW_MODEL = "accounts/fireworks/models/muse-spark-open"
+# Shared cap on concurrent Fireworks calls across all videos (40 in flight hit HTTP 429 on Oct 28).
+FW_CONCURRENCY = 6
+_FW_SLOTS = threading.BoundedSemaphore(FW_CONCURRENCY)
 WINDOW_S = 3.0
 FRAMES_PER_STRIP = 6
 CONFIDENT = 0.6
@@ -127,8 +131,9 @@ def adjudicate(run_dir: Path, seq: str, windows: list[Window], definitions: dict
         prompt = PROMPT.format(n=len(idx), t0=w.s0 / fps, t1=w.s1 / fps, defs=defs, labels=", ".join(labels))
         msgs = [{"role": "user", "content": [{"type": "text", "text": prompt},
                                              {"type": "image_url", "image_url": {"url": url}}]}]
-        res = gw.chat("fireworks", FW_MODEL, msgs, effort=effort, tag=tag, max_tokens=2048,
-                      caller="etho.adjudication.tier1")
+        with _FW_SLOTS:
+            res = gw.chat("fireworks", FW_MODEL, msgs, effort=effort, tag=tag, max_tokens=2048,
+                          caller="etho.adjudication.tier1")
         lab, conf, reason = parse_verdict(res.text, labels)
         return {"seq": seq, "s0": w.s0, "s1": w.s1, "rule_label": w.rule_label, "source": w.source,
                 "label": lab, "confidence": conf, "reason": reason, "cost_usd": res.cost_usd,

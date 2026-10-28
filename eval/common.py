@@ -70,7 +70,8 @@ def load_sequence(split: str, seq: str, labels_dir: Path = LABELS_DIR) -> dict:
 def git_info() -> dict:
     def run(*args: str) -> str:
         try:
-            return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.strip()
+            # rstrip only: porcelain lines start with a status column that may be a space (" M path").
+            return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.rstrip()
         except (subprocess.CalledProcessError, FileNotFoundError):
             return ""
 

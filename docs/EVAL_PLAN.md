@@ -253,20 +253,92 @@ All ablations on test use the run(s) in section 7; no extra test runs.
    tier-1 verdict, and tier-2 verdict are logged, and arm (b) resolves tier-1 "unsure" bouts with the rule
    decision. For each arm: macro and per-behavior F1, cost, wall-clock, number of bouts judged per tier,
    and tier-1 escalation rate. Per-tier accuracy on the bouts it judged is reported too.
-2. **Tier-1 effort low vs medium**: dev only.
+   - *Dev decision (2026-10-28), restricted cascade:* tier 1 may only assign `investigation` or `none`; other
+     tier-1 labels fall back to the rule decision. Chosen on **dev** after seeing dev scores, so it is dev
+     tuning: dev macro F1 rules only 0.3665 (`score-dev-20261028T061615Z-04822e`), rules + unrestricted tier 1
+     0.4063 (`...063110Z-812a0f`), rules + restricted tier 1 0.4820 (attack 0.4651, investigation 0.4716,
+     mount 0.5092; `...063139Z-e705b8`; its manifest records no cost or call count, so whether it reused the
+     unrestricted run's verdicts is not verified by the evaluator). **Dev-holdout check** with the config
+     frozen: rules only 0.3375 (attack
+     0.4718, investigation 0.2048, mount 0.3358; `score-dev_holdout-20261028T063741Z-07acb5`) to rules +
+     restricted tier 1 0.5026 (0.5630, 0.5155, 0.4294; `...063741Z-c674ac`). Caveats: unrestricted tier 1 was
+     not scored on dev-holdout, so the holdout shows the cascade helps, not that the restriction does; the
+     holdout tier-1 manifest does not record the `allow` set (restricted is inferred from
+     `etho/adjudication/tier1.py` `DEFAULT_ALLOW` at commit 2f3c448, which predates that run directory, and
+     the lead's statement); 95% CIs are wide (dev restricted macro [0.3262, 0.6156]; 5 holdout sequences).
+2. **Tier-1 effort low vs medium**: dev only. *Result (2026-10-28):* on the restricted cascade, `medium` gave dev
+   macro F1 0.4714 (attack 0.4814, investigation 0.4634, mount 0.4695; `score-dev-20261028T065530Z-373134`)
+   vs 0.4820 for `low`; medium was better on attack only. Tier-1 cost per the run manifests: medium $2.409,
+   low $1.498 (481 windows each; the low figure is from the unrestricted `pred_dev_t1` manifest, since the
+   restricted directory records no cost). Medium did not beat low, so **tier 1 stays `low`**. One run per arm,
+   no repeat to measure model sampling noise, and no paired test; the 0.0106 gap is small next to the per-arm
+   sequence-bootstrap CI width (about 0.29 for low).
 3. **SAM 1 phrase ("mouse", identity from mask intensity) vs 2 phrases ("black mouse" + "white mouse")**:
    the spike chose 1 phrase (docs/SPIKE.md). A 2-phrase comparison, if run at all, is dev only.
 4. **Keypoint-oracle features** (proposed, $0 SAM): run the same synthesized rules on features computed from
    CalMS21 keypoints instead of SAM masks, to separate tracking error from rule error. Labeled as using a
    pose estimator Etho doesn't run. Requires a keypoint-to-feature adapter in `eval/` (evaluator to build).
-5. **Correction loop** (labeled "k corrected bouts", not zero-shot): simulate a user correcting k = 5 bouts
-   (proposed selection: seeded random among Etho's errors) on the first half of each video; revise the rule;
-   score the second half. Dev and dev-holdout first; on test only inside a planned test run.
+5. **Correction loop** (labeled "with N corrections", few-shot, never zero-shot): protocol in section 6a.
+   (Replaces the earlier "k = 5 bouts on the first half of each video" draft, which was never run.)
 6. **Etho Local** (stretch): distilled Glimmer as tier-1 replacement, measured on test in a planned test run.
    Distillation labels come only from Muse Spark judgments on **unused train** sequences (never dev,
    dev-holdout, test, or human labels).
 
 Ablations that don't help are reported.
+
+## 6a. Correction-loop protocol (simulated user), `eval/simulate_corrections.py`
+
+The product's correction loop is: a user fixes a few bouts, Muse Spark revises the detector code from those
+fixes, and we report the accuracy change. In eval a seeded **simulated user** plays the user from expert labels.
+It makes no model calls and imports no product code; product code receives only its output file.
+
+- **Supervision label.** Any number produced after corrections is **few-shot** and is reported as "with N
+  corrections" (N = number of corrected windows, with the K per behavior and kind). It is never called zero-shot
+  and never shown next to a zero-shot number without that label.
+- **Source.** Corrections come **only from dev** labels. The script refuses `dev-holdout` and `test`.
+- **Selection** (unbiased with respect to anything except the error type; all on the 10 fps sample grid,
+  sample k = frame 3k, ground truth = the 30 fps label at frame 3k):
+  - Bouts are maximal runs of one behavior. An **FP** of behavior b is a predicted bout of b with < 20% of its
+    samples labeled b by the expert; an **FN** is an expert bout of b with < 20% of its samples predicted b.
+    No gap merging and no minimum length by default, so 0.1 s error bouts are eligible.
+  - For each of the 6 strata (3 behaviors x {FP, FN}), candidates are pooled over all dev sequences and K are
+    drawn uniformly without replacement (default K = 3 FP + 3 FN per behavior, 18 windows) with
+    `numpy.random.default_rng([seed, behavior_index, kind_index])`, seed 20261028. A stratum with fewer than K
+    candidates gives all of them; the shortfall is logged.
+  - A bout longer than 3 s is clipped to a 3 s window at a uniformly drawn offset. Windows of different strata
+    may overlap; overlaps are counted in the output, not removed.
+- **What the "user" provides.** Per window: sequence, samples [s0, s1), behavior, fp/fn, the per-sample predicted
+  and correct labels (plus majority labels), and median/min/max of every tracking feature over the window. The
+  30 fps frame range `frames_30fps` that the scorer maps onto the window is included for exclusion scoring.
+- **Where the effect is measured.** (1) **dev-holdout**, the primary number: no corrected window comes from it;
+  the revised detectors are scored with `eval/score.py` exactly like the uncorrected ones, both reported.
+  (2) **dev minus the corrected windows** (frames in `frames_30fps` of any correction removed from both
+  prediction and ground truth before pooling), secondary, since dev was also used for tuning. Scoring with
+  exclusion: `eval/score.py --exclude-corrections` (frames dropped from both sides for frame metrics; set to
+  "other" in both for bout metrics, so bouts are cut at the window rather than joined across it).
+  Full-dev numbers including the corrected windows are not reported as an improvement.
+- **Test.** The corrections file, the revised detector code (hashes), and the revision prompt are frozen and
+  committed **before** a test run; the revised detectors run on test only inside one of the two planned test
+  runs (section 7). No correction is ever drawn from test, and no revision happens after test labels are loaded.
+- **Logging.** Every generation is logged to `eval/results/runs.jsonl` (kind `simulate-corrections`): a
+  `started` record with the predictions sha256 before labels are opened, then the config, per-stratum candidate
+  and selection counts, the selected windows, and the output sha256. Multiple seeds, if run, are all reported.
+- **Files generated** (2026-10-28, seed 20261028, K = 3+3, 18 corrections each, all strata filled, 0 overlapping
+  windows). Dev-minus-windows scores below are of the *uncorrected* predictions, i.e. the baseline arm.
+  - **Use this one:** restricted cascade (the chosen config), `data/runs/R1/pred_dev_t1a_inv_none` (dev macro
+    0.4820): `eval/results/corrections/R1_dev_t1a_inv_none_seed20261028_k3+3.json`, run
+    `corrections-dev-20261028T070154Z-4df3b7`. Candidates: attack FP 58 / FN 5, investigation FP 33 / FN 61,
+    mount FP 52 / FN 3 (all 3 mount FN bouts taken). 11 of 18 windows in mouse008; 6 of 8 sequences contribute;
+    lengths 1 to 30 samples (one 0.1 s window). 693 frames excluded; dev minus windows macro 0.4995
+    (attack 0.4797, investigation 0.4846, mount 0.5344; `score-dev-20261028T070155Z-a17fdc`).
+  - Superseded, kept for the record: `data/runs/R1/pred_dev_t1` is the **unrestricted** tier-1 run (dev macro
+    0.4063), generated first by mistake: `R1_dev_t1_seed20261028_k3+3.json`, run
+    `corrections-dev-20261028T065145Z-2a476f`; dev minus its 819 frames, macro 0.4264
+    (`score-dev-20261028T070125Z-cc64fa`).
+- **Scoring dev minus the corrected windows:** `uv run python -m eval.score --split dev --pred-dir <dir>
+  --exclude-corrections <corrections.json>`. Both arms (before and after revision) must be scored with the same
+  corrections file. The run record logs the file, its sha256, the corrections run id, and frames excluded per
+  sequence. Refused on dev-holdout and test.
 
 ## 7. Test-run protocol
 

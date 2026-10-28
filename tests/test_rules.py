@@ -76,3 +76,48 @@ def test_synthesize_gives_up_after_max_repairs():
 def test_object_or_ragged_output_is_a_sandbox_error():
     with pytest.raises(SandboxError, match="bool array"):
         run_detector("def detect(t, fps):\n    return [np.zeros(2), 1]\n", T, 10.0)
+
+
+def test_revise_sends_corrections_and_accepts_valid_code():
+    from etho.rules.revise import revise
+    det = S.Detector("investigation", GOOD, "m")
+    tables = {"s": T}
+    corr = [{"seq": "s", "s0": 0, "s1": 2, "behavior": "investigation", "kind": "fn", "predicted_label": "other",
+             "correct_label": "investigation"},
+            {"seq": "s", "s0": 2, "s1": 4, "behavior": "attack", "kind": "fp", "predicted_label": "attack",
+             "correct_label": "other"}]
+    new_code = "def detect(t, fps):\n    return np.nan_to_num(t['dist'], nan=1e9) < 300\n"
+    gw = FakeGW([f"```python\n{new_code}```"])
+    new = revise(det, "close contact", corr, tables, gw=gw, public_data=True, self_check=False)
+    assert new.code.strip() == new_code.strip()
+    prompt = gw.calls[0][2][1]["content"]
+    assert "missed it: this IS investigation" in prompt and "attack" not in prompt.split("researcher")[1]
+    assert "dist=" in prompt
+
+
+def test_revise_self_check_rejects_overbroad_then_accepts_narrow():
+    from etho.rules.revise import revise
+    t = {"dist": np.array([10.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 400.0, 500.0])}
+    det = S.Detector("investigation", "def detect(t, fps):\n    return t['dist'] < 50\n", "m")
+    corr = [{"seq": "s", "s0": 2, "s1": 3, "behavior": "investigation", "kind": "fn", "predicted_label": "other",
+             "correct_label": "investigation"}]
+    broad = "def detect(t, fps):\n    return t['dist'] < 450\n"      # fixes it but 2 -> 9 positives
+    narrow = "def detect(t, fps):\n    return t['dist'] < 65\n"      # fixes it, 2 -> 3 positives... still +50%
+    exact = "def detect(t, fps):\n    return (t['dist'] < 50) | ((t['dist'] > 55) & (t['dist'] < 65))\n"
+    gw = FakeGW([f"```python\n{c}```" for c in (broad, narrow, exact)])
+    new = revise(det, "close", corr, {"s": t}, gw=gw, public_data=True)
+    assert "def detect" in new.code and len(gw.calls) == 3
+    # the accepted version fixed the correction; rate change still > 20% here, so the original is kept
+    assert new.code == det.code and new.calls[-1]["revision_rejected"]
+    assert "changed by" in gw.calls[1][2][-1]["content"]
+
+
+def test_revise_self_check_accepts_targeted_fix():
+    from etho.rules.revise import revise
+    t = {"dist": np.linspace(0, 100, 50)}
+    det = S.Detector("investigation", "def detect(t, fps):\n    return t['dist'] < 50\n", "m")
+    corr = [{"seq": "s", "s0": 25, "s1": 26, "behavior": "investigation", "kind": "fn", "predicted_label": "other",
+             "correct_label": "investigation"}]
+    good = "def detect(t, fps):\n    return t['dist'] < 53\n"        # 25 -> 27 positives (+8%)
+    new = revise(det, "close", corr, {"s": t}, gw=FakeGW([f"```python\n{good}```"]), public_data=True)
+    assert new.code.strip() == good.strip() and new.calls[0]["check"]["fixed_new"] == 1
