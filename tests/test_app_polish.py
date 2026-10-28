@@ -110,11 +110,15 @@ def test_phase_elapsed_is_a_wall_clock_window_not_a_sum():
 
 def test_failures_become_plain_sentences_never_raw_errors():
     raw = "synthesize: RuntimeError: Traceback: boom at /home/x/y.py line 3"
-    f = PG.friendly_failure(snap({}, status="failed", error=raw), FRIENDLY)
+    f = PG.friendly_failure(snap({}, status="failed", error=raw, error_code="failed"), FRIENDLY)
     assert "Traceback" not in f and "boom" not in f and "showcase" in f
-    assert PG.friendly_failure(snap({}, status="failed", error="daily cap reached"), FRIENDLY) == FRIENDLY["daily_cap"]
-    assert PG.friendly_failure(snap({}, status="cancelled", message="stopped: live use was switched off"),
-                               FRIENDLY) == FRIENDLY["killed"]
+    # the sentence follows the machine code, not words in the error text
+    assert PG.friendly_failure(snap({}, status="failed", error="daily cap reached", error_code="failed"),
+                               FRIENDLY) == f
+    for code in ("daily_cap", "total_cap", "killed"):
+        assert PG.friendly_failure(snap({}, status="failed", error_code=code), FRIENDLY) == FRIENDLY[code]
+    assert "spend limit" in PG.friendly_failure(snap({}, status="failed", error_code="budget"), FRIENDLY)
+    assert PG.friendly_failure(snap({}, status="cancelled", error_code="cancelled"), FRIENDLY).startswith("This job was cancelled")
     assert PG.friendly_failure(snap({}, status="running"), FRIENDLY) is None
 
 
@@ -143,7 +147,13 @@ def test_failed_job_shows_the_friendly_message_in_the_api(tmp_path, monkeypatch)
     assert wait_terminal(c.manager, jid).status == "failed"
     sn = client.get(f"/api/jobs/{jid}").json()
     assert sn["status"] == "failed" and "exploded" not in sn["friendly"] and "showcase" in sn["friendly"]
-    assert [p["status"] for p in sn["phases"]][2] == "failed"
+    assert [p["status"] for p in sn["phases"]][2] == "failed" and sn["error_code"] == "failed"
+    assert "exploded" not in json.dumps(sn["phases"]) and "exploded" not in json.dumps(sn["stages"])
+    # on a public deployment nothing raw is served anywhere: job, SSE stream, project
+    monkeypatch.setattr(c.cfg, "public", True, raising=False)
+    for text in (client.get(f"/api/jobs/{jid}").text, client.get(f"/api/jobs/{jid}/events").text,
+                 client.get(f"/api/projects/{jid}").text):
+        assert "exploded" not in text and "secret-ish" not in text and "RuntimeError" not in text
 
 
 # ------------------------------------------------------------------------------------------------ bout trace
@@ -226,7 +236,8 @@ def test_app_serves_the_sample_clip_read_only_with_attribution(tmp_path, monkeyp
     r = client.get("/api/sample/clip")
     assert r.status_code == 200 and r.headers["content-type"] == "video/mp4" and "attachment" in r.headers["content-disposition"]
     assert len(r.content) == on["clip"]["size_bytes"]
-    assert client.post("/api/sample/clip").status_code in (401, 403, 405, 503)       # read-only: no write method works
+    assert client.post("/api/sample/clip").status_code == 405                        # read-only: no write method works
+    assert r.headers["cache-control"] == "public, max-age=3600"
     assert client.get("/api/sample/clip?path=../../etc/passwd").status_code == 200   # the path is never taken from the request
     assert not c.cfg.ledger_path.exists()
 
@@ -252,7 +263,8 @@ def test_package_job_showcase_keeps_real_timings_prompts_and_planner_steps(tmp_p
     np.savez_compressed(tmp_path / "expert.npz", labels=lab)
     mod = load_script("package_job_showcase")
     mod.main(["--job", str(job), "--name", "live-run", "--title", "Live run", "--description", "D", "--calms21",
-              "--out", str(c.cfg.showcase_dir), "--expert-labels", str(tmp_path / "expert.npz")])
+              "--out", str(c.cfg.showcase_dir), "--expert-labels", str(tmp_path / "expert.npz"),
+              "--expert-seq", "mouse008_task1_annotator1"])
     d = c.cfg.showcase_dir / "live-run"
     for f in ("result.json", "calls.jsonl", "plan.json", "clean.mp4", "overlay.mp4", "report.html", "labels.npz",
               "verdicts.jsonl", "run/video/features.npz"):
@@ -266,9 +278,9 @@ def test_package_job_showcase_keeps_real_timings_prompts_and_planner_steps(tmp_p
     p = client.get("/api/projects/sc-live-run").json()
     assert p["kind"] == "showcase" and p["title"] == "Live run" and p["id"] == "sc-live-run"
     assert p["timing"]["x_realtime"] is not None and p["timing"]["complete"] is True      # real, not "n/a"
-    assert not p["cost"].get("estimated") and p["cost"]["total_usd"] == res0["cost"]["total_usd"] > 0
+    assert p["cost"]["source"] == "measured in the live run" and not p["cost"].get("estimated") and p["cost"]["total_usd"] == res0["cost"]["total_usd"] > 0
     assert any(s["elapsed_s"] > 0 for s in p["stages"]) and p["planner"]["ran"] is True
-    assert p["expert"]["label"] == "Expert (CalMS21)" and p["expert"]["bouts"]["attack"] == [[10, 25]]
+    assert p["expert"]["split"] == "dev" and p["expert"]["label"] == "Expert (CalMS21)" and p["expert"]["bouts"]["attack"] == [[10, 25]]
     a = client.get("/api/projects/sc-live-run/audit").json()
     prompts = [x for x in a["calls"] if x.get("prompt")]
     assert prompts and any(x["stage"] == "plan" for x in a["calls"]) and "Packaged from a live run" in a["note"]
@@ -286,6 +298,10 @@ def test_make_showcase_expert_row_is_optional_and_display_only(tmp_path, monkeyp
     lab = np.full(c.n, 3, np.int8)
     lab[5:15] = 0
     np.savez_compressed(tmp_path / "e.npz", labels=lab)
+    from etho.app import packaging
+    sp = tmp_path / "splits.json"
+    sp.write_text(json.dumps({"dev": ["seqA"], "test": []}))
+    monkeypatch.setattr(packaging, "SPLITS", sp)
     d = build_showcase(c, monkeypatch, extra=("--expert-labels", str(tmp_path / "e.npz")))
     res = json.loads((d / "result.json").read_text())
     assert res["expert"]["bouts"]["attack"] == [[5, 15]] and "never saw" in res["expert"]["note"]
@@ -303,3 +319,97 @@ def test_presentation_mode_and_ui_pieces_are_wired():
     assert "Expert (CalMS21)" in (STATIC / "ethogram.js").read_text() or "expert.label" in eg
     for page in ("index.html", "project.html"):
         assert 'id="present-toggle"' in (STATIC / page).read_text()
+
+
+# ------------------------------------------------------------------------------------------------ review fixes
+def test_trace_without_stored_verdicts_and_with_untouching_verdicts_says_so_literally():
+    rec = {"rule_bouts": {"investigation": [[20, 60]]}}
+    t = PG.bout_trace(rec, [], "investigation", 20, 60, 10.0)
+    assert t["decided_by"] == "rules" and t["summary"] == (
+        "No frame-strip verdicts are stored for this version (tier 1 was skipped or failed)")
+    far = [{"s0": 100, "s1": 110, "rule_label": "investigation", "label": "investigation", "confidence": 0.9,
+            "decision": "applied"}]
+    t = PG.bout_trace(rec, far, "investigation", 20, 60, 10.0)
+    assert t["summary"] == "The rules decided: no stored tier-1 window touches this bout"
+    assert "alone" not in (STATIC / "project.js").read_text()
+
+
+def test_trace_credits_tier1_when_it_promoted_a_window_the_rules_did_not_flag():
+    promo = [{"s0": 20, "s1": 40, "rule_label": "other", "label": "investigation", "confidence": 0.9,
+              "decision": "applied"}]
+    t = PG.bout_trace({"rule_bouts": {"investigation": []}}, promo, "investigation", 20, 40, 10.0)
+    assert t["decided_by"] == "tier1" and t["rule_result"]["flagged"] is False and "did not flag" in t["summary"]
+    same = [{**promo[0], "rule_label": "investigation"}]
+    t = PG.bout_trace({"rule_bouts": {"investigation": [[20, 40]]}}, same, "investigation", 20, 40, 10.0)
+    assert t["decided_by"] == "rules" and "confirmed" in t["summary"]
+
+
+def test_expert_labels_are_validated_and_test_split_needs_the_flag(tmp_path, monkeypatch, capsys):
+    from etho.app import packaging
+    sp = tmp_path / "sp.json"
+    sp.write_text(json.dumps({"dev": ["d1"], "test": ["t1"]}))
+    names = ["attack", "investigation", "mount"]
+    ok = tmp_path / "ok.npz"
+    np.savez_compressed(ok, labels=np.array([3, 3, 0, 0, 1, 3], np.int8))
+    rec = packaging.expert_record(ok, names, 6, 10.0, seq="d1", splits=sp)
+    assert rec["bouts"]["attack"] == [[2, 4]] and rec["split"] == "dev" and rec["sequence"] == "d1"
+    assert "samples per code" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        packaging.expert_record(ok, names, 6, 10.0, seq="t1", splits=sp)               # test split needs the flag
+    rec = packaging.expert_record(ok, names, 6, 10.0, seq="t1", splits=sp, allow_test=True)
+    assert rec["split"] == "test" and "TEST-split" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        packaging.expert_record(ok, names, 6, 10.0, seq="other", splits=sp)
+    bad = tmp_path / "bad.npz"
+    np.savez_compressed(bad, labels=np.array([0, 1, 7, 3, 3, 3], np.int8))
+    with pytest.raises(SystemExit):
+        packaging.expert_record(bad, names, 6, 10.0, seq="d1", splits=sp)
+    with pytest.raises(SystemExit):
+        packaging.expert_record(ok, names, 9, 10.0, seq="d1", splits=sp)               # length mismatch
+
+
+def test_a_bad_expert_file_leaves_no_half_built_showcase(tmp_path, monkeypatch):
+    client, c = make_app(tmp_path, monkeypatch)
+    jid = post_job(client, c.video).json()["id"]
+    wait_terminal(c.manager, jid)
+    np.savez_compressed(tmp_path / "bad.npz", labels=np.full(5, 99, np.int8))
+    mod = load_script("package_job_showcase")
+    with pytest.raises(SystemExit):
+        mod.main(["--job", str(c.cfg.jobs_dir / jid), "--name", "nope", "--out", str(c.cfg.showcase_dir),
+                  "--expert-labels", str(tmp_path / "bad.npz"), "--expert-seq", "mouse008_task1_annotator1"])
+    assert not (c.cfg.showcase_dir / "nope").exists()
+
+
+def test_explicit_daily_cap_is_not_raised_in_the_judging_window(monkeypatch):
+    from datetime import datetime, timezone
+
+    from etho.app.config import AppConfig
+    inside = datetime(2026, 11, 5, 12, tzinfo=timezone.utc)
+    monkeypatch.delenv("ETHO_APP_DAILY_CAP_USD", raising=False)
+    monkeypatch.delenv("ETHO_APP_JUDGING_DAILY_CAP_USD", raising=False)
+    default = AppConfig(public=True)
+    assert default.daily_cap_at(inside) == 8.0 and default.daily_cap_usd == 3.0
+    monkeypatch.setenv("ETHO_APP_DAILY_CAP_USD", "2")
+    explicit = AppConfig(public=True)
+    assert explicit.judging_daily_cap_usd is None and explicit.daily_cap_at(inside) == 2.0
+    monkeypatch.setenv("ETHO_APP_JUDGING_DAILY_CAP_USD", "6")
+    both = AppConfig(public=True)
+    assert both.daily_cap_at(inside) == 6.0
+
+
+def test_cost_label_shows_ledger_match_only_for_non_showcases():
+    js = (STATIC / "project.js").read_text()
+    assert 'p.kind !== "showcase"' in js and "Math.abs(c.total_usd - c.ledger_usd) < 0.01" in js
+
+
+def test_clock_text_rounds_before_splitting():
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node not installed")
+    code = ("const vm=require('vm'),fs=require('fs');const c={document:{documentElement:{classList:{add(){}}},"
+            "getElementById(){return null}},location:{search:''},sessionStorage:{getItem(){return null}},"
+            "URLSearchParams};vm.createContext(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);"
+            "console.log(JSON.stringify([59.96,0,59.94,61.25,3599.99,-1].map(x=>vm.runInContext('clockText('+x+')',c))))")
+    out = subprocess.run(["node", "-e", code, str(STATIC / "common.js")], capture_output=True, text=True, check=True)
+    assert json.loads(out.stdout) == ["1:00.0", "0:00.0", "0:59.9", "1:01.3", "60:00.0", "0:00.0"]

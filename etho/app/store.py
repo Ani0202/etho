@@ -150,6 +150,7 @@ def list_showcases(cfg: AppConfig) -> list[dict]:
                     "metrics": r.get("versions", [{}])[0].get("metrics", {}),
                     "cost_usd": r.get("cost", {}).get("total_usd"),
                     "cost_estimated": bool(r.get("cost", {}).get("estimated")),
+                    "cost_source": r.get("cost", {}).get("source"),
                     "wall_s": (r.get("timing") or {}).get("wall_s"),
                     "dataset": r.get("dataset")})
     return out

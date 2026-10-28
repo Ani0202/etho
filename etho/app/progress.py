@@ -61,26 +61,40 @@ def phases(snap: dict) -> list[dict]:
 
 
 def friendly_failure(snap: dict, friendly: dict[str, str]) -> str | None:
-    """A plain sentence for a job that did not finish; never the raw exception text."""
+    """A plain sentence for a job that did not finish, chosen by the machine code the job carries
+    (`error_code`), never by looking at error text and never the raw exception."""
     if snap["status"] not in ("failed", "cancelled"):
         return None
-    text = f"{snap.get('error') or ''} {snap.get('message') or ''}".lower()
-    if "switched off" in text or "kill" in text:
-        return friendly["killed"]
-    if "total cap" in text:
-        return friendly["total_cap"]
-    if "cap" in text or "budget" in text:
-        return friendly["daily_cap"]
+    code = snap.get("error_code")
+    if code in ("daily_cap", "total_cap", "killed"):
+        return friendly[code]
+    if code == "budget":
+        return "This job reached its own spend limit, so it was stopped. " + STILL_OPEN
     if snap["status"] == "cancelled":
         return "This job was cancelled. " + STILL_OPEN
     return "Scoring this video did not finish, so there is no result for it. " + STILL_OPEN
 
 
-def view(snap: dict, friendly: dict[str, str]) -> dict:
-    """The snapshot as the browser gets it."""
+FAILED_PHASE_MESSAGE = "did not finish"
+
+
+def view(snap: dict, friendly: dict[str, str], public: bool = False) -> dict:
+    """The snapshot as the browser gets it. A failed phase or stage never carries its raw message; on a public
+    deployment the raw `error` and `message` fields are dropped as well (the journal has the real error)."""
     snap = dict(snap)
+    safe = {"failed": FAILED_PHASE_MESSAGE}
+    if public:     # a skipped step's message carries the exception text
+        safe["skipped"] = "skipped: a non-essential step failed, the job went on"
+    snap["stages"] = [{**st, "message": safe.get(st["status"], st["message"])} for st in snap["stages"]]
     snap["phases"] = phases(snap)
+    for p in snap["phases"]:
+        if p["status"] == "failed":
+            p["message"] = FAILED_PHASE_MESSAGE
     snap["friendly"] = friendly_failure(snap, friendly)
+    if snap["status"] in ("failed", "cancelled") or public:
+        snap["message"] = "" if (public or snap["status"] == "failed") else snap["message"]
+    if public:
+        snap["error"] = None
     return snap
 
 
@@ -174,9 +188,12 @@ def bout_trace(record: dict, verdicts: list[dict], behavior: str, s0: int, s1: i
     touching = [v for v in verdicts if v["s0"] < s1 and s0 < v["s1"]]
     exact_rule = [s0, s1] in [list(b) for b in rule]
     applied = [v for v in touching if v["decision"] == "applied"]
-    if any(v["label"] != behavior for v in applied):
+    # tier 1 decided when it moved the label away from the rule's: an applied verdict whose rule_label is not this
+    # behavior (a promotion from "other"/contact), or whose label differs, or when the rules did not flag the bout
+    if any(v["label"] != behavior or v["rule_label"] != behavior for v in applied) or (applied and not rule):
         decided = "tier1"
-        why = "A confident tier-1 verdict changed this window from the rule result"
+        why = ("A confident tier-1 verdict decided this bout: the rules did not flag it" if not rule else
+               "A confident tier-1 verdict changed this window from the rule result")
     elif applied:
         decided = "rules"
         why = "The rules decided, and a confident tier-1 verdict confirmed it"
@@ -186,9 +203,12 @@ def bout_trace(record: dict, verdicts: list[dict], behavior: str, s0: int, s1: i
     elif touching:
         decided = "rules"
         why = "The rules decided: the tier-1 verdicts were set aside (unsure or low confidence)"
+    elif not verdicts:
+        decided = "rules"
+        why = "No frame-strip verdicts are stored for this version (tier 1 was skipped or failed)"
     else:
         decided = "rules"
-        why = "The rules decided: no tier-1 window was needed for this bout"
+        why = "The rules decided: no stored tier-1 window touches this bout"
     return {"behavior": behavior, "s0": s0, "s1": s1, "start_s": round(s0 / fps, 2), "end_s": round(s1 / fps, 2),
             "rule_result": {"flagged": bool(rule), "bouts": [[b[0], b[1]] for b in rule], "exact": exact_rule},
             "tier1": touching, "decided_by": decided, "summary": why}

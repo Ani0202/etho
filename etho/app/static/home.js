@@ -13,7 +13,7 @@
       h("h3", {}, sc.title),
       h("div", { class: "sub" }, sc.description),
       h("div", { class: "chips" }, sc.behaviors.map(b => h("span", { class: "chip" }, b, " ", sc.metrics[b] ? `${sc.metrics[b].bouts} bouts` : ""))),
-      h("div", { class: "sub" }, `${fmt.time(sc.video.duration_s)} video, ${sc.wall_s ? `scored in ${fmt.time(sc.wall_s)}, ` : ""}model cost ${fmt.usd(sc.cost_usd)}${sc.cost_estimated ? " (list-price estimate)" : " (ledger)"}`),
+      h("div", { class: "sub" }, `${fmt.time(sc.video.duration_s)} video, ${sc.wall_s ? `scored in ${fmt.time(sc.wall_s)}, ` : ""}model cost ${fmt.usd(sc.cost_usd)}${sc.cost_estimated ? " (list-price estimate)" : sc.cost_source ? ` (${sc.cost_source})` : ""}`),
       h("a", { class: "btn primary", href: `/p/${sc.id}` }, "Open results"))));
   }).catch(() => { $("showcases").replaceChildren(h("div", { class: "err" }, "Could not load showcases.")); });
 

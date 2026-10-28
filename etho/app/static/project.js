@@ -64,7 +64,7 @@
         h("div", { class: "s" }, t.x_realtime === null ? "Precomputed run: wall-clock not recorded. Upload a video to measure it." :
           `${fmt.time(t.wall_s)} wall-clock to score ${fmt.time(t.video_s)} of video` + (t.complete ? "" : " (partial)"))),
       h("div", { class: "tile" }, h("div", { class: "k" }, "Model cost"), h("div", { class: "v" }, fmt.usd(c.total_usd)),
-        h("div", { class: "s" }, `${fmt.usd(c.total_usd / Math.max(mins, 1e-9))} per video-minute` + (c.estimated ? " (list-price estimate)" : c.ledger_usd !== null ? " (matches the gateway ledger)" : ""))),
+        h("div", { class: "s" }, `${fmt.usd(c.total_usd / Math.max(mins, 1e-9))} per video-minute` + (c.estimated ? " (list-price estimate)" : (p.kind !== "showcase" && c.ledger_usd != null && Math.abs(c.total_usd - c.ledger_usd) < 0.01) ? " (matches the gateway ledger)" : (c.source ? ` (${c.source})` : "")))),
       h("div", { class: "tile" }, h("div", { class: "k" }, "Bouts scored"), h("div", { class: "v" }, String(bouts)),
         h("div", { class: "s" }, `${names().length} behaviors, ${S.ver ? "revision " + S.ver : "original rules"}`)),
       h("div", { class: "tile" }, h("div", { class: "k" }, TXT().tile_title), h("div", { class: "v" }, TXT().tile_value),
@@ -130,7 +130,7 @@
       return h("div", { class: "verdict " + v.decision },
         h("div", {}, h("span", { class: "chip" }, tag), ` window ${(v.s0 / fps()).toFixed(1)}-${(v.s1 / fps()).toFixed(1)} s: rules said "${v.rule_label}", tier 1 said "${v.label}" (confidence ${v.confidence})`),
         v.reason ? h("div", { class: "sub" }, `Tier-1 reason: ${v.reason}`) : null, h("div", {}, v.decision_text), img);
-    }) : [h("div", { class: "sub" }, "No tier-1 window touched this bout: it was clear enough for the rules alone.")];
+    }) : [h("div", { class: "sub" }, "No stored frame-strip verdict touches this bout (see step 3).")];
     box.replaceChildren(h("div", { class: "trace", "aria-live": "polite" },
       h("h3", { style: { marginTop: 0 } }, `Trace: ${t.behavior} ${fmt.clock(t.start_s)} to ${fmt.clock(t.end_s)} (${S.ver ? "revision " + S.ver : "original rules"})`),
       step("1", "Rule result", h("div", {}, rule.flagged ? `The rule detector flagged ${t.behavior} here` + (rule.exact ? " (the same bout)." : ` (${rule.bouts.map(r => `${(r[0] / fps()).toFixed(1)}-${(r[1] / fps()).toFixed(1)} s`).join(", ")}).`) : `The rule detector did not flag ${t.behavior} in this window.`)),

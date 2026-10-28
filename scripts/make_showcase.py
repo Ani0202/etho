@@ -65,11 +65,18 @@ def main() -> None:
     ap.add_argument("--expert-labels", type=Path,
                     help="optional labels .npz (key `labels`, 10 fps codes in behavior order) drawn as an "
                          "'Expert (CalMS21)' row under Etho's; display only. Use only for dev-split sequences")
+    ap.add_argument("--allow-test-split", action="store_true",
+                    help="allow an expert row for a TEST-split sequence (display only); dev needs no flag")
     ap.add_argument("--expert-start-s", type=float, default=0.0, help="offset of the video inside the labels")
     ap.add_argument("--no-public-data", action="store_true",
                     help="mark the run as non-public data (revisions then use Standard models)")
     a = ap.parse_args()
 
+    expert = None
+    if a.expert_labels:      # computed first: a bad labels file must not leave a half-built showcase
+        n_exp = len(np.load(a.run_dir / a.final_pred / f"{a.seq}.npz")["labels"])
+        expert = expert_record(a.expert_labels, list(json.loads(a.definitions.read_text())["behaviors"]), n_exp,
+                               FPS, a.expert_start_s, seq=a.seq, allow_test=a.allow_test_split)
     out = a.out / a.name
     if out.exists():
         shutil.rmtree(out)
@@ -170,7 +177,7 @@ def main() -> None:
         "cost": {"total_usd": round(sum(rec_costs.values()), 4), "ledger_usd": None, "by_stage": rec_costs,
                  "estimated": True},
         "warnings": [],
-        **({"expert": expert_record(a.expert_labels, names, n, FPS, a.expert_start_s)} if a.expert_labels else {}),
+        **({"expert": expert} if expert else {}),
         "audit_note": "Precomputed run: prompts and responses were not captured, so the audit shows each model "
                       "call's recorded token usage and the detector code. Costs are list-price estimates from "
                       "recorded usage."})

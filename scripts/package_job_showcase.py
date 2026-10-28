@@ -33,7 +33,7 @@ NOT_COPIED = "input.json (the upload's name and settings), job.json, revisions/,
 
 def package(job: Path, name: str, out_root: Path, *, title: str | None = None, description: str = "",
             public_data: bool | None = None, calms21: bool = False, expert_labels: Path | None = None,
-            expert_start_s: float = 0.0) -> Path:
+            expert_start_s: float = 0.0, expert_seq: str | None = None, allow_test: bool = False) -> Path:
     """Build out_root/<name> from the job dir `job`. Raises SystemExit with a plain message when the job is not a
     finished analysis."""
     if not ID_RE.match(name):
@@ -49,6 +49,12 @@ def package(job: Path, name: str, out_root: Path, *, title: str | None = None, d
     if video is None or track is None:
         sys.exit(f"{job} has no clean.mp4 or run/video/tracking.json (was it already purged by retention?)")
 
+    expert = None
+    if expert_labels:        # computed first: a bad labels file must not leave a half-built showcase
+        if not expert_seq:
+            sys.exit("--expert-seq (the CalMS21 sequence name) is required with --expert-labels")
+        expert = expert_record(expert_labels, res["behaviors"]["names"], int(res["n_samples"]), float(res["fps"]),
+                               expert_start_s, seq=expert_seq, allow_test=allow_test)
     out = out_root / name
     if out.exists():
         shutil.rmtree(out)
@@ -64,15 +70,20 @@ def package(job: Path, name: str, out_root: Path, *, title: str | None = None, d
     write_json(out / "run" / "video" / "tracking.json", track)
 
     pub = bool(res.get("public_data")) if public_data is None else public_data
-    n = int(res["n_samples"])
     res.update(id=f"sc-{name}", kind="showcase", title=title or res.get("title") or name, description=description,
                public_data=pub, created=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                packaged_from=job.name)
     res.pop("forked_from", None)
+    cost = dict(res.get("cost") or {})
+    cost["source"] = "measured in the live run"
+    cost.pop("estimated", None)
+    if not cost.get("ledger_usd"):
+        cost.pop("ledger_usd", None)
+    res["cost"] = cost
     if calms21:
         res["dataset"] = CALMS21
-    if expert_labels:
-        res["expert"] = expert_record(expert_labels, res["behaviors"]["names"], n, float(res["fps"]), expert_start_s)
+    if expert:
+        res["expert"] = expert
     res["audit_note"] = (f"Packaged from a live run of the web app (job {job.name}). Timings, per-call costs, prompts "
                          "and answers are the ones recorded during that run; the ledger reconciliation below counts "
                          "only rows booked under this showcase's own id, so it shows 0 here.")
@@ -92,9 +103,13 @@ def main(argv: list[str] | None = None) -> None:
                     help="mark as public data (forks may use -contributor models; default: as the job was run)")
     ap.add_argument("--expert-labels", type=Path, help="optional labels .npz for an 'Expert (CalMS21)' row")
     ap.add_argument("--expert-start-s", type=float, default=0.0)
+    ap.add_argument("--expert-seq", help="CalMS21 sequence the labels belong to (checked against the splits file)")
+    ap.add_argument("--allow-test-split", action="store_true",
+                    help="allow an expert row for a TEST-split sequence (display only; prints a loud note)")
     a = ap.parse_args(argv)
     out = package(a.job, a.name, a.out, title=a.title, description=a.description, public_data=a.public_data,
-                  calms21=a.calms21, expert_labels=a.expert_labels, expert_start_s=a.expert_start_s)
+                  calms21=a.calms21, expert_labels=a.expert_labels, expert_start_s=a.expert_start_s,
+                  expert_seq=a.expert_seq, allow_test=a.allow_test_split)
     res = json.loads((out / "result.json").read_text())
     print(f"showcase written to {out} ({res['timing']['wall_s']} s wall, ${res['cost']['total_usd']} model cost; "
           f"not copied: {NOT_COPIED})")

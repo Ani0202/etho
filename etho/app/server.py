@@ -164,7 +164,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
 
     def snap(j: Job) -> dict:
         """A job snapshot for the browser: five phases and a plain-language failure message."""
-        return PG.view(manager.snapshot(j), FRIENDLY)
+        return PG.view(manager.snapshot(j), FRIENDLY, cfg.public)
 
     def who(request: Request) -> str:
         return client_key(request.client.host if request.client else None)
@@ -499,7 +499,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         if res is None:
             if j is None:
                 return err(404, "not_found", "no such project")
-            return {"id": pid, "status": j.status, "job": snap(j), "error": j.error}
+            return {"id": pid, "status": j.status, "job": snap(j), "error": None if cfg.public else j.error}
         versions = [res["versions"][0]] + [r for n in p.revision_numbers() if (r := p.revision(n))]
         active = manager.active_for(pid)
         last_rev = [x for x in manager.jobs.values() if x.project_id == pid and x.kind == "revise"]
@@ -599,7 +599,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         if sample_meta() is None:
             return err(404, "not_found", "no sample clip on this machine")
         return FileResponse(cfg.sample_dir / SAMPLE_FILE, media_type="video/mp4", filename=SAMPLE_FILE,
-                            headers={"Cache-Control": "no-cache"})
+                            headers={"Cache-Control": "public, max-age=3600"})
 
     @app.post("/api/projects/{pid}/revise")
     async def api_revise(pid: str, request: Request):

@@ -56,7 +56,7 @@ const fmt = {
     if (sec < 60) return sec.toFixed(sec < 10 ? 1 : 0) + " s";
     return Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
   },
-  clock(sec) { sec = Math.max(0, sec); return Math.floor(sec / 60) + ":" + (sec % 60).toFixed(1).padStart(4, "0"); },
+  clock(sec) { return clockText(sec); },
   mb(bytes) { return (bytes / 1e6).toFixed(1) + " MB"; },
   x(v) { return v === null || v === undefined ? "n/a" : v.toFixed(v < 10 ? 2 : 1) + "×"; },
 };
@@ -84,9 +84,9 @@ const SRC_LABEL = { seed: "reused: benchmark detector", cache: "reused: earlier 
 
 /* "m:ss.t" for the elapsed-time clock. */
 function clockText(sec) {
-  sec = Math.max(0, sec);
-  const m = Math.floor(sec / 60), r = sec - 60 * m;
-  return `${m}:${r.toFixed(1).padStart(4, "0")}`;
+  const t = Math.round(Math.max(0, sec) * 10);       // round to tenths first, then split: 59.96 s is 1:00.0, never 0:60.0
+  const m = Math.floor(t / 600);
+  return `${m}:${((t - 600 * m) / 10).toFixed(1).padStart(4, "0")}`;
 }
 
 const FALLBACK_FAILURE = "Scoring this video did not finish, so there is no result for it. The precomputed showcase runs stay open.";
@@ -127,7 +127,7 @@ function progressCard(jobId, onEnd, opts) {
     list.replaceChildren(...phases.map((p, i) => h("li", { class: p.status },
       h("span", { class: `dot ${p.status}`, title: PH_LABEL[p.status] || p.status }),
       h("span", { class: "ph" }, `${i + 1}. ${p.label}`),
-      h("span", { class: "msg", title: p.message }, p.message),
+      h("span", { class: "msg" }, p.status === "failed" ? "did not finish" : p.message),
       h("span", { class: "state" }, PH_LABEL[p.status] || p.status),
       h("span", { class: "num" }, p.status === "pending" ? "" : fmt.time(p.elapsed_s)),
       h("span", { class: "num cost" }, p.status === "pending" ? "" : fmt.usd(p.cost_usd)))));

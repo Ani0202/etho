@@ -65,7 +65,7 @@ decided the label. `?present=1` enlarges everything for recording (`?present=0` 
 Sample clip for judges. `scripts/make_sample_clip.py` cuts 60 s from a CalMS21 sequence of the **dev** split
 (`eval/splits/calms21_v1.json`, read only; any other sequence is refused) with ffmpeg into `data/app/sample/` (gitignored). The home
 page offers it for download next to the dataset authors' behavior definitions, with the attribution "Clip from CalMS21 (Sun et al.
-2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. A judge with the access
+2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. A judge with the access
 code uploads it and gets a full run in about 90 s.
 
 Packaging a real app run as a showcase (after the lead's paid run; no model call, no spend):

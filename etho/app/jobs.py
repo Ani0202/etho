@@ -14,6 +14,7 @@ the job started), and a job's total time is job end minus job start, never the s
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 import uuid
@@ -39,6 +40,9 @@ TERMINAL = ("done", "failed", "cancelled")
 # Consecutive stages that run concurrently: the first name starts the group, the others join it. Model-call
 # cost during a group is attributed to the first stage (the others make no model calls).
 PARALLEL_GROUPS = (("report", "overlay"),)
+
+
+log = logging.getLogger("etho.app")
 
 
 class QueueFull(Exception):
@@ -75,6 +79,7 @@ class Job:
     run_s: float = 0.0           # wall-clock from start to end (queue wait excluded)
     outcome: str | None = field(default=None, repr=False)   # terminal status, applied by the worker
     error: str | None = None
+    error_code: str | None = None   # machine code: daily_cap | total_cap | budget | killed | cancelled | failed
     message: str = ""
     cost_usd: float = 0.0
     version: int = 0
@@ -84,7 +89,8 @@ class Job:
     def to_disk(self) -> dict:
         return {"id": self.id, "project_id": self.project_id, "kind": self.kind, "rev": self.rev,
                 "status": self.status, "est_cost_usd": self.est_cost_usd, "params": self.params,
-                "created_at": self.created_at, "run_s": self.run_s, "error": self.error, "message": self.message,
+                "created_at": self.created_at, "run_s": self.run_s, "error": self.error, "error_code": self.error_code,
+                "message": self.message,
                 "cost_usd": self.cost_usd,
                 "stages": [{k: v for k, v in vars(s).items() if k != "started"} for s in self.stages]}
 
@@ -93,6 +99,7 @@ class Job:
         j = cls(d["id"], d["project_id"], d["kind"], path, d.get("rev"),
                 [Stage(**s) for s in d.get("stages", [])], d["status"], d.get("est_cost_usd", 0.0),
                 d.get("params", {}), d.get("created_at", 0.0))
+        j.error_code = d.get("error_code")
         j.run_s, j.error, j.message, j.cost_usd = d.get("run_s", 0.0), d.get("error"), d.get("message", ""), \
             d.get("cost_usd", 0.0)
         return j
@@ -163,7 +170,7 @@ class JobManager:
                 continue
             j = Job.from_disk(d, p.parent)
             if j.status not in TERMINAL:
-                j.status, j.error = "failed", "interrupted by an app restart"
+                j.status, j.error, j.error_code = "failed", "interrupted by an app restart", "failed"
                 for s in j.stages:
                     if s.status in ("running", "pending"):
                         s.status = "failed" if s.status == "running" else "pending"
@@ -318,7 +325,8 @@ class JobManager:
                 "n_stages": len(job.stages), "message": (cur.message if cur and cur.message else job.message),
                 "elapsed_s": round((now - job.started_mono) if running else job.run_s, 1),
                 "queue_position": self.queue_position(job), "cost_usd": round(self.job_cost(job), 4),
-                "est_cost_usd": job.est_cost_usd, "error": job.error, "stages": stages, "version": job.version}
+                "est_cost_usd": job.est_cost_usd, "error": job.error, "error_code": job.error_code, "stages": stages,
+                "version": job.version}
 
     def _touch_locked(self, job: Job) -> None:
         job.version += 1
@@ -375,7 +383,8 @@ class JobManager:
             try:
                 self._run(job)
             except Exception as e:  # never let the worker die
-                job.outcome, job.error = "failed", f"{type(e).__name__}: {e}"[:500]
+                log.exception("job %s failed outside a stage", job.id)
+                job.outcome, job.error, job.error_code = "failed", f"{type(e).__name__}: {e}"[:500], "failed"
             finally:
                 # elapsed time and cost are fixed before the terminal status becomes visible, so a client
                 # never sees a finished job with a smaller elapsed time than it saw while running
@@ -404,12 +413,12 @@ class JobManager:
         # The caps were checked and the job's ceiling reserved at submission; check again now that it actually starts
         # (jobs queue, and other spending may have used the room). The ceiling is what was reserved, or less.
         if self.stopped_by_operator():
-            job.outcome, job.message = "cancelled", "stopped: live use was switched off"
+            job.outcome, job.message, job.error_code = "cancelled", "stopped: live use was switched off", "killed"
             return
         try:
             ceiling = self.guard.recheck_at_start(job.id, job.est_cost_usd)
         except Refused as e:
-            job.outcome, job.error = "failed", e.message
+            job.outcome, job.error, job.error_code = "failed", e.message, e.code
             return
         gw = JobGateway(self._gw, job_id=job.id, tag=self.cfg.tag, calls_path=outdir / "calls.jsonl",
                         on_cost=lambda _c: self.touch(job), max_cost_usd=ceiling,
@@ -433,6 +442,7 @@ class JobManager:
         for group in stage_groups(job.stages):
             if job.cancel_requested or self.stopped_by_operator():
                 job.outcome, job.message = "cancelled", "cancelled"
+                job.error_code = "killed" if self.stopped_by_operator() else "cancelled"
                 return
             gw.stage = group[0].name
             if len(group) == 1:
@@ -488,14 +498,17 @@ class JobManager:
             st.message = "cancelled"
             job.outcome = job.outcome or "cancelled"
             job.message = "cancelled"
+            job.error_code = job.error_code or ("killed" if self.stopped_by_operator() else "cancelled")
         elif isinstance(e, JobBudgetExceeded):
+            log.warning("job %s stage %s hit its spend ceiling: %s", job.id, st.name, e)
             st.message = str(e)
             if job.outcome is None:
-                job.outcome, job.error = "failed", f"{st.name}: {e}"
+                job.outcome, job.error, job.error_code = "failed", f"{st.name}: {e}", "budget"
         else:
+            log.error("job %s stage %s failed", job.id, st.name, exc_info=(type(e), e, e.__traceback__))
             msg = f"{st.name}: {type(e).__name__}: {e}"[:600]
             st.message = msg
             if job.outcome is None:
-                job.outcome, job.error = "failed", msg
+                job.outcome, job.error, job.error_code = "failed", msg, "failed"
         self._persist(job)
         self.touch(job)
