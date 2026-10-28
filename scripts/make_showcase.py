@@ -7,7 +7,10 @@
 
 Writes data/showcase/<name>/ in the same layout the app uses for a finished job, so the app shows it with
 zero spend (the overlay video is rendered here from the stored RLE masks; no model is called). The output stays
-gitignored: it contains dataset video. Product code reads no labels; neither does this script.
+gitignored: it contains dataset video. Product code reads no labels; this script reads one only when it is handed
+--expert-labels (a display-only comparison row).
+To package a finished run of the web app itself (real timings, prompts, planner steps, per-call costs), use
+scripts/package_job_showcase.py instead.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from etho.app import behaviors as B  # noqa: E402
 from etho.app.overlay import render_overlay  # noqa: E402
+from etho.app.packaging import expert_record  # noqa: E402
 from etho.app.store import write_json  # noqa: E402
 from etho.gateway import prices  # noqa: E402
 from etho.tracking.pipeline import prepare_chunks  # noqa: E402
@@ -58,6 +62,10 @@ def main() -> None:
     ap.add_argument("--title")
     ap.add_argument("--description", default="")
     ap.add_argument("--out", type=Path, default=Path("data/showcase"))
+    ap.add_argument("--expert-labels", type=Path,
+                    help="optional labels .npz (key `labels`, 10 fps codes in behavior order) drawn as an "
+                         "'Expert (CalMS21)' row under Etho's; display only. Use only for dev-split sequences")
+    ap.add_argument("--expert-start-s", type=float, default=0.0, help="offset of the video inside the labels")
     ap.add_argument("--no-public-data", action="store_true",
                     help="mark the run as non-public data (revisions then use Standard models)")
     a = ap.parse_args()
@@ -162,6 +170,7 @@ def main() -> None:
         "cost": {"total_usd": round(sum(rec_costs.values()), 4), "ledger_usd": None, "by_stage": rec_costs,
                  "estimated": True},
         "warnings": [],
+        **({"expert": expert_record(a.expert_labels, names, n, FPS, a.expert_start_s)} if a.expert_labels else {}),
         "audit_note": "Precomputed run: prompts and responses were not captured, so the audit shows each model "
                       "call's recorded token usage and the detector code. Costs are list-price estimates from "
                       "recorded usage."})

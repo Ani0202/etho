@@ -4,7 +4,7 @@
   const root = document.getElementById("root");
   const cfgP = loadHeader();
 
-  const S = { proj: null, ver: 0, sel: null, pending: [], progress: null, seekAfterLoad: 0 };
+  const S = { proj: null, ver: 0, sel: null, pending: [], progress: null, seekAfterLoad: 0, trace: {}, traceShown: null };
 
   function fail(msg) { root.replaceChildren(h("div", { class: "card" }, h("h1", {}, "Not available"), h("p", { class: "sub" }, msg), h("a", { class: "btn", href: "/" }, "Home"))); }
 
@@ -38,7 +38,7 @@
   function render() {
     const p = P();
     root.replaceChildren(
-      header(), tiles(), playerCard(), h("div", { class: "grid2", style: { marginBottom: "16px" } }, metricsCard(), stagesCard()),
+      header(), tiles(), plannerCard(), playerCard(), h("div", { class: "grid2", style: { marginBottom: "16px" } }, metricsCard(), stagesCard()),
       correctionsCard(), compareCard(), reportCard(), auditCard());
     if (S.progress) document.getElementById("rev-slot").replaceChildren(S.progress);
   }
@@ -71,6 +71,75 @@
         h("div", { class: "s" }, TXT().tile_sub)));
   }
 
+// ---- planner card: what the perception planner proposed and what SAM 3.1 found for each phrase
+  function plannerCard() {
+    const pl = P().planner;
+    const card = h("div", { class: "card planner", id: "planner" }, h("h2", {}, "Perception plan: how the animals were found"));
+    if (!pl || !pl.ran) {
+      card.append(h("p", { class: "sub", style: { margin: 0 } }, (pl && pl.note) || "planner not run for this precomputed showcase"));
+      return card;
+    }
+    const exp = pl.expected_count;
+    const frames = c => c.length ? c.join(", ") : "n/a";
+    const rows = pl.phrases.map(r => h("tr", { class: r.chosen ? "chosen" : "" },
+      h("td", {}, r.rank), h("td", { class: "l" }, h("strong", {}, `"${r.phrase}"`)),
+      h("td", { class: "l" }, r.image_counts ? `${frames(r.image_counts)} found on ${r.image_counts.length} frames` + (r.image_frames_ok !== null ? ` (${r.image_frames_ok} of ${r.image_counts.length} frames had ${exp})` : "") : "not checked"),
+      h("td", { class: "l" }, r.probe_frac !== null ? `${Math.round(100 * r.probe_frac)}% of ${r.probe_frames} probe frames had ${exp}` + (r.probe_frac >= pl.probe_pass_frac ? " (passes)" : " (below 90%)") : "not probed"),
+      h("td", { class: "l" }, r.chosen ? h("span", { class: "chip pick" }, "CHOSEN") : "")));
+    card.append(
+      h("p", { class: "sub", style: { margin: "0 0 8px" } }, `Muse Spark proposed these phrases; SAM 3.1 checked each one. Expected animals: ${exp}` + (pl.animals ? ` (Muse Spark saw: ${pl.animals})` : "") + "."),
+      h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "#"), h("th", { class: "l" }, "phrase (Muse Spark's order)"), h("th", { class: "l" }, "SAM 3.1 image check (animals found per frame)"),
+        h("th", { class: "l" }, "SAM 3.1 video probe (5 s)"), h("th", { class: "l" }, ""))), h("tbody", {}, rows)),
+      h("div", { class: "facts" },
+        h("div", {}, h("span", { class: "k" }, "Chosen phrase"), h("strong", {}, `"${pl.chosen}"`), pl.fallback ? " (no phrase passed the probe; the best image-check phrase was used)" : ""),
+        h("div", {}, h("span", { class: "k" }, "Identity cue"), pl.identity_cue || "n/a"),
+        h("div", {}, h("span", { class: "k" }, "Identity method"), pl.identity_method === "intensity" ? "intensity (animals told apart by brightness)" : pl.identity_method === "persistence" ? "persistence (track identity carried through the video)" : (pl.identity_method || "n/a")),
+        h("div", {}, h("span", { class: "k" }, "Planner cost"), fmt.usd(pl.cost_usd), pl.model ? ` (${pl.model} plus the SAM checks)` : "")),
+      h("div", { class: "hint" }, "Which phrase is used is decided by the SAM counts above (a fixed rule: the video probe must show the expected count in at least 90% of frames), not by another model call."));
+    return card;
+  }
+
+  // ---- bout trace: rule result, frame-strip verdicts, and which step decided the label
+  async function loadTrace(v) {
+    if (S.trace[v]) return S.trace[v];
+    try { S.trace[v] = await api(`/api/projects/${encodeURIComponent(pid)}/trace?v=${v}`); } catch (e) { S.trace[v] = { windows: [], counts: {} }; }
+    return S.trace[v];
+  }
+  function marksFor(tr) {
+    const out = [];
+    for (const [s0, s1, rl, lab, conf, dec] of (tr.windows || [])) {
+      if (dec !== "restriction") continue;
+      const b = names().includes(rl) ? rl : names().includes(lab) ? lab : null;
+      if (b) out.push({ behavior: b, s0, s1, text: `Tier 1 said "${lab}" for ${(s0 / fps()).toFixed(1)}-${(s1 / fps()).toFixed(1)} s (confidence ${conf}); set aside by the restriction. Click for the trace.` });
+    }
+    return out;
+  }
+  async function showTrace(b, s0, s1) {
+    const box = document.getElementById("selbox");
+    if (!box) return;
+    box.replaceChildren(h("div", { class: "trace" }, h("div", { class: "sub" }, "Loading the trace...")));
+    let t;
+    try { t = await api(`/api/projects/${encodeURIComponent(pid)}/trace?v=${S.ver}&behavior=${encodeURIComponent(b)}&s0=${s0}&s1=${s1}`); }
+    catch (e) { box.replaceChildren(h("div", { class: "trace err" }, e.message)); return; }
+    const step = (n, title, ...kids) => h("div", { class: "tstep" }, h("div", { class: "tn" }, n), h("div", {}, h("div", { class: "tt" }, title), ...kids));
+    const rule = t.rule_result;
+    const t1 = t.tier1.length ? t.tier1.map(v => {
+      const img = h("img", { class: "thumb", alt: "frame strip shown to the tier-1 model", loading: "lazy", src: `/api/projects/${encodeURIComponent(pid)}/strip/${v.strip}` });
+      img.onerror = () => img.replaceWith(h("div", { class: "hint" }, "Strip image not stored for this window."));
+      const tag = v.decision === "applied" ? "APPLIED" : v.decision === "restriction" ? "SET ASIDE BY THE RESTRICTION" : "SET ASIDE";
+      return h("div", { class: "verdict " + v.decision },
+        h("div", {}, h("span", { class: "chip" }, tag), ` window ${(v.s0 / fps()).toFixed(1)}-${(v.s1 / fps()).toFixed(1)} s: rules said "${v.rule_label}", tier 1 said "${v.label}" (confidence ${v.confidence})`),
+        v.reason ? h("div", { class: "sub" }, `Tier-1 reason: ${v.reason}`) : null, h("div", {}, v.decision_text), img);
+    }) : [h("div", { class: "sub" }, "No tier-1 window touched this bout: it was clear enough for the rules alone.")];
+    box.replaceChildren(h("div", { class: "trace", "aria-live": "polite" },
+      h("h3", { style: { marginTop: 0 } }, `Trace: ${t.behavior} ${fmt.clock(t.start_s)} to ${fmt.clock(t.end_s)} (${S.ver ? "revision " + S.ver : "original rules"})`),
+      step("1", "Rule result", h("div", {}, rule.flagged ? `The rule detector flagged ${t.behavior} here` + (rule.exact ? " (the same bout)." : ` (${rule.bouts.map(r => `${(r[0] / fps()).toFixed(1)}-${(r[1] / fps()).toFixed(1)} s`).join(", ")}).`) : `The rule detector did not flag ${t.behavior} in this window.`)),
+      step("2", "Frame-strip check (Muse Spark Open, low effort)", ...t1),
+      step("3", "Decided by", h("div", { class: "decided" }, h("strong", {}, t.decided_by === "tier1" ? "Frame-strip check. " : "Rules. "), t.summary + ".")),
+      h("button", { class: "link", onclick: () => box.replaceChildren() }, "close trace")));
+    box.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
   // ---- player + ethogram
   let video, etho;
   function playerCard() {
@@ -93,8 +162,8 @@
           ...names().map(b => h("div", { style: { marginBottom: "8px", fontSize: "13px" } },
             h("span", { class: "sw", style: { background: colorVar(cidx()[b]) } }), " ", h("strong", {}, b), ": ", P().behaviors.definitions[b])))),
       h("div", { id: "etho-slot", style: { marginTop: "12px" } }),
-      h("div", { class: "hint" }, "Click a bout to jump to it in the video. Click empty space on the timeline to seek. ",
-        "Grey marks under a row are rule-level bouts that the tier-1 check removed or changed."),
+      h("div", { class: "hint" }, "Click a bout to jump to it in the video and see its trace: the rule result, the frame-strip verdict and which step decided the label. Click empty space on the timeline to seek. ",
+        "Grey marks under a row are rule-level bouts that the tier-1 check removed or changed. A triangle marks a tier-1 verdict that was set aside by the restriction."),
       selBox);
     queueMicrotask(drawEtho);
     return card;
@@ -106,12 +175,15 @@
     etho = ethogram({
       names: names(), colorIdx: cidx(), bouts: V().bouts, ruleBouts: V().rule_bouts, n: P().n_samples, fps: fps(),
       selected: S.sel, pending: S.pending.map(c => ({ behavior: c.behavior, s0: c.start_s * fps(), s1: c.end_s * fps(), label: c.text })),
-      onBout: (b, s0, s1) => { S.sel = { behavior: b, s0, s1 }; seek(s0 / fps(), true); drawEtho(); drawSel(); },
+      expert: P().expert || null, marks: marksFor(S.trace[S.ver] || {}),
+      onBout: (b, s0, s1) => { S.sel = { behavior: b, s0, s1 }; seek(s0 / fps(), true); drawEtho(); drawSel(); showTrace(b, s0, s1); },
+      onMark: (b, s0, s1) => { seek(s0 / fps(), false); showTrace(b, s0, s1); },
       onSeek: t => seek(t, false),
     });
     slot.replaceChildren(etho);
     etho.setTime(video ? video.currentTime : 0);
     drawSel();
+    if (!S.trace[S.ver]) { const v = S.ver; loadTrace(v).then(() => { if (v === S.ver) drawEtho(); }); }   // adds the set-aside marks
   }
   function seek(t, play) { if (!video) return; video.currentTime = t; if (play) video.play().catch(() => {}); }
 

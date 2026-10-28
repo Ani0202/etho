@@ -114,8 +114,8 @@ video { width: 100%; border-radius: 8px; background: #000; display: block; max-h
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend i { display: inline-block; width: 14px; height: 0; border-top: 3px solid; }
 .etho svg { display: block; width: 100%; height: auto; }
-.etho text { fill: var(--text-primary); font-size: 12px; font-family: inherit; }
-.etho .axis text { fill: var(--muted); font-size: 11px; }
+.etho text { fill: var(--text-primary); font-family: inherit; }
+.etho .axis text { fill: var(--text-secondary); }
 .etho rect.bout { cursor: pointer; }
 .etho rect.bout:hover { filter: brightness(1.12); }
 .etho rect.sel { stroke: var(--text-primary); stroke-width: 2; }
@@ -136,3 +136,48 @@ iframe.report { width: 100%; border: 1px solid var(--line); border-radius: 8px; 
 .sr { position: absolute; left: -9999px; }
 .thumb { max-width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-top: 6px; }
 footer { max-width: 1120px; margin: 0 auto; padding: 8px 24px 40px; color: var(--muted); font-size: 12px; }
+
+/* ---- progress: phases and the elapsed-time clock */
+.clock-row { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+.clock-row .grow { flex: 1; min-width: 260px; }
+.clock { font-size: 64px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.clock.live { color: var(--text-primary); }
+.clock-cap { font-size: 13px; color: var(--text-secondary); }
+.status-big { font-size: 20px; font-weight: 600; line-height: 1.3; }
+.progress-meta { color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.stages.phases li { grid-template-columns: 22px 150px 1fr 96px 70px 64px; font-size: 15px; padding: 8px 0; }
+.stages.phases .ph { font-weight: 600; }
+.stages.phases .state { color: var(--text-secondary); font-size: 13px; text-align: right; }
+.stages.phases li.pending .ph, .stages.phases li.pending .msg { color: var(--muted); }
+.stages.phases .msg { white-space: normal; overflow: visible; }
+.note.fail { font-size: 15px; margin: 12px 0 0; }
+@media (max-width: 700px) { .clock { font-size: 44px; } .stages.phases li { grid-template-columns: 22px 110px 1fr 60px; } .stages.phases li .state, .stages.phases li .cost { display: none; } }
+/* ---- planner card */
+.planner table { font-size: 14px; }
+.planner tr.chosen td { background: var(--grid); font-weight: 600; }
+.chip.pick { font-weight: 700; color: var(--text-primary); border-color: var(--text-primary); }
+.planner .facts { margin: 12px 0 0; display: grid; gap: 4px; font-size: 14px; }
+.planner .facts .k { display: inline-block; min-width: 130px; color: var(--text-secondary); }
+/* ---- ethogram polish, trace */
+.etho rect.static { cursor: default; }
+.etho path.mark { fill: var(--warn-text); stroke: var(--surface-1); stroke-width: 1.5; cursor: pointer; }
+.etho path.mark:focus-visible { outline: 2px solid var(--accent); }
+.trace { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 12px 0 0; font-size: 15px; }
+.tstep { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid var(--grid); }
+.tn { font-weight: 700; color: var(--text-secondary); }
+.tt { font-weight: 600; margin: 0 0 4px; }
+.verdict { border-left: 4px solid var(--line); padding: 4px 0 4px 10px; margin: 6px 0; }
+.verdict.restriction { border-left-color: var(--warn-text); background: var(--warn-bg); }
+.verdict.applied { border-left-color: var(--ok); }
+.verdict .thumb { max-height: 150px; }
+.decided { font-size: 16px; }
+/* ---- sample clip */
+.sample .attr { font-weight: 600; }
+.sample dl { margin: 8px 0 0; }
+.sample dt { font-weight: 700; margin-top: 8px; }
+.sample dd { margin: 2px 0 0; color: var(--text-secondary); font-size: 14px; }
+/* ---- presentation mode (?present=1): everything larger for screen recording */
+html.present body { zoom: 1.3; }
+html.present .clock { font-size: 96px; }
+html.present main { max-width: 1400px; }
+a.present-toggle { font-size: 12px; color: var(--muted); }

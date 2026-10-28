@@ -40,7 +40,9 @@ response on disk, and logs each call to `ops/spend.jsonl`. `bin/spend` prints to
 
 ```bash
 bin/app                         # http://127.0.0.1:8000 (localhost only; --host / --port to change)
-uv run python scripts/make_showcase.py --help   # package an existing run as a zero-spend showcase
+uv run python scripts/make_showcase.py --help   # package an existing pipeline run as a zero-spend showcase
+uv run python scripts/make_sample_clip.py       # cut the 60 s CalMS21 dev-split sample clip into data/app/sample/
+uv run python scripts/package_job_showcase.py --help   # package a finished app job as a showcase (real timings)
 uv run python -m tests.mock_server              # the real app on synthetic stages and a fake gateway (no spend)
 ```
 
@@ -49,6 +51,35 @@ spent), edit the behavior definitions, and watch the job stream stage by stage. 
 with the ethogram, per-stage time and cost, the end-to-end speed as a multiple of the video's duration, and the audit
 trail. Mark wrong or missed bouts and "Revise rules" to see what changed. Trying the correction loop on a showcase
 makes you a private copy first; the showcase itself never changes.
+
+The results page opens with a perception-plan card (the phrases Muse Spark proposed, SAM 3.1's image-check counts and video-probe
+result for each, the chosen phrase, identity cue and method, planner cost; precomputed showcases that skipped the planner say so).
+While a job runs the page shows five phases (plan, tracking, rules, frame-strip check, report), a status line per phase and a
+large elapsed-time clock counted from the job's own start. A refused or failed job shows a plain sentence and a link to the
+showcases, never an error text. The ethogram is laid out for a shared screen at 150% zoom (behaviors are told apart by label and
+fill pattern, not colour alone), can show an "Expert (CalMS21)" row on the same time axis, and clicking a bout opens its trace:
+the rule result, each frame-strip verdict that touched it and how it was treated (applied, set aside as unsure or low
+confidence, or set aside by the restriction that lets tier 1 change a window only to investigation or none), and which step
+decided the label. `?present=1` enlarges everything for recording (`?present=0` turns it off).
+
+Sample clip for judges. `scripts/make_sample_clip.py` cuts 60 s from a CalMS21 sequence of the **dev** split
+(`eval/splits/calms21_v1.json`, read only; any other sequence is refused) with ffmpeg into `data/app/sample/` (gitignored). The home
+page offers it for download next to the dataset authors' behavior definitions, with the attribution "Clip from CalMS21 (Sun et al.
+2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. A judge with the access
+code uploads it and gets a full run in about 90 s.
+
+Packaging a real app run as a showcase (after the lead's paid run; no model call, no spend):
+
+```bash
+uv run python scripts/package_job_showcase.py --job data/app/jobs/<job id> --name calms21-live-run \
+    --title "CalMS21 dev clip, scored live" --description "..." --calms21 [--public-data] \
+    [--expert-labels <labels.npz> --expert-start-s <offset in the labels>]
+```
+
+It copies the job's own files into `data/showcase/<name>/` and keeps its real per-stage timings, wall-clock time, per-call costs and
+ledger total, the planner steps (`plan.json`) and every call's prompt and answer (`calls.jsonl`), so the page shows measured speed and
+cost and the planner card instead of "planner skipped / speed n/a / prompts not captured". Restart the app (or just reload) and the
+showcase appears on the home page. `--expert-labels` is optional, display only, and for dev-split sequences.
 
 Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
 - gateway tag (`dev` now; the live demo uses `ETHO_APP_TAG=demo-reserve`);

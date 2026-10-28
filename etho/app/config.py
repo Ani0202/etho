@@ -176,6 +176,11 @@ class AppConfig:
         return self.data_root or self.root / "data" / "app"
 
     @property
+    def sample_dir(self) -> Path:
+        """The sample clip for judges (scripts/make_sample_clip.py), served read-only."""
+        return self.data_dir / "sample"
+
+    @property
     def work_dir(self) -> Path:
         return self.work_root or self.data_dir / "work"
 

@@ -149,5 +149,7 @@ def list_showcases(cfg: AppConfig) -> list[dict]:
                     "behaviors": r.get("behaviors", {}).get("names", []),
                     "metrics": r.get("versions", [{}])[0].get("metrics", {}),
                     "cost_usd": r.get("cost", {}).get("total_usd"),
+                    "cost_estimated": bool(r.get("cost", {}).get("estimated")),
+                    "wall_s": (r.get("timing") or {}).get("wall_s"),
                     "dataset": r.get("dataset")})
     return out
