@@ -77,6 +77,36 @@ summarizes it.
 
 UI wording is configurable: `ETHO_APP_TAGLINE`, `ETHO_APP_TILE_TITLE`, `ETHO_APP_TILE_VALUE`, `ETHO_APP_TILE_SUB`.
 
+## Second species: Fly vs. Fly (qualitative)
+
+Etho was pointed at Caltech's Fly vs. Fly aggression videos (CC0). It used the same pipeline, with SAM 3.1
+phrase "fruit fly" and one-sentence definitions of wing threat and lunge quoted from Chen et al. 2002 (PNAS,
+Table 1). Muse Spark wrote the detectors; no threshold was hand-written.
+
+**Result: qualitative only.**
+- **The gate:** the pre-registered wing-threat check on the five training movies (EVAL_PLAN §14, ADR-004)
+  needed F1 ≥ 0.40 and a bootstrap CI lower bound above the random reference.
+- **What it measured:** pooled F1 was 0.584, but the CI lower bound was 0.009, below the reference of 0.043.
+  Movies 2 and 4 scored 0.91 and 0.77; movies 3 and 5 had many false wing-threat frames.
+- **What follows:** under the frozen protocol, no fly F1 is claimed and the fly test set was never run.
+- **Scoring:** a frame counts if either fly performs the behavior (pair-level), because the two flies look
+  identical.
+
+**Numbers on training movies.** These are training movies 1-5 (1-2 were used for tuning), not a test result;
+all files are in `eval/results/`.
+
+| | Etho | Simple baseline, same frames |
+|---|---|---|
+| Wing threat, frame F1 (train 1-5) | 0.584 | mask-width threshold 0.756 |
+| Wing threat, spare movies 3-5 only | 0.349 | 0.515 |
+| Lunge, frame F1 (train 1-5) | 0.319 | speed-toward-partner threshold 0.138 |
+| Lunge, spare movies 3-5 only | 0.347 | 0.136 |
+
+- **Baselines:** both thresholds were tuned on dev movies 1-2. The mask-width baseline's dev F1 of 0.989 is
+  in-sample, on 6 bouts in one movie, picked from 540 settings.
+- **Published supervised results** (Eyjolfsdottir et al. 2014): computed per fly on full movies, so not
+  directly comparable.
+
 ## What we learned about Meta's models
 
 Measured during the event. Each claim links to the committed evidence.

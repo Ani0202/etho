@@ -57,7 +57,7 @@ hour of video; slide footnote)
 > dollars per hour of video. Our biggest surprise: Muse Spark Open, glancing at six frames at its lowest
 > effort, added 0.2 F1.
 
-**2:30-2:45, second species** (GO or NO-GO version, per the pre-registered gate)
+**2:30-2:45, second species** (NO-GO version applies: the pre-registered wing gate failed on 2026-10-28, see eval/flies_decision.json. Qualitative clip, no F1 on screen)
 > GO: Same pipeline, new animal: Caltech's fighting fruit flies, with wing threat defined in one sentence from
 > the literature. No retraining. ⟨F1, shown next to the simple width-threshold baseline⟩.
 > NO-GO: Same pipeline, new animal: fruit flies, scored from a one-sentence definition with no retraining. This
