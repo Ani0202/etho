@@ -1,0 +1,51 @@
+{
+ "status": "PROPOSED",
+ "doc": "docs/EVAL_PLAN.md section 14.6-14.7. Evaluated mechanically by eval/flies_score.py. 'ref' = prevalence-matched random reference of the SAME scored frames (frame F1: iid, expected F1 = pooled prevalence; bout F1: GT bouts shuffled to random positions, mean over 200 draws). point_min bar = max(times_ref * ref, ref + plus_ref). ci_lower_gt: 'ref' or a bar of the same form; the movie-bootstrap 95% CI lower bound must be strictly above it.",
+ "go_no_go": {
+  "wing_threat": {
+   "source": "Aniket 2026-10-28: if wing threat isn't clearly above the random floor on the training split by end of Oct 31 ET, ship it as a qualitative demo clip with no F1 claim",
+   "splits_allowed": ["train"],
+   "require_full_split": true,
+   "window_rule": "the window of the test configuration: mid5 @ 30 fps if lunge is GO, else mid10 @ 10 fps (decide lunge first)",
+   "point_min": {"times_ref": 2.0, "plus_ref": 0.15},
+   "ci_lower_gt": "ref",
+   "evidence": {"min_gt_bouts": 15, "min_movies_with_behavior": 3},
+   "deadline_et": "2026-10-31T23:59:59-04:00"
+  },
+  "lunge": {
+   "source": "ADR-002 (b): SAM sees 2 flies in >= 90% of samples AND rule bout-level recall >= 0.5 on train; evaluator adds the bout-F1 guard so that over-prediction cannot pass on recall alone",
+   "splits_allowed": ["dev", "train"],
+   "window": "mid5",
+   "sample_fps": 30,
+   "both_tracks_present_min": 0.90,
+   "bout_recall_min": 0.5,
+   "bout_f1": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
+   "evidence": {"min_gt_bouts": 30, "min_movies_with_behavior": 1}
+  }
+ },
+ "test_targets": {
+  "wing_threat": {
+   "evidence": {"min_gt_bouts": 10, "min_movies_with_behavior": 3},
+   "metrics": {
+    "frame_f1": {
+     "credible": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
+     "good": {"point_min": {"times_ref": 3.0, "plus_ref": 0.30}, "ci_lower_gt": {"times_ref": 2.0, "plus_ref": 0.15}}
+    }
+   }
+  },
+  "lunge": {
+   "only_if": "lunge go/no-go = GO",
+   "evidence": {"min_gt_bouts": 30, "min_movies_with_behavior": 3},
+   "metrics": {
+    "frame_f1": {
+     "credible": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
+     "good": {"point_min": {"times_ref": 3.0, "plus_ref": 0.30}, "ci_lower_gt": {"times_ref": 2.0, "plus_ref": 0.15}}
+    },
+    "bout_any_f1": {
+     "credible": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
+     "good": {"point_min": {"times_ref": 3.0, "plus_ref": 0.30}, "ci_lower_gt": {"times_ref": 2.0, "plus_ref": 0.15}}
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,321 @@
+{
+ "dataset": "Caltech Fly vs. Fly, Aggression subset",
+ "record": "https://data.caltech.edu/records/zrznw-w7386",
+ "doi": "10.22002/D1.1893",
+ "license": "CC0 1.0",
+ "paper": "Eyjolfsdottir, Branson, Burgos-Artizzu, Hoopfer, Schor, Anderson, Perona. Detecting Social Actions of Fruit Flies. ECCV 2014, LNCS 8690, doi:10.1007/978-3-319-10605-2_50",
+ "archive": {
+  "path": "data/flyvsfly/Aggression.zip",
+  "sha256": "4c66aab88517ea980d6fd78f7192cd440e70f55a6fa2739d008ad327d78f4498"
+ },
+ "split": {
+  "source": "traintest.mat (trainids / testids)",
+  "train": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "test": [
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
+  "dev": [
+   1,
+   2
+  ],
+  "spare_dev": [
+   3,
+   4,
+   5
+  ]
+ },
+ "native": {
+  "fps": 30,
+  "frames_per_movie": 54000,
+  "resolution": [
+   144,
+   144
+  ]
+ },
+ "windows": {
+  "mid5": {
+   "frames_half_open": [
+    22500,
+    31500
+   ],
+   "minutes": 5.0
+  },
+  "mid10": {
+   "frames_half_open": [
+    18000,
+    36000
+   ],
+   "minutes": 10.0
+  }
+ },
+ "index_convention": "actions.mat bouts are MATLAB 1-based inclusive [s, e]; python frames [s-1, e)",
+ "scored_behaviors": [
+  "wing_threat",
+  "lunge"
+ ],
+ "excluded_label": "unknown",
+ "test_seal": "test-movie actions/track/feat/second_actions were hashed (bytes) but not parsed before the flies test run",
+ "not_in_git": "raw video, .mat files and frames are never committed (data/ is gitignored)",
+ "files": {
+  "data/flyvsfly/Aggression/movie1/movie1.mp4": {
+   "movie": 1,
+   "kind": "video",
+   "split": "train",
+   "sha256": "13b6a74fd86e05431a02d51b90fe9e81da816f8276a43f3a528969163e8e2e26"
+  },
+  "data/flyvsfly/Aggression/movie1/movie1_actions.mat": {
+   "movie": 1,
+   "kind": "actions",
+   "split": "train",
+   "sha256": "dfb69d52d41ef79513d98b5950fb453bf2cd287f0791df8ba2d2b21be01d6927"
+  },
+  "data/flyvsfly/Aggression/movie1/movie1_feat.mat": {
+   "movie": 1,
+   "kind": "feat",
+   "split": "train",
+   "sha256": "90600afced46bc313dc7ba33d8b13878c3bb9a8b21396ca7456fe6a78ec58800"
+  },
+  "data/flyvsfly/Aggression/movie1/movie1_track.mat": {
+   "movie": 1,
+   "kind": "track",
+   "split": "train",
+   "sha256": "98fa9a40bca8b830f9df822f905f37bc86f2b4586385075ce4a32d64c40080fe"
+  },
+  "data/flyvsfly/Aggression/movie2/movie2.mp4": {
+   "movie": 2,
+   "kind": "video",
+   "split": "train",
+   "sha256": "3e4187cf84c91608a8108404766c83f5a271ebb4aba8f67572d569fa3128acdc"
+  },
+  "data/flyvsfly/Aggression/movie2/movie2_actions.mat": {
+   "movie": 2,
+   "kind": "actions",
+   "split": "train",
+   "sha256": "f228fc472f1343ed8ed3df4f3cfb7cb1a1fc48420a7915a1f0973b550a0ec230"
+  },
+  "data/flyvsfly/Aggression/movie2/movie2_feat.mat": {
+   "movie": 2,
+   "kind": "feat",
+   "split": "train",
+   "sha256": "d4e6ee20da92ee61df86272c0bce5eaf2a342f5a866ccb1f7b55012e7eed587f"
+  },
+  "data/flyvsfly/Aggression/movie2/movie2_track.mat": {
+   "movie": 2,
+   "kind": "track",
+   "split": "train",
+   "sha256": "21fc1570707331004179be6abca64c921410a2fc6ede94df6e6803bcbc0d5e84"
+  },
+  "data/flyvsfly/Aggression/movie3/movie3.mp4": {
+   "movie": 3,
+   "kind": "video",
+   "split": "train",
+   "sha256": "fb2f74ee54894f0b2271c05c0e80c8c1b4e55e60e7c4b3d5bd06425fbce116db"
+  },
+  "data/flyvsfly/Aggression/movie3/movie3_actions.mat": {
+   "movie": 3,
+   "kind": "actions",
+   "split": "train",
+   "sha256": "2ca1336da0a6d8c6a014fec08aec00c4844c800fe8d4c6570a4671b33a0a6e5f"
+  },
+  "data/flyvsfly/Aggression/movie3/movie3_feat.mat": {
+   "movie": 3,
+   "kind": "feat",
+   "split": "train",
+   "sha256": "b36ce8171eeb4c9349a456d50fb3009b1246940f04f5875dd0af75a8ca89bd18"
+  },
+  "data/flyvsfly/Aggression/movie3/movie3_track.mat": {
+   "movie": 3,
+   "kind": "track",
+   "split": "train",
+   "sha256": "c8edc60ca8046b00f08fe3819c53516f1c7f2a91d65ae1b710526490ec093068"
+  },
+  "data/flyvsfly/Aggression/movie4/movie4.mp4": {
+   "movie": 4,
+   "kind": "video",
+   "split": "train",
+   "sha256": "b1ae5d6a38e1e469f8f7c4b759b5879380845584585d36ecb31347d7dd557fc4"
+  },
+  "data/flyvsfly/Aggression/movie4/movie4_actions.mat": {
+   "movie": 4,
+   "kind": "actions",
+   "split": "train",
+   "sha256": "1228b7ce6ad1206bb5eb7d4c0f682d0d7bba69d7321f51f5d6ec2d51be3327c3"
+  },
+  "data/flyvsfly/Aggression/movie4/movie4_feat.mat": {
+   "movie": 4,
+   "kind": "feat",
+   "split": "train",
+   "sha256": "1e9e5eca4fec598a490af8f8518de430fe53a2c9f66505c33ee6d82dfe0bd60b"
+  },
+  "data/flyvsfly/Aggression/movie4/movie4_track.mat": {
+   "movie": 4,
+   "kind": "track",
+   "split": "train",
+   "sha256": "8a90f573babbbc91483d668109573448aa0d050373deb09646dd0a8aee88410b"
+  },
+  "data/flyvsfly/Aggression/movie5/movie5.mp4": {
+   "movie": 5,
+   "kind": "video",
+   "split": "train",
+   "sha256": "3e92c3b54a615afc0531bef1fd396fd283b01d7f0d15eaa7b2e9c404536cb783"
+  },
+  "data/flyvsfly/Aggression/movie5/movie5_actions.mat": {
+   "movie": 5,
+   "kind": "actions",
+   "split": "train",
+   "sha256": "2990a62c06eb9db624de6aab3157d4238ac301f57c7f0e3670fd51e6cce2301b"
+  },
+  "data/flyvsfly/Aggression/movie5/movie5_feat.mat": {
+   "movie": 5,
+   "kind": "feat",
+   "split": "train",
+   "sha256": "dd6b0d71696cf2e23cd21159de88736fc0227dd2fbf5efd0cac63aaef9f8c1d7"
+  },
+  "data/flyvsfly/Aggression/movie5/movie5_track.mat": {
+   "movie": 5,
+   "kind": "track",
+   "split": "train",
+   "sha256": "5bc84a0daf828a74f7efc7651df641db9ac7bd021cfaf0ec561c14eed71691ef"
+  },
+  "data/flyvsfly/Aggression/movie6/movie6.mp4": {
+   "movie": 6,
+   "kind": "video",
+   "split": "test",
+   "sha256": "4aff7066d3b0d3fca55b95aba4ab9d88195568ea9bec424a6f39d68204dbefe1"
+  },
+  "data/flyvsfly/Aggression/movie6/movie6_actions.mat": {
+   "movie": 6,
+   "kind": "actions",
+   "split": "test",
+   "sha256": "79ce425aba834bcddfc0259fea8612ef955472f099843ab6f9539aed31173643"
+  },
+  "data/flyvsfly/Aggression/movie6/movie6_feat.mat": {
+   "movie": 6,
+   "kind": "feat",
+   "split": "test",
+   "sha256": "a9822937de94722853d9e0d0115d2bf215ed850b67070cb6fec688bc371a299d"
+  },
+  "data/flyvsfly/Aggression/movie6/movie6_track.mat": {
+   "movie": 6,
+   "kind": "track",
+   "split": "test",
+   "sha256": "c5617f3ef0c063d9f3d72029cebe76a2f9feda52a8e9c889e1b7df441841aff2"
+  },
+  "data/flyvsfly/Aggression/movie6/movie6_second_actions.mat": {
+   "movie": 6,
+   "kind": "second_actions",
+   "split": "test",
+   "sha256": "5ca5fef728cd230c6cd6276d9e6bcb3ad54f106b26e201a71fa26e28fd797bab"
+  },
+  "data/flyvsfly/Aggression/movie7/movie7.mp4": {
+   "movie": 7,
+   "kind": "video",
+   "split": "test",
+   "sha256": "ef0de87f5c055455c0c950e6cc29d1dc7cb03d72df415cf1f547c5f1c426f167"
+  },
+  "data/flyvsfly/Aggression/movie7/movie7_actions.mat": {
+   "movie": 7,
+   "kind": "actions",
+   "split": "test",
+   "sha256": "92affc5752c99b696a0bebc7ea4e7a78aa0db6bd71a7140e5edb9013ec27a850"
+  },
+  "data/flyvsfly/Aggression/movie7/movie7_feat.mat": {
+   "movie": 7,
+   "kind": "feat",
+   "split": "test",
+   "sha256": "8d5bbfd05139d16bc0456718300f4c299a845fe9aa88460a755929c60ddfa802"
+  },
+  "data/flyvsfly/Aggression/movie7/movie7_track.mat": {
+   "movie": 7,
+   "kind": "track",
+   "split": "test",
+   "sha256": "87f992d61203d1a93e082a744bd8e1d4f02a71932101f405d4cf388baca7a30f"
+  },
+  "data/flyvsfly/Aggression/movie8/movie8.mp4": {
+   "movie": 8,
+   "kind": "video",
+   "split": "test",
+   "sha256": "67afba68d08ad9db80f5d1951f6dab6d3f2ffe8fc3dfa014b161b4c9970511dc"
+  },
+  "data/flyvsfly/Aggression/movie8/movie8_actions.mat": {
+   "movie": 8,
+   "kind": "actions",
+   "split": "test",
+   "sha256": "c738e6088045fdbd52c48eec3d35157641a19518a3d76e0f5a513a881c54a431"
+  },
+  "data/flyvsfly/Aggression/movie8/movie8_feat.mat": {
+   "movie": 8,
+   "kind": "feat",
+   "split": "test",
+   "sha256": "5bc704d13f89a3c97a28670e8da05e272796076f994dbf4912a1fc07419c8b0f"
+  },
+  "data/flyvsfly/Aggression/movie8/movie8_track.mat": {
+   "movie": 8,
+   "kind": "track",
+   "split": "test",
+   "sha256": "f0084efdc6d7d101557fac055fa486bb4173fdd6102b4a9f9481e35b749a2b81"
+  },
+  "data/flyvsfly/Aggression/movie9/movie9.mp4": {
+   "movie": 9,
+   "kind": "video",
+   "split": "test",
+   "sha256": "4c6c52e8a1688d5a87e04c4c5239c0a65c9c2556b322f6f3cd9eb6a5cffe745d"
+  },
+  "data/flyvsfly/Aggression/movie9/movie9_actions.mat": {
+   "movie": 9,
+   "kind": "actions",
+   "split": "test",
+   "sha256": "7583b327fa598998f48a5f1de947b182b97051f8a1aa4a626afdfe70a8bfe7ba"
+  },
+  "data/flyvsfly/Aggression/movie9/movie9_feat.mat": {
+   "movie": 9,
+   "kind": "feat",
+   "split": "test",
+   "sha256": "369e16fefce0d7482e7e3a510e3fb1d0a1e2ad9dd75499137b1c01e43ff256fb"
+  },
+  "data/flyvsfly/Aggression/movie9/movie9_track.mat": {
+   "movie": 9,
+   "kind": "track",
+   "split": "test",
+   "sha256": "be27fc1ff1f2b9d85f0588093d24f2c780ffe91fa2657c0ef3f69c8a49bd4be0"
+  },
+  "data/flyvsfly/Aggression/movie10/movie10.mp4": {
+   "movie": 10,
+   "kind": "video",
+   "split": "test",
+   "sha256": "5af4480bf7eba730464d88c41b7708b76b0366af522fae56bd1142a9106b8cd9"
+  },
+  "data/flyvsfly/Aggression/movie10/movie10_actions.mat": {
+   "movie": 10,
+   "kind": "actions",
+   "split": "test",
+   "sha256": "def8d1032e05654c8391ad3a797f5467c9217a4f032fa30df5e946d9bca6a49d"
+  },
+  "data/flyvsfly/Aggression/movie10/movie10_feat.mat": {
+   "movie": 10,
+   "kind": "feat",
+   "split": "test",
+   "sha256": "6249e0dd268c5fa22712fb4c749d55b10d9056e98c5b341585474c94a55742ae"
+  },
+  "data/flyvsfly/Aggression/movie10/movie10_track.mat": {
+   "movie": 10,
+   "kind": "track",
+   "split": "test",
+   "sha256": "4f7a5bdc2b088f2f006402fc8ef4c0ace276da790bde0dc01d172a0848fe6cdb"
+  },
+  "data/flyvsfly/Aggression/traintest.mat": {
+   "kind": "split",
+   "sha256": "4d6ba4ec481655e6e71eb7672ebea280e96c2c4c551775a0a525264110a2703e"
+  }
+ }
+}

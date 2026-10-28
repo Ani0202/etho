@@ -1067,3 +1067,280 @@ exclusion and its three tests were added. Label-free strict preflight of the
 dev-holdout pre-flight outputs: `score-dev_holdout-20261028T084711Z-05b1b3` (refused only for the missing
 `run_git_dirty_paths`). Non-strict preflight of existing dev directories passed (scratch log, not in
 `runs.jsonl`).
+
+### A2 (2026-10-28, ~18:00 UTC): adds section 14 (second species, Fly vs. Fly). PROPOSED
+Adds a new, separate protocol. It changes no CalMS21 item: no metric, split, target, frozen config or test
+accounting in sections 1-13. Fly test runs are logged with `split: "flies-test"`, so `eval/common.py`'s CalMS21
+test-run accounting never counts them, and the reverse holds too.
+
+## 14. Second species: Fly vs. Fly (Aggression)
+
+**FLIES-PLAN-STATUS: PROPOSED.** This section waits on the Codex eval-plan critique (`bin/codex-ask --gate
+eval-plan`). Its findings get reconciled in a dated amendment. After that the marker becomes FROZEN, and
+`eval/flies_criteria_v1.json` `"status"` becomes `"FROZEN"`, in one commit **before any fly prediction exists**.
+`eval/flies_score.py` refuses the test split while this marker or the criteria file still says PROPOSED. No
+test-config hashes are frozen yet, because no pipeline config or predictions exist.
+
+Source: ADR-002 in docs/DECISIONS.md, approved by Aniket 2026-10-28 with conditions (decision log, same date).
+Code: `eval/flies_extract.py` (labels, GT tracks, train summary, manifest), `eval/flies_score.py` (scorer, test
+guard, criteria), `eval/flies_criteria_v1.json` (pre-registered criteria), tests `eval/tests/test_flies.py`.
+
+### 14.1 Data, license, integrity
+- Caltech Fly vs. Fly, **Aggression** subset. CaltechDATA record zrznw-w7386, DOI 10.22002/D1.1893, **CC0**
+  (`metadata.rights` = cc-zero). Paper: Eyjolfsdottir, Branson, Burgos-Artizzu, Hoopfer, Schor, Anderson,
+  Perona, "Detecting Social Actions of Fruit Flies", ECCV 2014, LNCS 8690, doi:10.1007/978-3-319-10605-2_50.
+  Cite both in the README. CC0 doesn't require this; we do it anyway.
+- 10 movies, 144x144 px, 30 fps, 54,000 frames (30 min) each, 2 male flies. `Aggression.zip` sha256
+  `4c66aab8...8f4498`, matching the value recorded at download. The zip holds no movie11, which ADR-002 had
+  mentioned.
+- `eval/flies_manifest.json` holds the sha256 of every file used (42 files: per movie the mp4 and the
+  actions/feat/track .mat, plus movie6's second annotation and traintest.mat), the windows and the split. On
+  test, the scorer re-hashes the files it reads against the manifest and refuses on any difference. No raw
+  data, .mat file or frame is committed; `data/` is gitignored.
+- **What has been seen of the test movies (6-10), in full.** We have their file names, which show that movie6
+  has a `movie6_second_actions.mat`. We have their sha256 hashes, computed over bytes without parsing. And
+  `unzip -l` printed every file's uncompressed size: the test `_actions.mat` files are 665-3,316 bytes. Size
+  is a weak proxy for the number of bouts; we disclose it and never use it. No test `.mat` was opened, loaded
+  or parsed. `eval/flies_extract.py` refuses test movies unless `allow_test=True`, which only the guarded
+  test path passes. `traintest.mat`, which holds only ids and names, was read to verify the split.
+
+### 14.2 Label format (from train movies 1-5)
+- `movieN_actions.mat`: `behs` = lunge, wing_threat, charge, hold, tussle, unknown. `bouts` is a 2x6 cell
+  (row = fly, column = behavior). Each cell is an [n, 3] array `[start, end, flag]`.
+- **Index convention: MATLAB 1-based, inclusive.** Python frames `[start-1, end)`. Evidence, measured on train:
+  - The GT track's row i is decoded video frame i. Frame-difference vs track-speed correlation peaks at lag 0
+    on movies 1-2 (0.77 and 0.87, against 0.69 and 0.67 at lag -1).
+  - Wing-angle onset falls at python `start-1` in 50 of 63 wing-threat bouts.
+  - The modal last wings-up frame is `end-1` (24 of 61).
+  - The lunge's peak displacement lands on `end-1` (897 of 1,530).
+  - `charge` has bouts with `end == start`, which is only valid if `end` is inclusive.
+- `flag` (third column) is 0 or 2. It is 2 only on a few lunge bouts (movies 2-5) and 2 wing-threat bouts
+  (movie4). Its meaning is undocumented. Recorded and ignored: the bout counts either way.
+- `tussle` is annotated identically on both flies (a pair action). `charge`, `hold` and `tussle` are not scored
+  (ADR-002 b).
+- **`unknown`** is per fly. The scorer **excludes every frame where either fly is `unknown`** from every count:
+  pair, per fly, frame and bout. There is one exclusion mask per movie window. A scored behavior that
+  overlaps `unknown` is excluded with it. On train this happens on 0-55 frames per full movie. In the windows
+  it is only movie4's lunges: 2 frames in mid5 and 6 in mid10. Wing threat is never affected. For bout metrics, excluded frames are set negative in both GT and prediction, so a bout is cut
+  at the exclusion.
+- `movieN_track.mat` (eval only, never product code): `trk.data` [2, 54000, 17] holds pos x/y (px), ori,
+  major/minor axis, wing tips/angles/lengths and areas. Fly f in the track is fly f in `bouts` (same tool
+  chain; assumed, not independently verified).
+
+### 14.3 Windows, splits, frame mapping
+- Windows were fixed by rule (ADR-002 d) before any test label was read. Native python frames, half-open:
+  **mid5 = [22500, 31500)** (middle 5 min, 9,000 frames) and **mid10 = [18000, 36000)** (middle 10 min,
+  18,000 frames).
+- Configurations:
+  - **Lunge GO:** both behaviors, mid5, 30 fps tracking.
+  - **Lunge NO-GO:** wing_threat only, mid10, 10 fps.
+- Splits (official `traintest.mat`, verified):
+  - **dev** = train movies 1-2. All tuning happens here.
+  - **spare** = movies 3-5. Not tuned on; used only for the wing-threat go/no-go (14.6).
+  - **train** = 1-5.
+  - **test** = 6-10, **at most two test runs** (`test-1`, `test-2`). Run 2 may reuse cached tracks at $0.
+    Every run is reported.
+- 10 fps predictions are mapped to 30 fps by the CalMS21 nearest-sample rule (section 3). Window frame i takes
+  sample `min(round(i/3), K-1)`, and sample k is native frame `start + 3k`. Both window starts are multiples of
+  3, so the 10 fps grid is the absolute frame grid 0, 3, 6, ...
+
+### 14.4 Metrics
+- **Primary: pair-level frame F1 per behavior.** A frame is positive if either fly does the behavior; GT is
+  the union of both flies' bouts. Precision, recall and F1 are pooled over all scored frames of all movies of
+  the split, at 30 fps (the CalMS21 convention, section 4.1). There is no macro F1: the behaviors are reported
+  separately.
+- **CIs.** 95% percentile CIs come from a bootstrap that resamples whole movies (10,000 resamples, seed
+  20261028). With 5 movies the CI is coarse; it is a resampling statement about these movies, not about other
+  labs. Resamples where F1 is 0/0 are dropped and their fraction is reported.
+- **Random reference (the "floor").**
+  - **Prevalence-matched iid:** every scored frame is positive with probability p, the pooled prevalence of the
+    scored frames. Expected precision, recall and F1 all equal p. It is checked by simulation (200 draws).
+  - **Bout-shuffled (for bout metrics):** each movie's GT bouts keep their count and durations and are placed
+    at uniform random starts in the window. We report the mean over 200 draws.
+  - Bout-shuffling keeps per-movie prevalence, so its frame F1 is above the iid one. It uses more label
+    information and is a stronger floor; it is reported, but the frame-level bars use iid.
+- **Bout-level F1 (lunge's main secondary).** Bouts are the maximal runs of the pair masks. Matching is
+  **one-to-one, any overlap** (at least 1 shared frame), greedy by temporal IoU, so one giant predicted bout
+  matches at most one GT bout. IoU >= 0.3 and 0.5 are also reported. CIs come from the same movie bootstrap.
+- **Secondary per-fly (actor) F1.** Computed only if the predictions carry `<behavior>_by_track` and `track_xy`
+  for every movie. Each Etho track is mapped to a GT fly by **one permutation per window**: the per-sample 2x2
+  Hungarian assignment on centroid distance to the GT track, with the window's majority assignment as the
+  permutation (ties go to identity). Identity errors therefore count as per-fly errors. Train note: within a
+  window the aggressor is almost always one fly. Movie2 fly0 does 6/6 wing threats and 75/75 lunges in mid5.
+  Movie3 fly1 does 4/4 and 67/67. In movie4, fly1 does 9/9 wing threats and 87 of the 92 pair-level lunge
+  bouts. So per-fly F1 tests "who is the aggressor"
+  plus identity, more than per-bout actor choice.
+- **Identity** (report only, no target). Per window:
+  - per-sample identity accuracy against the window permutation, on all evaluable samples (both tracks
+    present, both GT flies present, not declared unknown), and on samples where the GT flies are at least 1
+    body length (mean GT major axis) apart;
+  - assignment switches per minute (a one-sample flip counts 2; see the 2026-10-28 DECISIONS line);
+  - error episodes per minute (a flip counts 1);
+  - % of samples with identity unknown or a track missing;
+  - fraction of samples with both tracks present;
+  - median matched centroid distance in px, a sanity check for coordinate bugs such as forgetting to divide out
+    a 4x upscale.
+- **Inter-annotator reference (test run only).** `movie6_second_actions.mat` is scored against the primary
+  annotation (pair-level frame and bout F1, same window). This is one movie; it is a reference, not a target.
+  Its format and coverage are unverified (not opened). If it fails to parse, the error is recorded and the run
+  continues.
+- **Cost and time** per window, from the run manifest, as in section 4.4.
+
+### 14.5 Train-window summary (train movies 1-5 only; `eval/results/flies_train_summary.json`)
+Pair-level bouts are maximal runs of the union of both flies' masks.
+
+| Window | Movie | wing_threat bouts / frames | lunge bouts / frames | unknown frames |
+|---|---|---|---|---|
+| mid5 | 1 | 0 / 0 | 2 / 8 | 0 |
+| mid5 | 2 | 6 / 1,186 | 75 / 303 | 0 |
+| mid5 | 3 | 4 / 88 | 67 / 271 | 0 |
+| mid5 | 4 | 9 / 659 | 92 / 393 | 357 |
+| mid5 | 5 | 0 / 0 | 4 / 16 | 0 |
+| mid5 | **pooled** | **19 / 1,933 (movies 2,3,4)** | **240 / 991** | 357 |
+| mid10 | 1 | 0 / 0 | 10 / 40 | 0 |
+| mid10 | 2 | 16 / 1,895 | 163 / 670 | 0 |
+| mid10 | 3 | 8 / 577 | 135 / 548 | 0 |
+| mid10 | 4 | 15 / 1,913 | 131 / 553 | 433 |
+| mid10 | 5 | 0 / 0 | 29 / 117 | 0 |
+| mid10 | **pooled** | **39 / 4,385 (movies 2,3,4)** | **468 / 1,928** | 433 |
+
+- Durations: lunge pair bouts have a median of 4 frames (133 ms) in every movie and window, and a max of 9
+  (adjacent or overlapping lunges merge). Wing-threat pair bouts have a per-movie median of 18.5-129 frames
+  and a max of 987 frames in mid10. Movie4 fly1 has two very long full-movie wing-threat bouts (9,765 and
+  6,942 frames, starting at frames 35,013 and 47,056), and the first is clipped into mid10. They are kept as
+  annotated.
+- Other actions in the windows (mid5 pooled): charge 11 bouts / 16 frames, hold 16 / 251, tussle 4 / 238.
+- **Random references** (iid expected F1 = prevalence; bout-shuffled mean bout F1, 200 draws):
+
+| Window | Split | wing_threat iid F1 | wing_threat shuffled bout F1 | lunge iid F1 | lunge shuffled bout F1 |
+|---|---|---|---|---|---|
+| mid5 | dev (1-2) | 0.0659 | 0.2242 | 0.0173 | 0.0525 |
+| mid5 | spare (3-5) | 0.0280 | 0.0908 | 0.0254 | 0.0638 |
+| mid5 | train (1-5) | 0.0433 | 0.1450 | 0.0222 | 0.0615 |
+| mid10 | dev (1-2) | 0.0526 | 0.1807 | 0.0197 | 0.0619 |
+| mid10 | spare (3-5) | 0.0465 | 0.1131 | 0.0226 | 0.0473 |
+| mid10 | train (1-5) | 0.0490 | 0.1430 | 0.0215 | 0.0523 |
+
+- **Consequence for the go/no-go:**
+  - In the dev windows (movies 1-2), wing threat occurs only in movie2: 6 bouts in mid5, 16 in mid10.
+  - A movie bootstrap over 2 movies, one of them without the behavior, can't show "clearly above".
+  - The wing-threat check therefore needs predictions on the spare movies too (14.6, cost in 14.8).
+
+### 14.6 Pre-registered go/no-go criteria (train only, mechanical, `eval/flies_criteria_v1.json`)
+Bars are relative to the reference r of the **same scored frames**, recomputed by the scorer at run time. The
+bar form is `max(2r, r + 0.15)`. The relative term matters only when prevalence exceeds 15%. The absolute term
+(+0.15 F1) is what "clearly" means at the low prevalences here (2-7%), where "2x chance" alone would allow F1
+of 0.05-0.13.
+
+**(b) Lunge go/no-go: decided first.** ADR-002, plus one evaluator guard. GO needs all of the following, on a
+scoring run of dev movies 1-2 (or all of train) at mid5, 30 fps:
+1. **SAM sees 2 flies in >= 90% of samples.** This is measured as the fraction of window samples where both
+   Etho tracks are present (non-NaN `track_xy`), averaged over movies.
+2. **Pair-level lunge bout recall >= 0.5**, one-to-one any-overlap, pooled.
+3. **Guard (added by the evaluator).** Bout F1 >= max(2r_b, r_b + 0.15), with movie-bootstrap CI lower bound >
+   r_b, where r_b is the bout-shuffled reference. Without it, predicting many short bouts would pass the
+   recall criterion alone. On dev mid5, r_b = 0.0525, so the bar is 0.2025; at recall 0.5 this needs bout
+   precision >= about 0.135.
+4. **Evidence:** >= 30 GT lunge bouts. Dev mid5 has 77.
+
+If NO-GO: wing_threat only, mid10 at 10 fps.
+
+**(a) Wing threat go/no-go.** Aniket's rule: "if wing threat isn't clearly above the random floor on the
+training split by end of Oct 31 ET, ship it as a qualitative demo clip with no F1 claim." GO (F1 claim) needs
+all of the following:
+1. A scoring run on **all five train movies** (`--split train`, no subset), in the window of the test
+   configuration (mid5 at 30 fps if lunge is GO, else mid10 at 10 fps), with the frozen dev-tuned pipeline.
+2. Pooled pair-level frame **F1 >= max(2r, r + 0.15)**. Train mid5: r = 0.0433, bar 0.193. Train mid10:
+   r = 0.0490, bar 0.199.
+3. Movie-bootstrap 95% **CI lower bound > r**.
+4. **Evidence:** >= 15 GT wing-threat bouts across >= 3 movies with wing threat. Train mid5 has 19 in movies
+   2-4; mid10 has 39.
+5. Scored by **2026-10-31 23:59:59 EDT** (2026-11-01 03:59:59 UTC). The scorer records the time; a later run
+   is NO-GO.
+
+- Anything else is NO-GO, including missing evidence or a run that never happened: a qualitative clip and no
+  F1 claim for flies.
+- Also reported: F1 on spare movies 3-5 alone, from a `--split spare` run on the same predictions. They are
+  not tuned on, so this is less optimistic than the pooled number that includes the dev movies. The decision uses the pooled train number (Aniket's "training split").
+- At most **two** go/no-go executions on the full train split. The second is allowed only after changes tuned
+  on dev movies 1-2. Both are reported, and the decision is the last one before the deadline.
+- The spare movies are never used for tuning. Using them would turn them into dev.
+
+### 14.7 Test targets (pre-registered; relative to the test windows' own reference r_test)
+There is no comparable published number (14.9), so targets are stated against chance on the same frames.
+r_test is the prevalence of the scored test frames, computed by the scorer. Nobody has looked at it.
+- **wing_threat, pair-level frame F1:**
+  - **credible:** F1 >= max(2r, r + 0.15) AND CI lower bound > r;
+  - **good:** F1 >= max(3r, r + 0.30) AND CI lower bound >= max(2r, r + 0.15).
+- **lunge (only if GO):** the same two levels on pair-level frame F1, and separately on one-to-one any-overlap
+  bout F1, with r_b = bout-shuffled reference.
+- For scale only, the train references give illustrative bars. Wing threat mid5: credible 0.193, good 0.343.
+  Lunge mid5 bout F1: credible 0.212, good 0.362.
+- **Evidence rule.** If the pooled test windows have fewer than 10 GT wing-threat bouts, or fewer than 3 movies
+  with wing threat, the verdict is **NOT EVALUABLE**. For lunge the thresholds are 30 bouts and 3 movies. The
+  number is reported, with no claim.
+- The scorer prints MET / NOT MET mechanically. Per-fly F1, identity and the inter-annotator reference are
+  report-only.
+- **Wording.** Every fly number states: pair-level scoring (README discloses this, per Aniket's condition);
+  middle-window subset, not full movies; thresholds tuned on train movies 1-2; 5 test movies. It may be called
+  "no labeled examples in any prompt and no model training", as in section 1. Never "beats".
+
+### 14.8 Cost of the protocol (SAM $0.20 per 1k frames; estimates, nothing spent by this plan)
+| Step | Frames | SAM cost |
+|---|---|---|
+| Dev: movies 1-2, mid5, 30 fps (ADR-002) | 18,000 | $3.60 |
+| **Wing go/no-go, lunge GO:** spare movies 3-5, mid5, 30 fps | 27,000 | **$5.40** (job > $5: escalate) |
+| **Wing go/no-go, lunge NO-GO:** movies 1-5, mid10, 10 fps | 30,000 | $6.00 (the dev mid5 30 fps tracks don't cover mid10, so movies 1-2 are re-tracked) |
+| Test, lunge GO: movies 6-10, mid5, 30 fps | 45,000 | $9.00 |
+| Test, lunge NO-GO: movies 6-10, mid10, 10 fps | 30,000 | $6.00 |
+
+- **Lunge-GO path:** $3.60 + $5.40 + $9.00 = **$18.00 SAM**, plus about $0.5-1 LLM. That is 90-95% of the $20
+  `ablation` tag, which crosses 80% (escalation), against ADR-002's approved $13.60.
+- **NO-GO path:** $3.60 + $6.00 + $6.00 = $15.60.
+- Both exceed the approved $13.60. **The spare-movie step is not funded by ADR-002, and Aniket must decide
+  it.** Options:
+  - fund it;
+  - track only movies 3-4, which have wing threat: $3.60 at mid5. This needs `require_full_split: false`
+    and a changed evidence rule, fixed before any prediction exists;
+  - accept a NO-GO by rule: qualitative clip, $0 extra.
+- The evaluator recommends the full split. A check on movies 2-4 alone would drop the two zero-wing-threat
+  movies, where false positives are the main risk.
+
+### 14.9 Published baseline
+- Eyjolfsdottir et al., ECCV 2014 is the reference: supervised, per fly, full test movies.
+- Its per-action numbers were **not retrieved**. Unpaywall and OpenAlex mark the paper closed, with no
+  open-access copy. Semantic Scholar's openAccessPdf is empty. The CaltechAUTHORS record s51ck-2s169 has its
+  files disabled. vision.caltech.edu dataset/publication URLs return 404 or "moved", and CiteSeerX returns 404.
+- **No number is quoted.** If it is retrieved later, quote it with its table reference and the label
+  "supervised, full movies, per-fly, not directly comparable" (our numbers are pair-level, from middle windows,
+  without training). Never "beats".
+
+### 14.10 Prediction format (for the implementer; full spec in the `eval/flies_score.py` docstring)
+One `movieN.npz` per movie in `--pred-dir`, plus optional `manifest.json` (`config`, `cost`, `wall_clock_s`,
+`calls`, `notes`; on test, `config.frozen_sha256` = sha256 of the frozen config, which must contain
+`"window"`):
+- `window` int[2]: exactly `[22500, 31500]` (mid5) or `[18000, 36000]` (mid10);
+- `sample_fps` (30 or 10);
+- `wing_threat` and `lunge` 0/1 [K]: **pair-level**, K = ceil(window_len / step), sample k = native frame
+  `start + k*step`, exact length;
+- optional `<behavior>_by_track` 0/1 [2, K], the actor per Etho track;
+- optional `track_xy` float [K, 2, 2], centroid per (sample, track, x/y) in **native 144x144 px** (divide out
+  any upscale), NaN when absent; needed for identity, per-fly F1 and the lunge coverage criterion;
+- optional `identity_unknown` bool [K].
+
+Run: `uv run python -m eval.flies_score --split dev --window mid5 --pred-dir <dir> --criteria
+eval/flies_criteria_v1.json`.
+
+### 14.11 Test-run order (flies)
+1. Dev tuning on movies 1-2.
+2. Lunge go/no-go (dev, mid5, 30 fps).
+3. Freeze the pipeline config: `configs/frozen_flies_v1.json` with `"window"` and `{"path", "sha256"}` assets.
+4. Track the spare movies (if funded). Run the wing go/no-go on all of train, before the Oct 31 ET deadline.
+5. Codex eval-plan critique of this section, amendment, then this marker and the criteria file set to FROZEN,
+   committed.
+6. Produce test predictions with the frozen config.
+7. `uv run python -m eval.flies_score --split test --window <w> --purpose test-1 --confirm-test-run
+   --frozen-config configs/frozen_flies_v1.json --pred-dir <dir>`. The predictions hash is logged before any
+   label is read; per-movie metrics are sealed.
+8. Codex test-results gate. The test-results gate is one of the three gates; whether a fly run needs its own
+   gate is the lead's call.
