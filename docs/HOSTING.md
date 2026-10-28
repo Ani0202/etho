@@ -15,7 +15,7 @@ What the visitor sees:
 | Mode | How you get there | What works |
 |---|---|---|
 | `live` | none of the below | Showcases, plus uploads and revisions for a visitor who entered the access code. |
-| `live` but over budget | the $3 per 24 h or $20 total cap has no room for the smallest job | Showcases; the page says the live budget is used up and uploads reopen as the window moves on (daily) or are closed (total). |
+| `live` but over budget | the daily cap ($3 per 24 h, $8 in the Nov 4-9 ET judging window) or the $30 total cap has no room for the smallest job | Showcases; the page says the live budget is used up and uploads reopen as the window moves on (daily) or are closed (total). |
 | `read-only` | `ETHO_APP_READ_ONLY=1`, the file `ops/app-readonly`, or (public only) no usable access code, or the rule sandbox is not bubblewrap | Showcases, reports, audit trails. Uploads and revisions (a showcase revision too: it spends money) are refused. |
 | `killed` | the file `ops/app-kill` exists | Like read-only, and the running job is cancelled at its next model call and the queue is cancelled. |
 | `expired` | after `ETHO_APP_LIVE_UNTIL` (default 2026-11-10 23:59:59 America/New_York) | Like killed. |
@@ -151,8 +151,10 @@ ETHO_APP_KILL_FILE=/home/ubuntu/work/etho/ops/app-kill
 ETHO_APP_READONLY_FILE=/home/ubuntu/work/etho/ops/app-readonly
 ETHO_APP_TAG=demo-reserve
 ETHO_APP_CALLER_PREFIX=pub:job:
-ETHO_APP_DAILY_CAP_USD=3
-ETHO_APP_TOTAL_CAP_USD=20
+# Daily cap: leave ETHO_APP_DAILY_CAP_USD unset for the public defaults ($3 per 24 h, $8 inside the Nov 4-9 ET
+# judging window). Setting it explicitly means that value is used all the time and is NOT raised in the window,
+# unless ETHO_APP_JUDGING_DAILY_CAP_USD is set too (e.g. ETHO_APP_JUDGING_DAILY_CAP_USD=8).
+ETHO_APP_TOTAL_CAP_USD=30
 ETHO_APP_LIVE_UNTIL=2026-11-10T23:59:59-05:00
 ETHO_APP_RETENTION_H=24
 ETHO_APP_MAX_UPLOAD_MB=50
@@ -176,8 +178,8 @@ sudo chown root:etho-app /etc/etho-app/app.env && sudo chmod 0640 /etc/etho-app/
   to the showcase.
 * **`ETHO_APP_RATE_JOBS`.** Per client the limit is that many jobs per hour. If the proxy does not pass the visitor's
   address (section 7, check 1), every visitor is one client, and the number is a *total* for the whole site; 10 an hour
-  fits under the $3 a day cap, and more easily under $8 in the judging window (measured cost of a 60 s clip is $0.23 to $0.36).
-* **The per-job ceiling and $3 a day.** Admitting a job reserves its ceiling, `max(1.5 x estimate, estimate + $0.25)`
+  fits under the $3 a day cap (and, in the Nov 4-9 ET judging window, under the $8 cap) (measured cost of a 60 s clip is $0.23 to $0.36).
+* **The per-job ceiling and the daily cap ($3, or $8 in the Nov 4-9 ET window).** Admitting a job reserves its ceiling, `max(1.5 x estimate, estimate + $0.25)`
   (public default; localhost keeps 2x and $0.50), and the job cannot spend past it. A 120 s upload with 3 behaviors is
   estimated at about $0.95 and reserves about $1.43, so two such jobs fit at once under $3 (the second one is refused if
   less than its estimate is left), a third waits for one to finish. A 60 s upload estimates $0.59 and reserves $0.89, so
@@ -529,7 +531,7 @@ does not undo the stop.
 Enforced (each has a test; see `tests/test_app_hosting.py`, `test_app_ledger_robust.py`, `test_app_retention_races.py`,
 `test_app_ui_fallback.py`, `test_app_confine.py`, `test_app_watchdog_uptime.py`): the access code on every spending route
 (any POST not on a short safe list is closed by default); read-only, kill switch and expiry; constant-time code
-comparison, throttling of wrong codes only; signed, expiring, code-bound cookies; a $3 rolling-24 h cap and a $20 total
+comparison, throttling of wrong codes only; signed, expiring, code-bound cookies; a $3 rolling-24 h cap ($8 in the Nov 4-9 ET judging window) and a $30 total
 cap over the app's own ledger rows (prefix `pub:job:`), with the per-job ceiling reserved at admission and again per
 call in flight; a ledger row the app cannot read closes the caps instead of being skipped; 24 h retention by a timer
 that never deletes a directory another project, a showcase or the benchmark uses; ffprobe/ffmpeg on uploads under

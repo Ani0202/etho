@@ -56,7 +56,7 @@ const fmt = {
     if (sec < 60) return sec.toFixed(sec < 10 ? 1 : 0) + " s";
     return Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
   },
-  clock(sec) { sec = Math.max(0, sec); return Math.floor(sec / 60) + ":" + (sec % 60).toFixed(1).padStart(4, "0"); },
+  clock(sec) { return clockText(sec); },
   mb(bytes) { return (bytes / 1e6).toFixed(1) + " MB"; },
   x(v) { return v === null || v === undefined ? "n/a" : v.toFixed(v < 10 ? 2 : 1) + "×"; },
 };
@@ -69,34 +69,78 @@ const STAGE_LABEL = {
 };
 const SRC_LABEL = { seed: "reused: benchmark detector", cache: "reused: earlier upload", fresh: "written now", revised: "revised" };
 
-/* Live progress for a job: stage list, elapsed, running cost. Calls onEnd(snapshot) when the job ends. */
+/* Presentation mode (?present=1, remembered for the tab; ?present=0 turns it off): larger type for recording. */
+(function () {
+  try {
+    const q = new URLSearchParams(location.search).get("present");
+    if (q === "1") sessionStorage.setItem("etho.present", "1");
+    if (q === "0") sessionStorage.removeItem("etho.present");
+    const on = sessionStorage.getItem("etho.present") === "1";
+    if (on) document.documentElement.classList.add("present");
+    const tg = document.getElementById("present-toggle");
+    if (tg) { tg.href = on ? "?present=0" : "?present=1"; tg.textContent = on ? "normal size" : "presentation mode"; }
+  } catch (e) { /* storage blocked: the page just stays at normal size */ }
+})();
+
+/* "m:ss.t" for the elapsed-time clock. */
+function clockText(sec) {
+  const t = Math.round(Math.max(0, sec) * 10);       // round to tenths first, then split: 59.96 s is 1:00.0, never 0:60.0
+  const m = Math.floor(t / 600);
+  return `${m}:${((t - 600 * m) / 10).toFixed(1).padStart(4, "0")}`;
+}
+
+const FALLBACK_FAILURE = "Scoring this video did not finish, so there is no result for it. The precomputed showcase runs stay open.";
+
+/* Live progress for a job: five phases, a large elapsed-time clock (real time since the job started, counted from the
+   server's own elapsed value), the status message of each phase, running cost. Calls onEnd(snapshot) when it ends.
+   Failures show the server's plain-language sentence, never an error text. */
 function progressCard(jobId, onEnd, opts) {
   opts = opts || {};
-  const head = h("div", { class: "progress-head" });
-  const list = h("ul", { class: "stages", "aria-live": "polite" });
+  const clock = h("div", { class: "clock", role: "timer", "aria-label": "Elapsed time since the job started" }, "0:00.0");
+  const clockCap = h("div", { class: "clock-cap" }, "elapsed since the job started");
+  const status = h("div", { class: "status-big", "aria-live": "polite" }, "Connecting...");
+  const meta = h("div", { class: "progress-meta" });
+  const list = h("ul", { class: "stages phases", "aria-live": "polite" });
+  const fail = h("div", { class: "note fail", role: "alert", hidden: true });
+  const conn = h("div", { class: "hint", hidden: true }, "Connection to the server lost; reconnecting. The job keeps running on the server.");
   const cancel = h("button", { class: "small", onclick: async () => { cancel.disabled = true; try { await api(`/api/jobs/${jobId}/cancel`, { method: "POST" }); } catch (e) { /* ignore */ } } }, "Cancel");
-  const card = h("div", { class: opts.bare ? "" : "card" }, opts.title ? h("h2", {}, opts.title) : null, head, list, h("div", { style: { marginTop: "10px" } }, cancel));
+  const card = h("div", { class: opts.bare ? "" : "card" }, opts.title ? h("h2", {}, opts.title) : null,
+    h("div", { class: "clock-row" }, h("div", {}, clock, clockCap), h("div", { class: "grow" }, status, meta)),
+    fail, conn, list, h("div", { style: { marginTop: "10px" } }, cancel));
+  let base = 0, at = performance.now(), running = false, shown = 0;
+  const tick = () => { if (!running) return; shown = Math.max(shown, base + (performance.now() - at) / 1000); clock.textContent = clockText(shown); };
+  const timer = setInterval(tick, 100);
+  const PH_LABEL = { running: "in progress", done: "done", pending: "waiting", failed: "failed", skipped: "skipped" };
   function render(sn) {
-    head.replaceChildren(
-      h("span", { class: "big" }, sn.status === "queued" ? `Queued (position ${sn.queue_position})` :
-        sn.status === "running" ? `${(sn.running_stages && sn.running_stages.length ? sn.running_stages : [sn.stage]).map(n => STAGE_LABEL[n] || n || "Working").join(" + ")}  (${sn.stage_index}/${sn.n_stages})` :
-        sn.status === "done" ? "Done" : sn.status === "cancelled" ? "Cancelled" : "Failed"),
-      h("span", { class: "m" }, `elapsed ${fmt.time(sn.elapsed_s)}`),
-      h("span", { class: "m" }, `cost so far ${fmt.usd(sn.cost_usd)} (est. ${fmt.usd(sn.est_cost_usd)})`),
-      ...(sn.error ? [h("span", { class: "err", role: "alert" }, sn.error)] : []));
-    list.replaceChildren(...sn.stages.map(st => h("li", {},
-      h("span", { class: `dot ${st.status}`, title: st.status }),
-      h("span", {}, STAGE_LABEL[st.name] || st.name),
-      h("span", { class: "msg", title: st.message }, st.message),
-      h("span", { class: "num" }, st.status === "pending" ? "" : fmt.time(st.elapsed_s)),
-      h("span", { class: "num cost" }, st.status === "pending" ? "" : fmt.usd(st.cost_usd)))));
+    conn.hidden = true;
+    running = sn.status === "running";
+    base = sn.elapsed_s; at = performance.now();
+    if (running) shown = Math.max(shown, base); else shown = base;
+    clock.textContent = clockText(shown);
+    clock.classList.toggle("live", running);
+    const phases = sn.phases && sn.phases.length ? sn.phases : sn.stages.map(st => ({ key: st.name, label: STAGE_LABEL[st.name] || st.name, status: st.status, message: st.message, elapsed_s: st.elapsed_s, cost_usd: st.cost_usd }));
+    const cur = phases.find(p => p.status === "running");
+    status.textContent = sn.status === "queued" ? `Queued, position ${sn.queue_position}. It starts as soon as the job ahead finishes.` :
+      sn.status === "running" ? (cur ? `${cur.label}: ${cur.message}` : "Working") :
+      sn.status === "done" ? "Done. Opening the results." : sn.status === "cancelled" ? "Cancelled" : "Did not finish";
+    meta.textContent = `cost so far ${fmt.usd(sn.cost_usd)} (estimate before start ${fmt.usd(sn.est_cost_usd)})`;
+    list.replaceChildren(...phases.map((p, i) => h("li", { class: p.status },
+      h("span", { class: `dot ${p.status}`, title: PH_LABEL[p.status] || p.status }),
+      h("span", { class: "ph" }, `${i + 1}. ${p.label}`),
+      h("span", { class: "msg" }, p.status === "failed" ? "did not finish" : p.message),
+      h("span", { class: "state" }, PH_LABEL[p.status] || p.status),
+      h("span", { class: "num" }, p.status === "pending" ? "" : fmt.time(p.elapsed_s)),
+      h("span", { class: "num cost" }, p.status === "pending" ? "" : fmt.usd(p.cost_usd)))));
+    const bad = sn.status === "failed" || sn.status === "cancelled";
+    fail.hidden = !bad;
+    if (bad) fail.replaceChildren(sn.friendly || FALLBACK_FAILURE, " ", h("a", { href: "/" }, "Open the showcase runs"));
     cancel.hidden = !(sn.status === "queued" || sn.status === "running");
   }
   const es = new EventSource(`/api/jobs/${jobId}/events`);
   es.addEventListener("progress", e => render(JSON.parse(e.data)));
-  es.addEventListener("end", e => { const sn = JSON.parse(e.data); render(sn); es.close(); onEnd && onEnd(sn); });
-  es.onerror = () => { /* the browser retries; the final state is also reachable by reloading */ };
-  card.close = () => es.close();
+  es.addEventListener("end", e => { const sn = JSON.parse(e.data); render(sn); es.close(); clearInterval(timer); onEnd && onEnd(sn); });
+  es.onerror = () => { conn.hidden = false; /* the browser retries; the final state is also reachable by reloading */ };
+  card.close = () => { es.close(); clearInterval(timer); };
   return card;
 }
 

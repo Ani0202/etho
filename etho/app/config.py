@@ -146,10 +146,12 @@ class AppConfig:
             self.caller_prefix = "pub:job:" if pub else "job:"
         if self.tag is None:
             self.tag = "demo-reserve" if pub else "dev"
+        # An explicitly set daily cap (ETHO_APP_DAILY_CAP_USD or a constructor argument) is never raised in the
+        # judging window unless ETHO_APP_JUDGING_DAILY_CAP_USD is set as well.
+        if self.judging_daily_cap_usd is None and pub and self.daily_cap_usd is None:
+            self.judging_daily_cap_usd = 8.0
         if self.daily_cap_usd is None:
             self.daily_cap_usd = 3.0 if pub else 5.0
-        if self.judging_daily_cap_usd is None and pub:
-            self.judging_daily_cap_usd = 8.0
         if self.total_cap_usd is None and pub:
             self.total_cap_usd = 30.0
         if self.max_upload_mb is None:
@@ -174,6 +176,11 @@ class AppConfig:
     @property
     def data_dir(self) -> Path:
         return self.data_root or self.root / "data" / "app"
+
+    @property
+    def sample_dir(self) -> Path:
+        """The sample clip for judges (scripts/make_sample_clip.py), served read-only."""
+        return self.data_dir / "sample"
 
     @property
     def work_dir(self) -> Path:

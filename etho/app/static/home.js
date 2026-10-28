@@ -13,9 +13,21 @@
       h("h3", {}, sc.title),
       h("div", { class: "sub" }, sc.description),
       h("div", { class: "chips" }, sc.behaviors.map(b => h("span", { class: "chip" }, b, " ", sc.metrics[b] ? `${sc.metrics[b].bouts} bouts` : ""))),
-      h("div", { class: "sub" }, `${fmt.time(sc.video.duration_s)} video, model cost ${fmt.usd(sc.cost_usd)} (estimated)`),
+      h("div", { class: "sub" }, `${fmt.time(sc.video.duration_s)} video, ${sc.wall_s ? `scored in ${fmt.time(sc.wall_s)}, ` : ""}model cost ${fmt.usd(sc.cost_usd)}${sc.cost_estimated ? " (list-price estimate)" : sc.cost_source ? ` (${sc.cost_source})` : ""}`),
       h("a", { class: "btn primary", href: `/p/${sc.id}` }, "Open results"))));
   }).catch(() => { $("showcases").replaceChildren(h("div", { class: "err" }, "Could not load showcases.")); });
+
+  // ---- sample clip for judges (served read-only from the app's data dir; attribution is also in the page itself)
+  api("/api/sample").then(sm => {
+    $("sample-defs").replaceChildren(...Object.entries(sm.definitions).flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)]));
+    $("sample-subject").textContent = sm.subject; $("sample-partner").textContent = sm.partner;
+    $("sample-trim").textContent = sm.trimmed_note + (sm.clip ? ` (${sm.clip.trimmed})` : "");
+    const dl = $("sample-dl");
+    if (sm.available) {
+      dl.hidden = false;
+      $("sample-info").textContent = `${sm.clip.sequence}, ${fmt.time(sm.clip.duration_s)}, ${fmt.mb(sm.clip.size_bytes)}, mp4.`;
+    } else $("sample-info").textContent = sm.message;
+  }).catch(() => { $("sample-info").textContent = "The sample clip is not available right now."; });
 
   // ---- what this visitor may do: read-only, needs the code, or live ----
   function applyMode(extra) {

@@ -26,6 +26,7 @@ from etho.gateway import Gateway, GatewayConfig
 from etho.rules.sandbox import SandboxUnavailable, isolation_status
 
 from . import corrections as C
+from . import progress as PG
 from .access import COOKIE, AccessControl, shared_bucket
 from .backend import FPS, Backend
 from .config import AppConfig
@@ -47,6 +48,11 @@ MULTIPART_SLACK = 1_000_000  # form fields and boundaries around the file
 SAFE_POST = re.compile(r"^/api/(access|access/logout|jobs/[A-Za-z0-9_-]+/cancel)$")
 READ_METHODS = ("GET", "HEAD", "OPTIONS")
 SSE_MAX_S = 1800.0
+SAMPLE_FILE, SAMPLE_JSON = "calms21_dev_60s.mp4", "sample.json"
+SAMPLE_ATTRIBUTION = "Clip from CalMS21 (Sun et al. 2021, Caltech), licensed CC BY 4.0"
+SAMPLE_LINKS = {"dataset": "https://data.caltech.edu/records/s0vdx-0k302",
+                "license": "https://creativecommons.org/licenses/by/4.0/"}
+SAMPLE_TRIMMED = "This clip was trimmed to 60 s and re-encoded from a longer CalMS21 recording."
 
 # Pages and API responses: scripts only from this origin, no inline script, no framing by other sites.
 PAGE_CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
@@ -155,6 +161,10 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     if start_worker:
         manager.start()
         retention.start()
+
+    def snap(j: Job) -> dict:
+        """A job snapshot for the browser: five phases and a plain-language failure message."""
+        return PG.view(manager.snapshot(j), FRIENDLY, cfg.public)
 
     def who(request: Request) -> str:
         return client_key(request.client.host if request.client else None)
@@ -428,7 +438,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     @app.get("/api/jobs/{jid}")
     def api_job(jid: str):
         j = job_or_404(jid)
-        return manager.snapshot(j) if j else err(404, "not_found", "no such job")
+        return snap(j) if j else err(404, "not_found", "no such job")
 
     @app.post("/api/jobs/{jid}/cancel")
     def api_cancel(jid: str):
@@ -454,9 +464,9 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                     v = j.version                        # read before the snapshot: a change after it is re-sent
                     now = time.monotonic()
                     if v != last_v or now - last_t >= 1.0:
-                        snap = manager.snapshot(j)
-                        terminal = snap["status"] in TERMINAL    # one source for status and the fields sent with it
-                        yield sse("end" if terminal else "progress", snap, snap["version"])
+                        sn = snap(j)
+                        terminal = sn["status"] in TERMINAL    # one source for status and the fields sent with it
+                        yield sse("end" if terminal else "progress", sn, sn["version"])
                         last_v, last_t = v, now
                         if terminal:
                             return
@@ -489,15 +499,16 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         if res is None:
             if j is None:
                 return err(404, "not_found", "no such project")
-            return {"id": pid, "status": j.status, "job": manager.snapshot(j), "error": j.error}
+            return {"id": pid, "status": j.status, "job": snap(j), "error": None if cfg.public else j.error}
         versions = [res["versions"][0]] + [r for n in p.revision_numbers() if (r := p.revision(n))]
         active = manager.active_for(pid)
         last_rev = [x for x in manager.jobs.values() if x.project_id == pid and x.kind == "revise"]
         last_rev.sort(key=lambda x: x.rev or 0)
         out = {k: v for k, v in res.items() if k != "versions"}
-        out.update({"status": "done", "versions": versions, "latest_version": versions[-1]["v"],
-                    "active_job": manager.snapshot(active) if active else None,
-                    "last_revision_job": manager.snapshot(last_rev[-1]) if last_rev else None})
+        out.update({"planner": PG.planner_view(res.get("plan")), "status": "done", "versions": versions,
+                    "latest_version": versions[-1]["v"],
+                    "active_job": snap(active) if active else None,
+                    "last_revision_job": snap(last_rev[-1]) if last_rev else None})
         return out
 
     def versioned_file(pid: str, kind: str, v: int | None):
@@ -538,6 +549,57 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         if res is None:
             return err(404, "not_found", "no such project")
         return audit_view(p, res, version_arg(v), ledger)
+
+    def version_record(p: Project, res: dict, v: int) -> dict | None:
+        return res["versions"][0] if v == 0 else p.revision(v)
+
+    @app.get("/api/projects/{pid}/trace")
+    def api_trace(pid: str, v: int | None = None, behavior: str | None = None, s0: int | None = None,
+                  s1: int | None = None):
+        """Without `behavior`: every tier-1 window and how it was treated (to mark the ethogram). With `behavior`,
+        `s0`, `s1` (a final bout, in samples): the steps that produced it (rule result, frame-strip verdicts, which
+        step decided the label)."""
+        p = project_or_none(pid)
+        res = p.result() if p else None
+        if res is None:
+            return err(404, "not_found", "no such project")
+        ver = version_arg(v)
+        rec = version_record(p, res, ver)
+        if rec is None:
+            return err(404, "not_found", "no such version")
+        names = res["behaviors"]["names"]
+        verdicts = PG.read_verdicts(p.version_file(ver, "verdicts"), PG.allow_for(names))
+        if behavior is None:
+            return {"version": ver, "fps": res["fps"], **PG.trace_index(verdicts)}
+        if behavior not in names or s0 is None or s1 is None or s1 <= s0:
+            return err(400, "bad_bout", "behavior, s0 and s1 (samples, s1 > s0) must name a bout")
+        return {"version": ver, "fps": res["fps"], **PG.bout_trace(rec, verdicts, behavior, s0, s1, res["fps"])}
+
+    # ---- sample clip for judges --------------------------------------------------------------
+    def sample_meta() -> dict | None:
+        """The sample clip's record, only when the clip file itself is there (made by scripts/make_sample_clip.py)."""
+        m = read_json(cfg.sample_dir / SAMPLE_JSON)
+        if not isinstance(m, dict) or not (cfg.sample_dir / SAMPLE_FILE).is_file():
+            return None
+        return m
+
+    @app.get("/api/sample")
+    def api_sample():
+        m = sample_meta()
+        d = default_definitions(cfg)
+        return {"available": m is not None, "attribution": SAMPLE_ATTRIBUTION, "links": SAMPLE_LINKS,
+                "trimmed_note": SAMPLE_TRIMMED, "clip": m, "definitions": d["behaviors"],
+                "subject": d["subject"], "partner": d["partner"],
+                "download": "/api/sample/clip" if m else None,
+                "message": None if m else "The sample clip has not been prepared on this machine "
+                                          "(scripts/make_sample_clip.py)."}
+
+    @app.get("/api/sample/clip")
+    def api_sample_clip():
+        if sample_meta() is None:
+            return err(404, "not_found", "no sample clip on this machine")
+        return FileResponse(cfg.sample_dir / SAMPLE_FILE, media_type="video/mp4", filename=SAMPLE_FILE,
+                            headers={"Cache-Control": "public, max-age=3600"})
 
     @app.post("/api/projects/{pid}/revise")
     async def api_revise(pid: str, request: Request):
