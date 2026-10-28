@@ -24,7 +24,15 @@ from pathlib import Path
 import numpy as np
 
 from etho.flies.extras import add_extras
-from etho.flies.predict import WINDOWS, detect_pair, predict_movie, sha256_file, write_predictions
+from etho.flies.frozen import DECISION_FILE, check_frozen_run, run_branch
+from etho.flies.predict import (
+    REPO,
+    WINDOWS,
+    detect_pair,
+    predict_movie,
+    sha256_file,
+    write_predictions,
+)
 from etho.flies.synth import HINTS, select_medoid, synthesize_candidate
 from etho.tracking.fly_pipeline import make_gateway
 
@@ -88,23 +96,40 @@ def cmd_synth(a) -> None:
 
 
 def cmd_predict(a) -> None:
-    if a.frozen_config is None and any(m not in DEV_MOVIES for m in a.movies):
+    frozen = a.frozen_config is not None
+    if not frozen and any(m not in DEV_MOVIES for m in a.movies):
         raise SystemExit("movies other than the dev movies 1-2 need --frozen-config (gate and test runs only)")
     spec = json.loads(Path(a.detectors).read_text())
+    frozen_rec, window, want_fps = None, a.window or "mid5", None
+    if frozen:  # the frozen pipeline only: same detectors file, no override, clean frozen trees, the tree's window
+        fcfg = json.loads(a.frozen_config.read_text())
+        frozen_rec = check_frozen_run(a.frozen_config, a.detectors, override=a.override)
+        br = run_branch(fcfg, REPO / DECISION_FILE, a.window)
+        window, want_fps = br["window"], float(br["sample_fps"])
+        spec["behaviors"] = {b: v for b, v in spec["behaviors"].items() if b in br["behaviors"]}
+        frozen_rec.update({"branch": br["branch"], "decision_record_sha256": br["decision_record_sha256"],
+                           "behaviors": br["behaviors"]})
     override = json.loads(a.override) if a.override else {}
     for b, o in override.items():
         spec["behaviors"][b] = {**spec["behaviors"][b], **o}
     post = {b: v.get("post") for b, v in spec["behaviors"].items()}
     t0 = time.monotonic()
-    per_movie = {}
+    per_movie, inputs = {}, {}
     for m in a.movies:
         table, fps = load_table(a.run, m)
-        per_movie[m] = predict_movie(table, spec, a.window, fps)
+        if want_fps is not None and fps != want_fps:
+            raise SystemExit(f"frozen run refused: movie{m} was tracked at {fps:g} fps, branch {frozen_rec['branch']} "
+                             f"needs {want_fps:g}")
+        d = root() / "data/runs" / a.run / f"movie{m}"
+        inputs[f"movie{m}"] = {"features_sha256": sha256_file(d / "features.npz"),
+                               "tracking_json_sha256": sha256_file(d / "tracking.json")}
+        per_movie[m] = predict_movie(table, spec, window, fps)
         print(f"movie{m}", {b: int(per_movie[m][b].sum()) for b in spec["behaviors"]}, flush=True)
     cfg = {"pipeline": "etho.flies", "detectors": str(a.detectors), "detectors_sha256": sha256_file(a.detectors),
-           "override": override, "post": post, "window": list(WINDOWS[a.window]), "window_name": a.window,
-           "tracking_run": a.run, "variant": spec.get("variant"), "model": spec.get("model"),
-           "effort": spec.get("effort"), "use": {b: v["use"] for b, v in spec["behaviors"].items()},
+           "override": override, "post": post, "window": list(WINDOWS[window]), "window_name": window,
+           "tracking_run": a.run, "inputs": inputs, "frozen_run": frozen_rec, "variant": spec.get("variant"),
+           "model": spec.get("model"), "effort": spec.get("effort"),
+           "use": {b: v["use"] for b, v in spec["behaviors"].items()},
            "min_votes": {b: v.get("min_votes", 1) for b, v in spec["behaviors"].items()}}
     write_predictions(a.out, per_movie, config=cfg, cost_usd=0.0, wall_clock_s=time.monotonic() - t0, calls=0,
                       notes=a.notes, frozen_config=a.frozen_config)
@@ -127,7 +152,8 @@ def main() -> None:
     ap.add_argument("--effort", default="high")
     ap.add_argument("--tag", default="ablation")
     ap.add_argument("--detectors", type=Path)
-    ap.add_argument("--window", default="mid5", choices=sorted(WINDOWS))
+    ap.add_argument("--window", choices=sorted(WINDOWS), help="free runs: default mid5; frozen runs take "
+                    "the window from the frozen tree and refuse a different one")
     ap.add_argument("--override", help="JSON {behavior: {use, min_votes, post}} applied on top of the spec")
     ap.add_argument("--frozen-config", type=Path)
     ap.add_argument("--notes", default="")

@@ -131,14 +131,29 @@ def test_extras_are_not_masked_and_swap_robust():
     assert "max_toward_speed_raw" not in t                    # input table is not modified
 
 
-def test_extras_nan_when_a_fly_is_missing():
-    t = table(20)
-    for k in ("a_bx", "a_by", "a_cx", "a_cy"):
-        t[k][5:8] = np.nan
+def test_extras_nan_behaviour_matches_the_documentation():
+    t = table(40)
+    rng = np.random.default_rng(0)
+    for p in ("a", "b"):
+        for c in ("cx", "cy"):
+            t[f"{p}_{c}"] = t[f"{p}_{c}"] + rng.normal(0, 1.0, 40)
+        t[f"{p}_bx"], t[f"{p}_by"] = t[f"{p}_cx"].copy(), t[f"{p}_cy"].copy()
+    for sl in (slice(10, 11), slice(20, 25)):  # fly a missing: 1 sample, then 5 samples
+        for c in ("cx", "cy", "bx", "by"):
+            t[f"a_{c}"][sl] = np.nan
+    for c in ("cx", "cy", "bx", "by"):  # both missing for 2 samples
+        t[f"a_{c}"][30:32] = np.nan
+        t[f"b_{c}"][30:32] = np.nan
     e = add_extras(t, FPS)
-    assert np.isnan(e["max_speed_raw"][6]) or np.isfinite(e["max_speed_raw"][6])  # smoothing may bridge
-    assert np.isnan(e["closing_speed_raw"][6]) is np.True_ or np.isfinite(e["closing_speed_raw"][6])
-    assert len(e["peak_toward_raw"]) == 20
+    nan = {k: set(np.nonzero(~np.isfinite(e[k]))[0].tolist()) for k in EXTRA_DOC}
+
+    assert not nan["max_speed_raw"] & set(range(10, 30))     # one fly present: it is the present fly's speed
+    assert 31 in nan["max_speed_raw"] and 31 in nan["max_toward_speed_raw"]  # neither fly, several samples
+    assert 10 not in nan["max_toward_speed_raw"]             # a 1-sample gap is bridged by the smoothing
+    assert {21, 22, 23} <= nan["max_toward_speed_raw"]       # needs both positions
+    assert set(range(20, 25)) <= nan["closing_speed_raw"]
+    assert not nan["peak_toward_raw"]                        # the 0.3 s look-ahead always finds a value here
+    assert np.allclose(e["min_speed_raw"][21:24], e["max_speed_raw"][21:24])  # one fly: min equals max
 
 
 # ---------------------------------------------------------------- post-processing, actor

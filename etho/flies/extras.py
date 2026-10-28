@@ -22,14 +22,20 @@ from etho.tracking.features import smooth
 EXTRA_DOC = {
     "max_speed_raw": "max over the two flies of the body-centroid speed, px/s (0.1 s smoothing). Unlike `max_speed`, "
                      "not masked where flies touch or masks change shape, and robust to A/B label swaps (the "
-                     "flies are re-matched between samples). NaN only where a fly is missing",
-    "min_speed_raw": "min over the two flies of the same speed, px/s (the quieter fly)",
+                     "flies are re-matched between samples). While only one fly is detected it is that fly's "
+                     "speed; NaN at the first sample and where neither fly is detected for several samples "
+                     "(1-2 sample gaps are bridged by the smoothing)",
+    "min_speed_raw": "min over the two flies of the same speed, px/s (the quieter fly; while only one fly is "
+                     "detected it is that fly's speed, so it then equals `max_speed_raw`)",
     "max_toward_speed_raw": "max over the two flies of the velocity component toward the other fly, px/s (positive = "
-                            "one fly closing in on the other; same matching as `max_speed_raw`; 0.1 s smoothing)",
+                            "one fly closing in on the other; same matching as `max_speed_raw`; 0.1 s smoothing). "
+                            "NaN at the first sample and while either fly is missing for more than 2 samples "
+                            "(it needs both positions)",
     "closing_speed_raw": "-d(dist_body)/dt, px/s (positive = the flies approach each other; label-free; 0.1 s "
-                         "smoothing)",
+                         "smoothing). NaN while either fly is missing, plus one sample on each side",
     "peak_toward_raw": "max of `max_toward_speed_raw` over the next 0.3 s (a strike is a short burst: use this to "
-                       "mark the whole burst, including the samples just before the peak)",
+                       "mark the whole burst, including the samples just before the peak). NaN only if "
+                       "`max_toward_speed_raw` is NaN for that whole 0.3 s",
 }
 
 

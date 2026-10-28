@@ -33,7 +33,7 @@ ASSETS = {
                  "etho/tracking/fly_features.py", "etho/tracking/fly_video.py", "etho/tracking/features.py",
                  "etho/tracking/sam_parse.py", "etho/tracking/mask_codec.py", "etho/tracking/pipeline.py"],
     "runner": ["scripts/run_fly.py", "scripts/run_fly_etho.py", "etho/flies/predict.py", "etho/flies/extras.py",
-               "etho/rules/sandbox.py"],
+               "etho/flies/frozen.py", "etho/rules/sandbox.py"],
     "prompts": ["etho/flies/synth.py"],
     "other": ["etho/rules/synthesize.py", "scripts/freeze_flies.py"],
 }

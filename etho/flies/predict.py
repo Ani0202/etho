@@ -135,16 +135,29 @@ def predict_movie(table: dict[str, np.ndarray], spec: dict, window: str, fps: fl
     return out
 
 
+def in_frozen_tree(path: str) -> bool:
+    """etho/ outside etho/app, and configs/ (EVAL_PLAN 14.12 item 10): what a frozen run must not have changed."""
+    return (path.startswith("etho/") and not path.startswith("etho/app/")) or path.startswith("configs/")
+
+
 def git_state(repo: Path = REPO) -> dict:
+    """HEAD and the dirty paths. `run_dirty_paths` lists every dirty path inside the frozen trees (no truncation);
+    other dirty paths (logs, docs, scratch) are only counted, so they can neither hide a frozen-tree change nor
+    fail the scorer's check."""
     def run(*a: str) -> str:
         try:
             return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True,
                                   check=True).stdout.rstrip()
         except (subprocess.CalledProcessError, FileNotFoundError):
             return ""
-    status = run("status", "--porcelain")
+    status = run("status", "--porcelain", "--untracked-files=all")
+    paths = []
+    for line in status.splitlines():
+        entry = line[3:]
+        paths += [x.strip('"') for x in entry.split(" -> ")]  # a rename lists both names
     return {"run_commit": run("rev-parse", "HEAD") or None,
-            "run_dirty_paths": [line[3:] for line in status.splitlines()][:50]}
+            "run_dirty_paths": [p for p in paths if in_frozen_tree(p)],
+            "n_dirty_paths_outside_frozen_trees": sum(1 for p in paths if not in_frozen_tree(p))}
 
 
 def write_predictions(out_dir: Path, per_movie: dict[int, dict[str, np.ndarray]], *, config: dict,
