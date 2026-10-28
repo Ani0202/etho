@@ -3,7 +3,7 @@
 _Updated 2026-10-28 04:36 UTC (00:36 ET, Wed Oct 28). Phase 0 and Phase 1 are done; waiting on
 Aniket at the checkpoint._
 
-## Phase 2 status (updated 2026-10-28 ~08:20 UTC / 04:20 ET)
+## Phase 2 status (updated 2026-10-28 09:25 UTC / 05:25 ET)
 
 ### Done and measured (dev / dev-holdout, frame-level F1, CalMS21 definition)
 | Pipeline | dev macro | holdout macro | holdout attack / inv / mount |
@@ -24,16 +24,36 @@ Other results:
 - **Built:** a fast decoder (about 0.7 ms/mask, bit-exact) and a perception planner (Muse Spark proposes
   phrases; SAM image check + 5 s video probe; under 4 cents per video).
 
+### Test run 1 (CalMS21, 19 videos)
+- **Frozen config:** `configs/frozen_test_v1.json`. The $0 pre-flight reproduced all dev-holdout arms exactly.
+- **EVAL_PLAN:** v1-final plus amendment A1 (from the Codex Astra eval-plan gate: no adaptive headline,
+  precise supervision wording, pre-label validation, freeze covers the product tree).
+- **SAM pass: DONE.** 19/19 tracked, $17.48 (pre-approved up to $20). Tracking was 0.21x real time
+  pooled (median 0.14x, max 0.82x). Rules arms zs_rules / fs_rules are written. **No labels read.**
+- **Blocked:** tier-1 arms (about $15 on Fireworks), waiting for Aniket's approval. Then run
+  `eval.score_arms --preflight-only`, then score.
+
+### Web app (merged, 13afead)
+- **What it does:** upload → plan → track → synthesize → predict → tier-1 → report → overlay. It has
+  live SSE progress, an ethogram synced to the overlay video, the correction loop, an audit trail, a daily
+  cap, a per-job ceiling, rate limits, and per-visitor showcase copies. Reviewed by Claude; all findings fixed.
+- **Live e2e:** a 60 s clip took 2.61x real time ($0.36). An implementer is cutting this to ≤ 1x (detector
+  cache seeded with the benchmark detectors, parallel synthesis, smaller chunks, overlapped stages).
+- **Deferred until after test tier-1:**
+  - sandbox isolation (bwrap) for model-written code;
+  - report wording ("zero labeled training frames" lives in the frozen etho/report).
+
 ### Next
-1. A tier-1 prompt with per-tile features (zero-shot lever).
-2. Report generation (ethogram, metrics, methods paragraph).
-3. Freeze the EVAL_PLAN targets, then the Codex eval-plan gate.
-4. Test-split SAM pass (pre-approved up to $20).
-5. Web app.
-6. Fly vs. Fly once Aniket approves ADR-002.
+1. Test tier-1 + scoring, once approved.
+2. App speed fix, then the live re-test.
+3. Fly vs Fly, once ADR-002 is approved.
+4. Demo video plan.
+5. Sandbox hardening.
 
 ### Waiting on Aniket
-ADR-002 (second species) approval.
+- tier-1 test spend;
+- headline wording (default to the precise wording at about 11:00 UTC);
+- ADR-002.
 
 ## Day-by-day plan (ET)
 
