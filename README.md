@@ -25,6 +25,22 @@ FIREWORKS_API_KEY=...
 All model calls go through `etho/gateway/`, which enforces per-provider spending caps, caches every
 response on disk, and logs each call to `ops/spend.jsonl`. `bin/spend` prints totals.
 
+## Web app
+
+```bash
+bin/app                         # http://127.0.0.1:8000 (localhost only; --host / --port to change)
+uv run python scripts/make_showcase.py --help   # package an existing run as a zero-spend showcase
+uv run python -m tests.mock_server              # the real app on synthetic stages and a fake gateway (no spend)
+```
+
+Upload (mp4/mov/avi, <= 200 MB, <= 5 min, checked with ffprobe before anything is spent), edit the behavior
+definitions, and watch the job stream stage by stage. Results show the overlay video synced with the ethogram,
+per-stage time and cost, the end-to-end speed as a multiple of the video's duration, and the audit trail.
+Mark wrong or missed bouts and "Revise rules" to see what changed. Guards (all in `etho/app/config.py`, env
+overrides `ETHO_APP_*`): gateway tag (`dev` now; the live demo uses `demo-reserve`), a per-day app spend cap
+($5) with a duration-based pre-estimate, 3 jobs per hour per client, one job at a time. Uploads use Standard
+(non-contributor) models; showcase runs on CalMS21 may use contributor models.
+
 ## Data and licenses
 
 - **CalMS21** (Caltech Mouse Social Interactions), CC BY 4.0. Sun et al., "The Multi-Agent Behavior

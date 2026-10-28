@@ -59,7 +59,8 @@ class Job:
     created_at: float = field(default_factory=time.time)
     started_mono: float | None = None
     finished_mono: float | None = None
-    run_s: float = 0.0
+    run_s: float = 0.0           # wall-clock from start to end (queue wait excluded)
+    outcome: str | None = field(default=None, repr=False)   # terminal status, applied by the worker
     error: str | None = None
     message: str = ""
     cost_usd: float = 0.0
@@ -246,11 +247,14 @@ class JobManager:
             try:
                 self._run(job)
             except Exception as e:  # never let the worker die
-                job.status, job.error = "failed", f"{type(e).__name__}: {e}"[:500]
+                job.outcome, job.error = "failed", f"{type(e).__name__}: {e}"[:500]
             finally:
+                # elapsed time and cost are fixed before the terminal status becomes visible, so a client
+                # never sees a finished job with a smaller elapsed time than it saw while running
                 job.finished_mono = time.monotonic()
-                job.run_s = round(sum(s.elapsed_s for s in job.stages), 2)
+                job.run_s = round(job.finished_mono - job.started_mono, 2)
                 job.cost_usd = round(job.gw.total_cost if job.gw else job.cost_usd, 6)
+                job.status = job.outcome or "failed"
                 self._persist(job)
                 self.touch(job)
 
@@ -283,11 +287,11 @@ class JobManager:
         try:
             self.guard.check(job.est_cost_usd, others)
         except Refused as e:
-            job.status, job.error = "failed", e.message
+            job.outcome, job.error = "failed", e.message
             return
         for st in job.stages:
             if job.cancel_requested:
-                job.status, job.message = "cancelled", "cancelled"
+                job.outcome, job.message = "cancelled", "cancelled"
                 return
             current[:] = [st]
             st.status, st.started = "running", time.monotonic()
@@ -300,7 +304,7 @@ class JobManager:
                 st.status, st.message = "skipped", str(e)
             except Exception as e:
                 st.status = "failed"
-                job.status, job.error = "failed", f"{st.name}: {type(e).__name__}: {e}"[:600]
+                job.outcome, job.error = "failed", f"{st.name}: {type(e).__name__}: {e}"[:600]
                 st.message = job.error
                 return
             finally:
@@ -310,6 +314,5 @@ class JobManager:
                 self._persist(job)
                 self.touch(job)
         current.clear()
-        job.run_s = round(sum(s.elapsed_s for s in job.stages), 2)
         self.backend.finalize(ctx, ledger_cost=self.ledger.job_cost(job.id) or None)
-        job.status = "done"
+        job.outcome = "done"

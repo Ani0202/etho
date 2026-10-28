@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etho: zero-shot animal behavior scoring</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top"><div class="in">
+  <a class="brand" href="/">Etho</a>
+  <span class="tag">Zero-shot animal behavior scoring with Meta models</span>
+  <span class="spend" id="spend"></span>
+</div></header>
+<main>
+  <div class="card">
+    <h1>Score animal behavior from plain-English definitions</h1>
+    <p class="sub" style="margin:4px 0 0">Upload lab video, describe each behavior in words, and get a scored ethogram, metrics and an auditable
+      methods report. No labeled training frames. Every model call is logged and costed.</p>
+  </div>
+
+  <h2 id="show-h">Precomputed showcase runs <span class="sub">(open instantly, zero spend)</span></h2>
+  <div class="show" id="showcases" aria-labelledby="show-h"><div class="sub">Loading...</div></div>
+
+  <form id="form" class="card" style="margin-top:20px" novalidate>
+    <h2>Score your own video</h2>
+    <div id="drop" class="drop" tabindex="0" role="button" aria-label="Choose a video file">
+      <div><strong>Drop a video here</strong> or click to choose</div>
+      <div class="sub" id="limits">mp4, mov or avi</div>
+      <input type="file" id="file" accept=".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo" hidden>
+    </div>
+    <div id="picked" class="hint" aria-live="polite"></div>
+    <h3>Animals</h3>
+    <div class="row">
+      <div><label for="subject">Subject (the animal whose behavior is scored)</label><input type="text" id="subject" maxlength="200"></div>
+      <div><label for="partner">Partner (the other animal)</label><input type="text" id="partner" maxlength="200"></div>
+    </div>
+    <h3>Behavior definitions</h3>
+    <p class="hint" style="margin:0 0 10px">One definition per behavior, as you would write it in a methods section. The defaults are the CalMS21
+      resident-intruder definitions (Segalin et al., MARS, eLife 2021).</p>
+    <div id="behs"></div>
+    <button type="button" class="small" id="add">+ Add behavior</button>
+    <div class="note" style="margin-top:16px">Your video frames are sent to Meta's Model API (Standard mode, not the data-contributor mode) for
+      tracking and rule writing, and to Fireworks (Muse Spark Open) for tier-1 checks. Detector code runs in a local sandbox.
+      The app estimates the cost before starting and refuses a job that would pass its daily spend cap.</div>
+    <div class="row">
+      <div class="fit"><button type="submit" class="primary" id="go">Score video</button></div>
+      <div id="est" class="sub"></div>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+
+  <div class="card" id="recent-card" hidden>
+    <h2>Your recent jobs</h2>
+    <div id="recent"></div>
+  </div>
+</main>
+<footer>Etho is a research prototype. Showcase videos: CalMS21 (CC BY 4.0), Sun et al. 2021.</footer>
+<script src="/static/common.js"></script>
+<script src="/static/home.js"></script>
+</body>
+</html>

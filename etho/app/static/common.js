@@ -1,0 +1,98 @@
+/* Shared helpers. All user- and model-supplied text goes through textContent (never innerHTML). */
+"use strict";
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);
+    else if (k === "text") el.textContent = v;
+    else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) {
+    if (k === null || k === undefined || k === false) continue;
+    el.append(k.nodeType ? k : document.createTextNode(String(k)));
+  }
+  return el;
+}
+
+const SVGNS = "http://www.w3.org/2000/svg";
+function s(tag, attrs, ...kids) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v !== null && v !== undefined) el.setAttribute(k, v);
+  for (const k of kids.flat()) if (k) el.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return el;
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  let body = null;
+  try { body = await r.json(); } catch (e) { /* not JSON */ }
+  if (!r.ok) {
+    const err = new Error((body && body.message) || `HTTP ${r.status}`);
+    err.status = r.status; err.code = body && body.error; throw err;
+  }
+  return body;
+}
+
+const fmt = {
+  usd(x) { if (x === null || x === undefined) return "n/a"; return x < 0.1 && x > 0 ? "$" + x.toFixed(3) : "$" + x.toFixed(2); },
+  time(sec) {
+    if (sec === null || sec === undefined) return "n/a";
+    sec = Math.max(0, sec);
+    if (sec < 60) return sec.toFixed(sec < 10 ? 1 : 0) + " s";
+    return Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
+  },
+  clock(sec) { sec = Math.max(0, sec); return Math.floor(sec / 60) + ":" + (sec % 60).toFixed(1).padStart(4, "0"); },
+  mb(bytes) { return (bytes / 1e6).toFixed(1) + " MB"; },
+  x(v) { return v === null || v === undefined ? "n/a" : v.toFixed(v < 10 ? 2 : 1) + "×"; },
+};
+
+function colorVar(idx) { return `var(--b${idx})`; }
+
+const STAGE_LABEL = {
+  validate: "Validate", plan: "Plan", track: "Track", synthesize: "Write detectors", predict: "Score",
+  tier1: "Tier-1 check", report: "Report", overlay: "Overlay video", revise: "Revise rules",
+};
+
+/* Live progress for a job: stage list, elapsed, running cost. Calls onEnd(snapshot) when the job ends. */
+function progressCard(jobId, onEnd, opts) {
+  opts = opts || {};
+  const head = h("div", { class: "progress-head" });
+  const list = h("ul", { class: "stages", "aria-live": "polite" });
+  const cancel = h("button", { class: "small", onclick: async () => { cancel.disabled = true; try { await api(`/api/jobs/${jobId}/cancel`, { method: "POST" }); } catch (e) { /* ignore */ } } }, "Cancel");
+  const card = h("div", { class: opts.bare ? "" : "card" }, opts.title ? h("h2", {}, opts.title) : null, head, list, h("div", { style: { marginTop: "10px" } }, cancel));
+  function render(sn) {
+    head.replaceChildren(
+      h("span", { class: "big" }, sn.status === "queued" ? `Queued (position ${sn.queue_position})` :
+        sn.status === "running" ? `${STAGE_LABEL[sn.stage] || sn.stage || "Working"}  (${sn.stage_index}/${sn.n_stages})` :
+        sn.status === "done" ? "Done" : sn.status === "cancelled" ? "Cancelled" : "Failed"),
+      h("span", { class: "m" }, `elapsed ${fmt.time(sn.elapsed_s)}`),
+      h("span", { class: "m" }, `cost so far ${fmt.usd(sn.cost_usd)} (est. ${fmt.usd(sn.est_cost_usd)})`),
+      ...(sn.error ? [h("span", { class: "err", role: "alert" }, sn.error)] : []));
+    list.replaceChildren(...sn.stages.map(st => h("li", {},
+      h("span", { class: `dot ${st.status}`, title: st.status }),
+      h("span", {}, STAGE_LABEL[st.name] || st.name),
+      h("span", { class: "msg", title: st.message }, st.message),
+      h("span", { class: "num" }, st.status === "pending" ? "" : fmt.time(st.elapsed_s)),
+      h("span", { class: "num cost" }, st.status === "pending" ? "" : fmt.usd(st.cost_usd)))));
+    cancel.hidden = !(sn.status === "queued" || sn.status === "running");
+  }
+  const es = new EventSource(`/api/jobs/${jobId}/events`);
+  es.addEventListener("progress", e => render(JSON.parse(e.data)));
+  es.addEventListener("end", e => { const sn = JSON.parse(e.data); render(sn); es.close(); onEnd && onEnd(sn); });
+  es.onerror = () => { /* the browser retries; the final state is also reachable by reloading */ };
+  card.close = () => es.close();
+  return card;
+}
+
+async function loadHeader() {
+  try {
+    const c = await api("/api/config");
+    const el = document.getElementById("spend");
+    if (el) el.textContent = `app spend today ${fmt.usd(c.cap.spent_today_usd)} of ${fmt.usd(c.cap.cap_usd)}`;
+    return c;
+  } catch (e) { return null; }
+}
