@@ -19,7 +19,7 @@ mkdir -p "$root/ops/codex"
 git -C "$root" worktree add -B "codex/$name" "$wt" HEAD >/dev/null
 nohup bash -c '
   cd "$1" || exit 1
-  CODEX_OPS_DIR="$3/ops/codex" python3 "$3/bin/codex_run.py" build --sandbox workspace-write --cwd "$1" \
+  CODEX_OPS_DIR="$3/ops/codex" python3 "$3/bin/codex_run.py" build --force --sandbox workspace-write --cwd "$1" \
     --out "$3/ops/codex/build-$4.md" --log "$3/ops/codex/build-$4.log" --prompt "Read AGENTS.md and CLAUDE.md. Implement: $2
 Rules: all model calls through etho/gateway; tests must run without network; never edit eval/.
 Do NOT run git commit (the wrapper commits for you). Run the tests and end with: what changed,

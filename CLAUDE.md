@@ -236,9 +236,17 @@ weekly cap. Use it where an independent model family adds value. All rules below
 - A usage-limit error (as distinct from a model error) records the parsed reset time per model in
   `ops/codex/limit.json`. While the reset is in the future, every Codex script skips that model
   immediately and records the request in `ops/codex/queue/`.
+- A model error is not a usage limit. It still marks that model unavailable for 6 h, so a queued
+  gate isn't re-tried every 10 min.
 - After the reset, cron runs `bin/codex-queue --drain` every 10 min: gates first, then oldest first.
-  Queued routine reviews are coalesced into one.
-- Never retry in a loop: one attempt per request per reset window.
+  Queued routine reviews on one history line are coalesced into one.
+- Never retry in a loop:
+  - one attempt per model per request per invocation;
+  - a failed queued item backs off 1 h and is dropped after 3 attempts (gates notify);
+  - a successful direct run supersedes its queued copy.
+- Codex calls are serialized: a routine call that finds another one running is queued, and a gate
+  waits its turn.
+- Only calls that consumed allowance (ok or failed) count toward the daily caps.
 
 **Never block on Codex**
 - A routine review that is skipped or queued (exit 75) does **not** block a merge. Add the trailer

@@ -21,3 +21,9 @@ ops/.spend.lock
 ops/codex/diff-*
 ops/codex/queue-cron.log
 ops/codex/.queue.lock
+ops/codex/limit.json
+ops/codex/queue/
+ops/codex/notify.jsonl
+ops/codex/gate-blocked-*.json
+ops/codex/.*.lock
+ops/codex/.*.tmp

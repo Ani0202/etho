@@ -15,7 +15,7 @@ head_sha=$(git rev-parse "$head"); base_sha=$(git rev-parse "$base")
 mkdir -p ops/codex
 ts=$(date +%Y%m%d-%H%M%S)-$$
 git diff "$base_sha...$head_sha" > "ops/codex/diff-$ts.patch"
-[ -s "ops/codex/diff-$ts.patch" ] || { echo "no diff vs $base"; exit 0; }
+[ -s "ops/codex/diff-$ts.patch" ] || { rm -f "ops/codex/diff-$ts.patch"; echo "no diff vs $base"; exit 0; }
 git diff --name-only "$base_sha...$head_sha" > "ops/codex/diff-$ts.files"
 argv=$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${gate[@]}" --head "$head_sha" "$base_sha" "$focus")
 rc=0
