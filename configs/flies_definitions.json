@@ -1,0 +1,9 @@
+{
+ "_source": "Behavior definitions quoted verbatim from Chen, Lee, Bowens, Huber, Kravitz, 'Fighting fruit flies: a model system for the study of aggression', PNAS 99(8):5664-5668, 2002, doi:10.1073/pnas.082102599, Table 1 (ethogram of offensive and defensive actions), read from the PMC copy https://pmc.ncbi.nlm.nih.gov/articles/PMC122828/ (copyright 2002 The National Academy of Sciences; short attributed quotation). The Caltech Fly vs. Fly paper (Eyjolfsdottir et al., ECCV 2014) builds on this ethogram, but its own definitions are not openly available. Chosen before any Etho fly prediction existed and not edited after looking at any label. Scoring is pair-level: a frame is positive if either fly performs the behavior.",
+ "subject": "one fly",
+ "partner": "the other fly",
+ "behaviors": {
+  "wing_threat": "One fly quickly raises both wings to a 45° angle towards opponent",
+  "lunge": "One fly rears up on hind legs and snaps down on the other"
+ }
+}
