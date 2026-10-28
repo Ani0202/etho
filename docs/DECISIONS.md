@@ -70,3 +70,5 @@ For eval, planner outputs on test are logged and never inspected by a person (EV
 - Key catch (verified): every spike gap precedes a track's first detection. So recovery after losing an *established* track is untested.
 - The intensity identity resolver itself is unvalidated: the spike scored majority-nearest-reference identity.
 - **Lead's reconciliation:** agree on all points. E and a "mount with preceding footage" clip go first in Phase 2. Identity becomes {resident, intruder, unknown}, and gaps are kept as explicit missingness.
+
+- SAM mask decoding: ported meta-sam-parser's range decoder to numba (`etho/tracking/mask_codec.py`, derived from meta-sam-parser under the SAM License), bit-exact with the reference, ~100-300x faster (about 1-1.5 ms/mask vs 160-185 ms). `etho/tracking/sam_lines.py` parses lines without decoding; `parse_line` decodes each mask once. Skipped: the reference's canonical re-encode check. Reverse: restore the `meta_sam_parser` calls in `sam_parse.parse_line`.
