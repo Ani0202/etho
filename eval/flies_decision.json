@@ -1,0 +1,63 @@
+{
+ "version": 1,
+ "lunge": {
+  "run_id": "flies-dev-20261028T204035Z-5c949b",
+  "decision": "GO",
+  "verdict": {
+   "both_localized_frac": 0.9966666666666667,
+   "bout_f1": {
+    "ci_informative": true,
+    "ci_lower": 0.4974093264248705,
+    "ci_lower_bar": 0.05688311688311689,
+    "ci_undefined_frac": 0.0,
+    "pass": true,
+    "point": 0.5076142131979695,
+    "point_bar": 0.2068831168831169,
+    "reference": 0.05688311688311689
+   },
+   "bout_recall": 0.6493506493506493,
+   "coverage_ok": true,
+   "decision": "GO",
+   "evidence": {
+    "gt_bouts_observable": 77,
+    "min_gt_bouts": 30,
+    "min_movies_with_behavior": 1,
+    "movies_with_behavior": 2,
+    "sufficient": true
+   },
+   "false_positive_bouts_per_min": 7.0,
+   "frame_f1": {
+    "ci_informative": true,
+    "ci_lower": 0.2710926694329184,
+    "ci_lower_bar": 0.017277777777777777,
+    "ci_undefined_frac": 0.0,
+    "pass": true,
+    "point": 0.2761904761904762,
+    "point_bar": 0.16727777777777778,
+    "reference": 0.017277777777777777
+   },
+   "recall_ok": true,
+   "setup_ok": true
+  },
+  "predictions_sha256": "22c00684c97ed6c4620ab48685fc7bf2d1e6d2a2d540f2f75fec955f5731644b",
+  "frozen_config": {
+   "path": "configs/frozen_flies_v1.json",
+   "sha256": "0cbd1152660be0dbba87218fae618515526547135312157e6dcde4ca1749c30a"
+  },
+  "criteria_sha256": "ddcb52a900cd80f947af2850fa51803f1691d4c664c3cc61985a5e1e768ee0e2",
+  "git_commit": "e928bd5dde44ddd152c4be2963e38af81bbefb21",
+  "decided_utc": "2026-10-28T20:41:04+00:00"
+ },
+ "branch": "GO",
+ "window": "mid5",
+ "sample_fps": 30,
+ "behaviors": [
+  "wing_threat",
+  "lunge"
+ ],
+ "frozen_config": {
+  "path": "configs/frozen_flies_v1.json",
+  "sha256": "0cbd1152660be0dbba87218fae618515526547135312157e6dcde4ca1749c30a"
+ },
+ "criteria_sha256": "ddcb52a900cd80f947af2850fa51803f1691d4c664c3cc61985a5e1e768ee0e2"
+}
