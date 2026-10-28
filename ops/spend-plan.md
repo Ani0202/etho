@@ -26,5 +26,5 @@
 
 ## 2026-10-28: Tier-1 strips on test run 1 (APPROVED by Aniket, up to $25 Fireworks)
 - Frozen settings only (`configs/frozen_test_v1.json`), one run, both arms (zs_t1, fs_t1).
-- Estimate about $15 (range $7.5-23). Fireworks before the run: $10.04.
-- Guard: a watchdog stops the run if Fireworks spend passes $34.5 (start + $24.5), on top of the gateway's $90 cap.
+- Estimate about $15 (range $7.5-23). Fireworks before the run: $9.87.
+- Guard: a watchdog stops the run if Fireworks spend passes $34.37 (start + $24.5), on top of the gateway's $90 cap.
