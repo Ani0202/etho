@@ -1,0 +1,1977 @@
+{
+ "dataset": "Fly vs. Fly Aggression",
+ "doi": "10.22002/D1.1893",
+ "split_from_traintest_mat": {
+  "train": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "test": [
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
+  "n_flies": 2,
+  "behs": [
+   "lunge",
+   "wing_threat",
+   "charge",
+   "hold",
+   "tussle"
+  ],
+  "movienames": [
+   "movie1",
+   "movie2",
+   "movie3",
+   "movie4",
+   "movie5",
+   "movie6",
+   "movie7",
+   "movie8",
+   "movie9",
+   "movie10"
+  ]
+ },
+ "index_convention": "MATLAB 1-based inclusive [s, e] -> python [s-1, e)",
+ "windows": {
+  "mid5": {
+   "frames": [
+    22500,
+    31500
+   ],
+   "per_movie": {
+    "movie1": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 2,
+       "frames": 8,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 4,
+       "dur_s_mean": 0.13333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 1,
+       "frames": 4,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 4,
+       "dur_s_mean": 0.13333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 1,
+       "frames": 4,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 4,
+       "dur_s_mean": 0.13333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie2": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 75,
+       "frames": 303,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 7,
+       "dur_s_mean": 0.13466666666666666,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly0": {
+       "n_bouts": 75,
+       "frames": 303,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 7,
+       "dur_s_mean": 0.13466666666666666,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 6,
+       "frames": 1186,
+       "dur_frames_min": 3,
+       "dur_frames_median": 129.0,
+       "dur_frames_max": 671,
+       "dur_s_mean": 6.588888888888889,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly0": {
+       "n_bouts": 6,
+       "frames": 1186,
+       "dur_frames_min": 3,
+       "dur_frames_median": 129.0,
+       "dur_frames_max": 671,
+       "dur_s_mean": 6.588888888888889,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 6,
+       "frames": 9,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.5,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.05,
+       "n_bouts_le_3_frames": 6
+      },
+      "fly0": {
+       "n_bouts": 6,
+       "frames": 9,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.5,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.05,
+       "n_bouts_le_3_frames": 6
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 8,
+       "frames": 97,
+       "dur_frames_min": 4,
+       "dur_frames_median": 6.5,
+       "dur_frames_max": 48,
+       "dur_s_mean": 0.4041666666666667,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 8,
+       "frames": 97,
+       "dur_frames_min": 4,
+       "dur_frames_median": 6.5,
+       "dur_frames_max": 48,
+       "dur_s_mean": 0.4041666666666667,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie3": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 67,
+       "frames": 271,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 5,
+       "dur_s_mean": 0.13482587064676615,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 67,
+       "frames": 271,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 5,
+       "dur_s_mean": 0.13482587064676615,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 4,
+       "frames": 88,
+       "dur_frames_min": 13,
+       "dur_frames_median": 18.5,
+       "dur_frames_max": 38,
+       "dur_s_mean": 0.7333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 4,
+       "frames": 88,
+       "dur_frames_min": 13,
+       "dur_frames_median": 18.5,
+       "dur_frames_max": 38,
+       "dur_s_mean": 0.7333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 1,
+       "frames": 1,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.0,
+       "dur_frames_max": 1,
+       "dur_s_mean": 0.03333333333333333,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 1,
+       "frames": 1,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.0,
+       "dur_frames_max": 1,
+       "dur_s_mean": 0.03333333333333333,
+       "n_bouts_le_3_frames": 1
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 1,
+       "frames": 6,
+       "dur_frames_min": 6,
+       "dur_frames_median": 6.0,
+       "dur_frames_max": 6,
+       "dur_s_mean": 0.2,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 1,
+       "frames": 6,
+       "dur_frames_min": 6,
+       "dur_frames_median": 6.0,
+       "dur_frames_max": 6,
+       "dur_s_mean": 0.2,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie4": {
+     "excluded_unknown_frames": 357,
+     "lunge": {
+      "pair": {
+       "n_bouts": 92,
+       "frames": 393,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.14239130434782607,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly0": {
+       "n_bouts": 5,
+       "frames": 25,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.16666666666666666,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 87,
+       "frames": 368,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.1409961685823755,
+       "n_bouts_le_3_frames": 1
+      },
+      "pos_frames_in_excluded": 2
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 9,
+       "frames": 659,
+       "dur_frames_min": 4,
+       "dur_frames_median": 30.0,
+       "dur_frames_max": 306,
+       "dur_s_mean": 2.440740740740741,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 9,
+       "frames": 659,
+       "dur_frames_min": 4,
+       "dur_frames_median": 30.0,
+       "dur_frames_max": 306,
+       "dur_s_mean": 2.440740740740741,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 4,
+       "frames": 6,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.5,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.05,
+       "n_bouts_le_3_frames": 4
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 4,
+       "frames": 6,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.5,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.05,
+       "n_bouts_le_3_frames": 4
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 7,
+       "frames": 148,
+       "dur_frames_min": 6,
+       "dur_frames_median": 11.0,
+       "dur_frames_max": 88,
+       "dur_s_mean": 0.7047619047619047,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 7,
+       "frames": 148,
+       "dur_frames_min": 6,
+       "dur_frames_median": 11.0,
+       "dur_frames_max": 88,
+       "dur_s_mean": 0.7047619047619047,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 4,
+       "frames": 238,
+       "dur_frames_min": 26,
+       "dur_frames_median": 61.5,
+       "dur_frames_max": 89,
+       "dur_s_mean": 1.9833333333333334,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 4,
+       "frames": 238,
+       "dur_frames_min": 26,
+       "dur_frames_median": 61.5,
+       "dur_frames_max": 89,
+       "dur_s_mean": 1.9833333333333334,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 4,
+       "frames": 238,
+       "dur_frames_min": 26,
+       "dur_frames_median": 61.5,
+       "dur_frames_max": 89,
+       "dur_s_mean": 1.9833333333333334,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie5": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 4,
+       "frames": 16,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 4,
+       "dur_s_mean": 0.13333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 4,
+       "frames": 16,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 4,
+       "dur_s_mean": 0.13333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    }
+   },
+   "pooled": {
+    "lunge": {
+     "pair_bouts": 240,
+     "pair_frames": 991,
+     "movies_with_behavior": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "wing_threat": {
+     "pair_bouts": 19,
+     "pair_frames": 1933,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    },
+    "charge": {
+     "pair_bouts": 11,
+     "pair_frames": 16,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    },
+    "hold": {
+     "pair_bouts": 16,
+     "pair_frames": 251,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    },
+    "tussle": {
+     "pair_bouts": 4,
+     "pair_frames": 238,
+     "movies_with_behavior": [
+      4
+     ]
+    }
+   },
+   "random_reference": {
+    "dev": {
+     "wing_threat": {
+      "n_frames_kept": 18000,
+      "prevalence": 0.06588888888888889,
+      "iid_expected_f1": 0.06588888888888889,
+      "iid_sim_mean_f1": 0.06629439326696923,
+      "bout_shuffle_mean_frame_f1": 0.12521301891773487,
+      "bout_shuffle_mean_bout_f1": 0.22422727272727272,
+      "bout_shuffle_bout_f1_p95": 0.4049999999999983,
+      "reps": 200,
+      "seed": 20261028
+     },
+     "lunge": {
+      "n_frames_kept": 18000,
+      "prevalence": 0.017277777777777777,
+      "iid_expected_f1": 0.017277777777777777,
+      "iid_sim_mean_f1": 0.018243791675797746,
+      "bout_shuffle_mean_frame_f1": 0.03154705908467141,
+      "bout_shuffle_mean_bout_f1": 0.05249217890480287,
+      "bout_shuffle_bout_f1_p95": 0.09333333333333334,
+      "reps": 200,
+      "seed": 20261028
+     }
+    },
+    "spare": {
+     "wing_threat": {
+      "n_frames_kept": 26643,
+      "prevalence": 0.028037383177570093,
+      "iid_expected_f1": 0.028037383177570093,
+      "iid_sim_mean_f1": 0.027267267053882743,
+      "bout_shuffle_mean_frame_f1": 0.055080576352724876,
+      "bout_shuffle_mean_bout_f1": 0.09076385482472439,
+      "bout_shuffle_bout_f1_p95": 0.23076923076923078,
+      "reps": 200,
+      "seed": 20261028
+     },
+     "lunge": {
+      "n_frames_kept": 26643,
+      "prevalence": 0.02544758473144916,
+      "iid_expected_f1": 0.02544758473144916,
+      "iid_sim_mean_f1": 0.025322992963718836,
+      "bout_shuffle_mean_frame_f1": 0.037912952616191015,
+      "bout_shuffle_mean_bout_f1": 0.0637889348421099,
+      "bout_shuffle_bout_f1_p95": 0.09469769504439582,
+      "reps": 200,
+      "seed": 20261028
+     }
+    },
+    "train": {
+     "wing_threat": {
+      "n_frames_kept": 44643,
+      "prevalence": 0.043299061443003384,
+      "iid_expected_f1": 0.043299061443003384,
+      "iid_sim_mean_f1": 0.04331808734621886,
+      "bout_shuffle_mean_frame_f1": 0.11780836225722875,
+      "bout_shuffle_mean_bout_f1": 0.14501642299687967,
+      "bout_shuffle_bout_f1_p95": 0.2631578947368421,
+      "reps": 200,
+      "seed": 20261028
+     },
+     "lunge": {
+      "n_frames_kept": 44643,
+      "prevalence": 0.02215352910870685,
+      "iid_expected_f1": 0.02215352910870685,
+      "iid_sim_mean_f1": 0.02187647915887511,
+      "bout_shuffle_mean_frame_f1": 0.035864851625621384,
+      "bout_shuffle_mean_bout_f1": 0.06152254569407502,
+      "bout_shuffle_bout_f1_p95": 0.08939040502984189,
+      "reps": 200,
+      "seed": 20261028
+     }
+    }
+   }
+  },
+  "mid10": {
+   "frames": [
+    18000,
+    36000
+   ],
+   "per_movie": {
+    "movie1": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 10,
+       "frames": 40,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 5,
+       "dur_s_mean": 0.13333333333333333,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly0": {
+       "n_bouts": 3,
+       "frames": 11,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 4,
+       "dur_s_mean": 0.12222222222222222,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly1": {
+       "n_bouts": 7,
+       "frames": 29,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 5,
+       "dur_s_mean": 0.1380952380952381,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie2": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 163,
+       "frames": 670,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.13701431492842536,
+       "n_bouts_le_3_frames": 2
+      },
+      "fly0": {
+       "n_bouts": 163,
+       "frames": 670,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.13701431492842536,
+       "n_bouts_le_3_frames": 2
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 16,
+       "frames": 1895,
+       "dur_frames_min": 3,
+       "dur_frames_median": 27.0,
+       "dur_frames_max": 671,
+       "dur_s_mean": 3.9479166666666665,
+       "n_bouts_le_3_frames": 2
+      },
+      "fly0": {
+       "n_bouts": 16,
+       "frames": 1895,
+       "dur_frames_min": 3,
+       "dur_frames_median": 27.0,
+       "dur_frames_max": 671,
+       "dur_s_mean": 3.9479166666666665,
+       "n_bouts_le_3_frames": 2
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 14,
+       "frames": 23,
+       "dur_frames_min": 1,
+       "dur_frames_median": 2.0,
+       "dur_frames_max": 3,
+       "dur_s_mean": 0.05476190476190476,
+       "n_bouts_le_3_frames": 14
+      },
+      "fly0": {
+       "n_bouts": 14,
+       "frames": 23,
+       "dur_frames_min": 1,
+       "dur_frames_median": 2.0,
+       "dur_frames_max": 3,
+       "dur_s_mean": 0.05476190476190476,
+       "n_bouts_le_3_frames": 14
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 17,
+       "frames": 160,
+       "dur_frames_min": 2,
+       "dur_frames_median": 5.0,
+       "dur_frames_max": 48,
+       "dur_s_mean": 0.3137254901960784,
+       "n_bouts_le_3_frames": 3
+      },
+      "fly0": {
+       "n_bouts": 17,
+       "frames": 160,
+       "dur_frames_min": 2,
+       "dur_frames_median": 5.0,
+       "dur_frames_max": 48,
+       "dur_s_mean": 0.3137254901960784,
+       "n_bouts_le_3_frames": 3
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 2,
+       "frames": 12,
+       "dur_frames_min": 4,
+       "dur_frames_median": 6.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.2,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 2,
+       "frames": 12,
+       "dur_frames_min": 4,
+       "dur_frames_median": 6.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.2,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 2,
+       "frames": 12,
+       "dur_frames_min": 4,
+       "dur_frames_median": 6.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.2,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie3": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 135,
+       "frames": 548,
+       "dur_frames_min": 1,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 9,
+       "dur_s_mean": 0.13530864197530865,
+       "n_bouts_le_3_frames": 1
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 135,
+       "frames": 548,
+       "dur_frames_min": 1,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 9,
+       "dur_s_mean": 0.13530864197530865,
+       "n_bouts_le_3_frames": 1
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 8,
+       "frames": 577,
+       "dur_frames_min": 11,
+       "dur_frames_median": 19.0,
+       "dur_frames_max": 396,
+       "dur_s_mean": 2.404166666666667,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 8,
+       "frames": 577,
+       "dur_frames_min": 11,
+       "dur_frames_median": 19.0,
+       "dur_frames_max": 396,
+       "dur_s_mean": 2.404166666666667,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 5,
+       "frames": 7,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.0,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.04666666666666666,
+       "n_bouts_le_3_frames": 5
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 5,
+       "frames": 7,
+       "dur_frames_min": 1,
+       "dur_frames_median": 1.0,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.04666666666666666,
+       "n_bouts_le_3_frames": 5
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 2,
+       "frames": 82,
+       "dur_frames_min": 6,
+       "dur_frames_median": 41.0,
+       "dur_frames_max": 76,
+       "dur_s_mean": 1.3666666666666667,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 2,
+       "frames": 82,
+       "dur_frames_min": 6,
+       "dur_frames_median": 41.0,
+       "dur_frames_max": 76,
+       "dur_s_mean": 1.3666666666666667,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 1,
+       "frames": 16,
+       "dur_frames_min": 16,
+       "dur_frames_median": 16.0,
+       "dur_frames_max": 16,
+       "dur_s_mean": 0.5333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 1,
+       "frames": 16,
+       "dur_frames_min": 16,
+       "dur_frames_median": 16.0,
+       "dur_frames_max": 16,
+       "dur_s_mean": 0.5333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 1,
+       "frames": 16,
+       "dur_frames_min": 16,
+       "dur_frames_median": 16.0,
+       "dur_frames_max": 16,
+       "dur_s_mean": 0.5333333333333333,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie4": {
+     "excluded_unknown_frames": 433,
+     "lunge": {
+      "pair": {
+       "n_bouts": 131,
+       "frames": 553,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.14071246819338423,
+       "n_bouts_le_3_frames": 2
+      },
+      "fly0": {
+       "n_bouts": 5,
+       "frames": 25,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.16666666666666666,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 126,
+       "frames": 528,
+       "dur_frames_min": 3,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 8,
+       "dur_s_mean": 0.13968253968253969,
+       "n_bouts_le_3_frames": 2
+      },
+      "pos_frames_in_excluded": 6
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 15,
+       "frames": 1913,
+       "dur_frames_min": 4,
+       "dur_frames_median": 30.0,
+       "dur_frames_max": 987,
+       "dur_s_mean": 4.251111111111111,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 15,
+       "frames": 1913,
+       "dur_frames_min": 4,
+       "dur_frames_median": 30.0,
+       "dur_frames_max": 987,
+       "dur_s_mean": 4.251111111111111,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 6,
+       "frames": 10,
+       "dur_frames_min": 1,
+       "dur_frames_median": 2.0,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.05555555555555556,
+       "n_bouts_le_3_frames": 6
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 6,
+       "frames": 10,
+       "dur_frames_min": 1,
+       "dur_frames_median": 2.0,
+       "dur_frames_max": 2,
+       "dur_s_mean": 0.05555555555555556,
+       "n_bouts_le_3_frames": 6
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 7,
+       "frames": 148,
+       "dur_frames_min": 6,
+       "dur_frames_median": 11.0,
+       "dur_frames_max": 88,
+       "dur_s_mean": 0.7047619047619047,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 7,
+       "frames": 148,
+       "dur_frames_min": 6,
+       "dur_frames_median": 11.0,
+       "dur_frames_max": 88,
+       "dur_s_mean": 0.7047619047619047,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 4,
+       "frames": 238,
+       "dur_frames_min": 26,
+       "dur_frames_median": 61.5,
+       "dur_frames_max": 89,
+       "dur_s_mean": 1.9833333333333334,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 4,
+       "frames": 238,
+       "dur_frames_min": 26,
+       "dur_frames_median": 61.5,
+       "dur_frames_max": 89,
+       "dur_s_mean": 1.9833333333333334,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 4,
+       "frames": 238,
+       "dur_frames_min": 26,
+       "dur_frames_median": 61.5,
+       "dur_frames_max": 89,
+       "dur_s_mean": 1.9833333333333334,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    },
+    "movie5": {
+     "excluded_unknown_frames": 0,
+     "lunge": {
+      "pair": {
+       "n_bouts": 29,
+       "frames": 117,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 5,
+       "dur_s_mean": 0.13448275862068965,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 29,
+       "frames": 117,
+       "dur_frames_min": 4,
+       "dur_frames_median": 4.0,
+       "dur_frames_max": 5,
+       "dur_s_mean": 0.13448275862068965,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "wing_threat": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "charge": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "hold": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     },
+     "tussle": {
+      "pair": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly0": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "fly1": {
+       "n_bouts": 0,
+       "frames": 0,
+       "dur_frames_min": null,
+       "dur_frames_median": null,
+       "dur_frames_max": null,
+       "dur_s_mean": null,
+       "n_bouts_le_3_frames": 0
+      },
+      "pos_frames_in_excluded": 0
+     }
+    }
+   },
+   "pooled": {
+    "lunge": {
+     "pair_bouts": 468,
+     "pair_frames": 1928,
+     "movies_with_behavior": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "wing_threat": {
+     "pair_bouts": 39,
+     "pair_frames": 4385,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    },
+    "charge": {
+     "pair_bouts": 25,
+     "pair_frames": 40,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    },
+    "hold": {
+     "pair_bouts": 26,
+     "pair_frames": 390,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    },
+    "tussle": {
+     "pair_bouts": 7,
+     "pair_frames": 266,
+     "movies_with_behavior": [
+      2,
+      3,
+      4
+     ]
+    }
+   },
+   "random_reference": {
+    "dev": {
+     "wing_threat": {
+      "n_frames_kept": 36000,
+      "prevalence": 0.05263888888888889,
+      "iid_expected_f1": 0.05263888888888889,
+      "iid_sim_mean_f1": 0.05203704609171881,
+      "bout_shuffle_mean_frame_f1": 0.09845041611155,
+      "bout_shuffle_mean_bout_f1": 0.1807157681080095,
+      "bout_shuffle_bout_f1_p95": 0.3225806451612903,
+      "reps": 200,
+      "seed": 20261028
+     },
+     "lunge": {
+      "n_frames_kept": 36000,
+      "prevalence": 0.01972222222222222,
+      "iid_expected_f1": 0.01972222222222222,
+      "iid_sim_mean_f1": 0.020068701136183354,
+      "bout_shuffle_mean_frame_f1": 0.03607282225273816,
+      "bout_shuffle_mean_bout_f1": 0.06188515414520689,
+      "bout_shuffle_bout_f1_p95": 0.10029498525073748,
+      "reps": 200,
+      "seed": 20261028
+     }
+    },
+    "spare": {
+     "wing_threat": {
+      "n_frames_kept": 53567,
+      "prevalence": 0.04648384266432692,
+      "iid_expected_f1": 0.04648384266432692,
+      "iid_sim_mean_f1": 0.04644579947532188,
+      "bout_shuffle_mean_frame_f1": 0.0777139026437731,
+      "bout_shuffle_mean_bout_f1": 0.11313908688688587,
+      "bout_shuffle_bout_f1_p95": 0.1873824839188516,
+      "reps": 200,
+      "seed": 20261028
+     },
+     "lunge": {
+      "n_frames_kept": 53567,
+      "prevalence": 0.022625870405286838,
+      "iid_expected_f1": 0.022625870405286838,
+      "iid_sim_mean_f1": 0.02288685632911985,
+      "bout_shuffle_mean_frame_f1": 0.027600523990372904,
+      "bout_shuffle_mean_bout_f1": 0.0472740274316169,
+      "bout_shuffle_bout_f1_p95": 0.06934220617274259,
+      "reps": 200,
+      "seed": 20261028
+     }
+    },
+    "train": {
+     "wing_threat": {
+      "n_frames_kept": 89567,
+      "prevalence": 0.04895776346198935,
+      "iid_expected_f1": 0.04895776346198935,
+      "iid_sim_mean_f1": 0.04902575152465319,
+      "bout_shuffle_mean_frame_f1": 0.08475228587467204,
+      "bout_shuffle_mean_bout_f1": 0.14304501904083936,
+      "bout_shuffle_bout_f1_p95": 0.21975763962065312,
+      "reps": 200,
+      "seed": 20261028
+     },
+     "lunge": {
+      "n_frames_kept": 89567,
+      "prevalence": 0.021458796208424977,
+      "iid_expected_f1": 0.021458796208424977,
+      "iid_sim_mean_f1": 0.02156356621517286,
+      "bout_shuffle_mean_frame_f1": 0.030598161150611237,
+      "bout_shuffle_mean_bout_f1": 0.05227456241968364,
+      "bout_shuffle_bout_f1_p95": 0.06786503448111292,
+      "reps": 200,
+      "seed": 20261028
+     }
+    }
+   }
+  }
+ },
+ "behs_in_actions_files": {
+  "movie1": [
+   "lunge",
+   "wing_threat",
+   "charge",
+   "hold",
+   "tussle",
+   "unknown"
+  ],
+  "movie2": [
+   "lunge",
+   "wing_threat",
+   "charge",
+   "hold",
+   "tussle",
+   "unknown"
+  ],
+  "movie3": [
+   "lunge",
+   "wing_threat",
+   "charge",
+   "hold",
+   "tussle",
+   "unknown"
+  ],
+  "movie4": [
+   "lunge",
+   "wing_threat",
+   "charge",
+   "hold",
+   "tussle",
+   "unknown"
+  ],
+  "movie5": [
+   "lunge",
+   "wing_threat",
+   "charge",
+   "hold",
+   "tussle",
+   "unknown"
+  ]
+ },
+ "flag_column_values": {
+  "movie1": {
+   "lunge": [
+    0
+   ],
+   "wing_threat": [
+    0
+   ],
+   "charge": [],
+   "hold": [],
+   "tussle": [],
+   "unknown": []
+  },
+  "movie2": {
+   "lunge": [
+    0,
+    2
+   ],
+   "wing_threat": [
+    0
+   ],
+   "charge": [
+    0
+   ],
+   "hold": [
+    0
+   ],
+   "tussle": [
+    0
+   ],
+   "unknown": [
+    0
+   ]
+  },
+  "movie3": {
+   "lunge": [
+    0,
+    2
+   ],
+   "wing_threat": [
+    0
+   ],
+   "charge": [
+    0
+   ],
+   "hold": [
+    0
+   ],
+   "tussle": [
+    0
+   ],
+   "unknown": [
+    0
+   ]
+  },
+  "movie4": {
+   "lunge": [
+    0,
+    2
+   ],
+   "wing_threat": [
+    0,
+    2
+   ],
+   "charge": [
+    0
+   ],
+   "hold": [
+    0
+   ],
+   "tussle": [
+    0
+   ],
+   "unknown": [
+    0
+   ]
+  },
+  "movie5": {
+   "lunge": [
+    0,
+    2
+   ],
+   "wing_threat": [
+    0
+   ],
+   "charge": [
+    0
+   ],
+   "hold": [
+    0
+   ],
+   "tussle": [
+    0
+   ],
+   "unknown": [
+    0
+   ]
+  }
+ },
+ "generated_utc": "2026-10-28T17:37:11+00:00",
+ "git_commit": "9dcc06ba3d5b5d16fefb46049fa20f6bcadd645a",
+ "git_dirty": true
+}
