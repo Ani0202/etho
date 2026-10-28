@@ -1,8 +1,9 @@
 {
- "version": "v1-final",
+ "version": "v1-final + amendment A1 (2026-10-28)",
  "source": "docs/EVAL_PLAN.md section 10 (this file is the machine-readable copy; the plan is authoritative)",
- "applies_to": "CalMS21 official test split (all 19 sequences), arm zs_t1 = frozen zero-shot arm (configs/frozen_test_v1.json zero_shot_arm)",
- "rule": "A target is MET if the point estimate reaches the threshold, and MET ROBUSTLY if the 95% sequence-bootstrap CI lower bound also does. Anything else is NOT MET. No rounding: compared at full precision.",
+ "applies_to": "CalMS21 official test split (all 19 sequences), arm zs_t1 = frozen pipeline arm (configs/frozen_test_v1.json zero_shot_arm), test-1 (the headline run)",
+ "rule": "Higher-is-better: MET if the point estimate is >= the threshold; MET ROBUSTLY if the 95% sequence-bootstrap CI lower bound is also >= it. Lower-is-better: MET if the point is <= the threshold; MET ROBUSTLY if the CI upper bound is also <= it. A metric without a CI can be MET, never MET ROBUSTLY. Anything else is NOT MET. No rounding: compared at full precision.",
+ "level_rule": "An accuracy level (minimum_credible or good) is reached only if macro F1 AND each of the three per-behavior F1 thresholds are MET (robustly only if all four are MET ROBUSTLY). Every other target (tier-1 lift, speed, cost, identity, coverage) is a separate verdict; there is no single overall 'success'. 'Minimum credible' is an engineering milestone, not a scientific validation threshold.",
  "primary_arm": "zs_t1",
  "f1": {
   "minimum_credible": {"macro": 0.40, "attack": 0.25, "investigation": 0.40, "mount": 0.40},
@@ -11,9 +12,23 @@
  "tier1_lift_macro": {
   "baseline_arm": "zs_rules",
   "arm": "zs_t1",
+  "direction": "higher",
   "minimum_credible": 0.03,
   "good": 0.10,
   "statistic": "paired difference of pooled macro F1 (arm minus baseline_arm); CI from the same sequence resamples"
  },
- "not_checked_here": "identity error, coverage, speed, and cost targets are read from the identity run and the pipeline manifests (EVAL_PLAN section 10); the supervised .793 is a reference, not a target"
+ "speed_x_realtime": {
+  "arm": "zs_t1",
+  "direction": "lower",
+  "statistic": "per video: summed wall-clock of the stages run on that video (track incl. chunking and SAM, rules, tier-1) / video duration (src_frames / 30); all 19 videos, failures included. pooled = sum of processing / sum of durations; median and max over the 19 per-video ratios. Computed by eval.score_arms from the zs_t1 manifest.",
+  "minimum_credible": {"pooled": 1.0, "median": 1.0},
+  "good": {"max": 1.0, "pooled": 0.5}
+ },
+ "checked_by_hand": {
+  "note": "not evaluated by eval.score_arms; verdicts use the same rule above, with the arithmetic shown in the report",
+  "identity_error_rate_overall": {"direction": "lower", "minimum_credible": 0.05, "good": 0.01, "source": "eval.identity test-1 run, all matches"},
+  "two_animal_coverage_both_labeled": {"direction": "higher", "minimum_credible": 0.95, "good": 0.98, "source": "eval.identity test-1 run (retained-output diagnostic)"},
+  "cost_per_video_min_usd_uncached": {"direction": "lower", "minimum_credible": 0.25, "good": 0.20, "source": "pipeline manifests and ops/spend.jsonl (EVAL_PLAN 4.4)"}
+ },
+ "not_a_target": "the supervised .793 (Sun et al. 2021, Table 1) is a reference, not a target"
 }

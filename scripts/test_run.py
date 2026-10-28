@@ -53,8 +53,9 @@ def verify_frozen() -> dict:
 def verify_product_tree(cfg: dict) -> None:
     """The code that runs must be the frozen code: etho/ unchanged since frozen_at_commit, same tier-1 prompt."""
     from etho.adjudication import tier1
-    diff = subprocess.run(["git", "diff", "--stat", cfg["frozen_at_commit"], "--", "etho/"], capture_output=True,
-                          text=True).stdout.strip()
+    # etho/app/ (the web app) never runs in this pipeline, so it is outside the freeze.
+    diff = subprocess.run(["git", "diff", "--stat", cfg["frozen_at_commit"], "--", "etho/", ":!etho/app"],
+                          capture_output=True, text=True).stdout.strip()
     if diff:
         raise SystemExit(f"etho/ differs from the frozen commit {cfg['frozen_at_commit']}:\n{diff}")
     ph = hashlib.sha256(tier1.PROMPT.encode()).hexdigest()
@@ -95,6 +96,8 @@ def main() -> None:
     verify_product_tree(cfg)
     t_start_ledger = time.time()
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    dirty = [ln[3:] for ln in subprocess.run(["git", "status", "--porcelain"], capture_output=True,
+                                              text=True).stdout.splitlines() if ln.strip()]
     seqs = json.loads(Path("eval/splits/calms21_v1.json").read_text())[a.split]
     run = Path("data/runs") / a.run
     run.mkdir(parents=True, exist_ok=True)
@@ -211,7 +214,8 @@ def main() -> None:
             (d / "manifest.json").write_text(json.dumps({
                 "sample_fps": 10, "arm": f"{arm}_{kind}",
                 "config": {"frozen_config": str(FROZEN), "frozen_sha256": sha(FROZEN),
-                           "frozen_at_commit": cfg["frozen_at_commit"], "run_commit": commit},
+                           "frozen_at_commit": cfg["frozen_at_commit"], "run_commit": commit,
+                           "run_git_dirty_paths": dirty},
                 "cost": cst, "wall_clock_s": wall, "calls": {"tier1_new": t1.get("new_calls"),
                                                              "tier1_windows": t1.get("windows")},
                 "machine": machine(),

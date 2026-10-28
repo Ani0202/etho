@@ -1,6 +1,8 @@
-# Etho evaluation plan, v1-final
+# Etho evaluation plan, v1-final + amendment A1
 
-Owner: evaluator subagent. Status: **v1-final, 2026-10-28** (written ~08:20 UTC). Targets (section 10) and the
+Owner: evaluator subagent. Status: **v1-final, 2026-10-28** (written ~08:20 UTC), **amended by A1 (2026-10-28,
+~08:50 UTC, section 13) before any test run**, reconciling the Codex eval-plan gate. Passages changed by A1 are
+tagged **[A1]**; the v1-final text is in commit e68f1e7. Targets (section 10) and the
 test-run protocol (section 7) become binding when this file is committed, which must happen **before test
 run 1** (CLAUDE.md, "Evaluation integrity"). Gate before the run: Codex eval-plan review of this exact text
 (Aniket's condition 2); its findings are reconciled in a dated amendment, never by silently editing a frozen
@@ -9,9 +11,19 @@ since the draft: section 12.
 
 ## 1. What we are claiming and what must be measured
 
-**Claim wording.** Etho uses **no labeled training frames**: behavior definitions are written in English, no
-model is trained or fine-tuned on CalMS21 labels, and no labeled frame is shown to any model as an example.
-"Zero-shot" in any Etho material means exactly this and must be accompanied by the disclosure below.
+**Claim wording [A1].** The headline supervision statement for any test number is:
+
+> **No task-specific model fine-tuning and no labeled examples in any prompt; pipeline settings (prompts,
+> thresholds, cascade rules) were selected using labeled development videos.**
+
+This replaces the v1-final wording "no labeled training frames" / "zero-shot" as the *headline* description,
+because the overall system was selected against labeled examples (dev and dev-holdout), which is supervision of
+the system even though no network weights were updated. Foundation-model exposure to CalMS21 during pretraining
+is also unverified. In this plan "zero-shot arm" (`zs_*`) remains an internal arm name for "no corrections"; in
+public material it is described by the sentence above, never by "zero-shot" alone. The correction arm is
+"few-shot (N corrections)" (section 6a). *The product's public one-liner ("zero-shot animal behavior scoring",
+"no labeled training frames", CLAUDE.md) is product direction and Aniket's decision; the evaluator only fixes the
+wording attached to reported numbers.*
 
 **Disclosure (must accompany every reported number).**
 - *Dev tuning.* Prompts, definitions wording, thresholds, reasoning effort, SAM phrases, and the overlap priority
@@ -22,10 +34,15 @@ model is trained or fine-tuned on CalMS21 labels, and no labeled frame is shown 
   frame by frame, no test video, keypoints, or model output inspected) to compute per-sequence aggregates: frame
   counts per behavior, bout counts, and the short-bout histogram in section 3. These aggregates shaped dev
   selection (the "long attack sequence" constraint exists because all test attack is in 5 sequences of 17-20k
-  frames at ~5% prevalence), the option-B subset, and the 10 fps decision. No test aggregate was used to tune
-  any prompt, rule, threshold, or model setting. On 2026-10-28 the evaluator re-read the same per-sequence
+  frames at ~5% prevalence), the option-B subset, and the 10 fps decision. **[A1] Narrowed:** no test aggregate
+  was used directly as the objective when tuning a prompt, rule, threshold, or model setting. Indirectly, they
+  did influence the pipeline: they shaped the dev set every setting was tuned on, and the 10 fps sampling rate
+  is itself a pipeline setting. On 2026-10-28 the evaluator re-read the same per-sequence
   aggregates (`data/calms21/seq/index_calms21_task1_test.json`, `counts` and `frames`) to project the expected
-  test F1 in section 10. That projection informed the targets, not any pipeline setting.
+  test F1 in section 10. That projection informed the targets. The test-1 scorer reads the index's `frames`
+  field (annotation length per sequence) as a label-free length check (section 7.2).
+- *[A1] Test-1 is the first test **prediction** evaluation, not the first access to test labels:* the
+  aggregates above were read earlier.
 - *Dev-holdout was not a pristine holdout.* It was scored 7 times before the freeze (section 10.1 lists the
   runs). For the **zero-shot arm** the config was chosen on dev before its first holdout look, and the variants
   rejected afterwards (joint classifier, 5-synthesis ensemble) were worse on dev as well as on holdout, so
@@ -39,7 +56,8 @@ model is trained or fine-tuned on CalMS21 labels, and no labeled frame is shown 
 cost per video** next to accuracy, compared against a **cited** manual-scoring baseline.
 
 Evaluation answers four questions:
-1. How well does zero-shot Etho agree with expert frame labels (CalMS21 Task 1)?
+1. How well does Etho, with no task-specific fine-tuning and no labeled examples in its prompts (section 1),
+   agree with expert frame labels (CalMS21 Task 1)?
 2. How does that compare to a supervised model trained on the 70 labeled train videos, and to human agreement?
 3. How much does each adjudication tier add, and at what cost?
 4. What does one video cost in dollars and wall-clock, versus manual scoring?
@@ -76,8 +94,10 @@ Bout counts are maximal runs of a label in the 30 fps annotation.
   Includes the two spike sequences already inspected (mouse016 frames 2400-3000, mouse050 frames 0-600),
   forced into dev so they can't contaminate dev-holdout.
 - **dev-holdout** (`mouse004, 034, 037, 047, 070`): scored only at milestones (proposed: at most once per
-  pipeline version, and once right before freezing the test config). Not tuned on. A gap between dev and
-  dev-holdout F1 is our overfitting signal. Every look is logged.
+  pipeline version, and once right before freezing the test config). **[A1]** It was intended not to be tuned
+  on, but it was looked at 7 times and informed the few-shot design; section 1 ("Dev-holdout was not a pristine
+  holdout") is the accurate account and supersedes "not tuned on". A gap between dev and dev-holdout F1 is our
+  overfitting signal. Every look is logged.
 - **test**: the 19 official test sequences. No test video, keypoint, overlay, or model output is inspected
   before test run 1. Test labels have been read only to compute the per-sequence aggregates disclosed in
   section 1 (counts in the table above, bout counts, the short-bout histogram in section 3).
@@ -149,11 +169,18 @@ would need an amendment committed before any test run, and none is planned.
   GitLab) was not retrievable, so zero-division and tie conventions are ours: P, R, or F1 with a zero denominator
   is 0.0 (sklearn `zero_division=0`).
 - Uncertainty: 95% CI by **sequence-level bootstrap** (resample sequences with replacement, 10,000 reps,
-  seed 20261028, percentile interval; each resample pools the drawn sequences' TP/FP/FN). With 5 attack
+  seed 20261028, percentile interval; each resample pools the drawn sequences' TP/FP/FN). **[A1] Scope:** the
+  interval describes variation across sampled sequences *conditional on this fitted pipeline and its realized
+  predictions*. It does not cover the development choices (prompts, thresholds, cascade rules selected on
+  labeled dev videos), provider sampling noise (one execution), other labs, setups, or species. It treats
+  sequences as independent units, which is not verified (consecutive test sequences such as mouse075-079 may
+  share animals or sessions), and attack rests on 5 attack-positive test videos. The scorer writes this scope
+  into the result (`metrics.bootstrap_scope`). With 5 attack
   sequences, attack CIs will be wide; we report them anyway. Resamples in which a quantity is 0/0 are dropped
   for that quantity and their fraction is logged (`*_undefined_frac`); resamples that draw no ground-truth
   frames of a behavior but have false positives give F1 = 0, as pooling implies, and their fraction is logged
-  (`ci95_no_gt_resample_frac`). On dev, attack is in 3 of 8 sequences, so about (5/8)^8 = 2.3% of resamples
+  (`ci95_no_gt_resample_frac`). **[A1]** The per-behavior undefined fractions are kept in the result JSON as
+  `behaviors.<b>.ci95_undefined_frac.{precision,recall,f1}` (v1-final computed them and then dropped them). On dev, attack is in 3 of 8 sequences, so about (5/8)^8 = 2.3% of resamples
   contain no attack.
 - **Reporting rule.** Macro F1 is never shown alone: every table, chart, sentence, README line, and demo frame
   that shows a macro (average) F1 shows the three per-behavior F1s next to it, each with its CI where one exists.
@@ -214,6 +241,12 @@ with no row counts as zero detections, so missing output lowers coverage instead
     correct labels;
   - **unknown rate**: fraction of present track-samples labeled unknown;
   - **detections**: fraction of samples with 0, 1, 2, and 3+ present tracks;
+  - **[A1] Retained-output diagnostics.** The exported tracks (`etho/tracking/pipeline.py`, `tracks.npz`) keep
+    only the resident/intruder assignments the pipeline retained; unknown-labeled and extra raw SAM detections
+    are not exported. So on this export the unknown rate and the "3+ detections" fraction are **zero by
+    construction**, and "coverage (both labeled)" counts retained labels only. These three are reported as
+    *retained-output diagnostics* (the identity output carries `retained_output_diagnostics`), never as raw
+    detection quality. Identity error and matched-correct coverage remain informative;
   - **localization**: median matched centroid distance (px) per animal. Keypoint containment in masks needs
     the masks and is not implemented (the tracking table carries no mask).
 - **Frame-alignment check** (open question 3): per video and animal, for lags L = -10..+10 source frames, the
@@ -241,11 +274,17 @@ with no row counts as zero detections, so missing output lowers coverage instead
   dev and reused) are reported on a separate line, never folded in or left out silently. If the test pipeline
   doesn't run the planner (the frozen config fixes the phrase `"mouse"`), the measured number is labeled
   "without planner", and a "new-user" figure adds the dev-measured planner cost explicitly.
-- **Speed (v1-final definition; Aniket's headline, target <= 1x real time):** for each test video of the
-  zero-shot arm, the wall-clock time from the video file on local disk to its bouts written. That covers
-  chunking, SAM upload and inference, mask decode, features, identity, rules, and tier-1. Video download is
-  excluded and reported separately. **Real-time ratio** = wall-clock / video duration. We report it per video
-  (all 19 values, plus the median and max) and pooled (sum of wall-clock / 145.6 min). Requirements:
+- **Speed [A1] (Aniket's headline, target <= 1x real time). What is measured:** the runner records, per test
+  video, the wall-clock of each stage run on that video: `track_s` (chunking, SAM upload and inference, mask
+  decode, features, identity), then `rules_s`, then `tier1_s` (manifest `wall_clock_s.per_video.<seq>`). The
+  **per-video processing time** is the sum of those stage times. It is *not* a single measured interval from
+  file to output (v1-final promised that; the runner times stages separately, so any gap between stages is not
+  counted, and the claim is worded accordingly). Video download is excluded. **Real-time ratio** = per-video
+  processing time / video duration, with duration = decoded `src_frames` / 30 from the manifest. **All 19 videos
+  are in the denominator, failures included** (a failed video contributes the time its stages took). Reported:
+  all 19 per-video ratios, the **median** and the **max**, and pooled (sum of processing time / sum of
+  durations). The speed targets use these three numbers, computed by `eval.score_arms` from the `zs_t1`
+  manifest (`speed` in the run record; "NOT COMPUTED" if any video lacks a stage timing). Requirements:
   - SAM and tier-1 must be uncached for these timings. On test they are first-time calls by construction, but
     the few-shot arm reuses zero-shot verdicts from the cache, so its timing is reported as marginal and isn't
     used for the speed claim.
@@ -264,20 +303,24 @@ with no row counts as zero detections, so missing output lowers coverage instead
   for the 3-4x figure itself. Report the range (3x and 4x), not a midpoint chosen in our favor. For the
   145.6 min test set (262,107 frames / 1,800) this corresponds to 436.8-582.4 annotator-minutes
   (7.28-9.70 h), rounded down.
+- **[A1] What this comparison is.** It is a *contextual runtime comparison*: Etho's machine processing time next
+  to a cited estimate of human annotation time. It is **not** demonstrated labor savings at equal quality: we
+  do not measure human review or correction time, and Etho's accuracy is below supervised and human levels.
+  Every use of the 3-4x figure says so.
 
 ## 5. Comparisons (clearly labeled)
 
 | Reference | Supervision | Number | Status |
 |---|---|---|---|
-| CalMS21 Task 1 baseline, 1D ConvNet on raw pose (28 values/frame, +/-100-frame window) (Sun et al. 2021, Table 1) | **Supervised**, trained on the 70 official train sequences (507,738 frames per the lead; frame count not re-verified) | average F1 .793 +/- .011 (std over 5 training runs), MAP .856 | **Metric and split confirmed** (paper text, section 4.1): frame-level, pooled over the full official test set, unweighted mean over the 3 behaviors, so it is directly comparable to our test option A. **Per-class F1 unconfirmed** (appendix not retrieved): never print per-class baseline numbers until confirmed. Evaluator has not re-read the PDF |
+| CalMS21 Task 1 baseline, 1D ConvNet on raw pose (28 values/frame, +/-100-frame window) (Sun et al. 2021, Table 1) | **Supervised**, trained on the 70 official train sequences (507,738 frames per the lead; frame count not re-verified) | average F1 .793 +/- .011 (std over 5 training runs, **[A1]** not a confidence interval and not comparable to our sequence-bootstrap CI), MAP .856 | **Metric and split confirmed** (paper text, section 4.1): frame-level, pooled over the full official test set, unweighted mean over the 3 behaviors, so it is directly comparable to our test option A. **Per-class F1 unconfirmed** (appendix not retrieved): never print per-class baseline numbers until confirmed. Evaluator has not re-read the PDF |
 | Other CalMS21 Task 1 results, context only (arXiv:2603.07279, 2026, as reported by a scout; evaluator has not read it, and its split and metric are not checked) | Supervised: MARS features 0.878, pose coordinates 0.593. Unsupervised clusters mapped to labels: MARS 0.701 | macro F1 | None is zero-shot; the cluster mapping uses labels. No zero-shot CalMS21 result was found. Not cited in public material until checked |
 | Inter-annotator agreement (MARS, Segalin et al. 2021, eLife, per CalMS21) | Human vs human | TBD | The MARS main text gives no F1 values; they are in Figure 5, figure supplements 3-4, not yet retrieved. Note: our test labels are single-annotator, so this is context, not a computed ceiling on our test set |
 | Frequency-matched random predictor (computed, `eval.score.random_baseline`) | None (uses the split's class frequencies) | expected F1 = pooled prevalence. dev: attack .0757, investigation .2710, mount .0703, macro .1390. dev-holdout: .0680, .1810, .0640, macro .1043. test: .0482, .2338, .1215, macro .1345 | dev confirmed by the scorer (`sanity:oracle-10fps` run); dev-holdout and test from split-file counts |
 | 10 fps oracle (computed) | Ground truth subsampled to every 3rd frame, upsampled by nearest sample | dev: attack .995, investigation .992, mount .995, macro .994 | Ceiling imposed by 10 fps sampling alone (`sanity:oracle-10fps`) |
 | All-"other" predictor | None | F1 = 0 for every behavior | Trivial |
 
-Every chart or sentence that puts Etho next to the supervised baseline must say "zero-shot" (with the
-section 1 disclosure) and "supervised" on the respective numbers.
+Every chart or sentence that puts Etho next to the supervised baseline must carry the section 1 supervision
+statement [A1] (not "zero-shot" alone) on Etho's number and "supervised" on the baseline.
 
 **The supervised .793 is a reference, not a target.** It comes from a model trained on 70 labeled videos, and no
 Etho target is defined relative to it (section 10). It is shown so readers can see the gap, and the gap is
@@ -286,11 +329,16 @@ evaluator has not read the PDF, so the README and demo should cite Table 1 of ar
 someone should re-read it before publishing (section 11).
 
 **Comparison rules.**
-- Never claim Etho "beats", "matches", or "outperforms" a supervised result unless the test-split number does so
-  with the **whole 95% CI** above (or, for "matches", overlapping) the supervised point estimate, on the same
-  metric and split. Never base such a claim on dev or dev-holdout, on a single behavior chosen after the fact,
-  or on per-class baseline numbers we haven't confirmed. Otherwise the wording is the measured gap, e.g.
-  "zero-shot macro F1 X (attack a, investigation i, mount m) vs .793 for a supervised model trained on 70 labeled videos".
+- **[A1]** Never claim Etho "beats" or "outperforms" a supervised result unless the test-split number does so
+  with the **whole 95% CI** above the supervised point estimate, on the same metric and split. **Never claim
+  "matches", "is comparable to", or "approaches"** a reference on the basis of CI overlap: an uncertain, much
+  worse system can overlap. No equivalence margin is pre-registered, so no equivalence claim is made at all.
+  Never base a claim on dev or dev-holdout, on a single behavior chosen after the fact, or on per-class baseline
+  numbers we haven't confirmed. The wording is the **observed gap**, e.g. "macro F1 X (attack a, investigation
+  i, mount m) vs .793 for a supervised model trained on 70 labeled videos, a gap of .793 - X".
+- **[A1] Paired differences** (tier-1 lift, few-shot effect): CI entirely above 0 is "increased by X [CI]",
+  entirely below 0 is "decreased by X [CI]", and a CI containing 0 is **"inconclusive (X [CI])"**, never "no
+  change" or "no effect". The scorer prints this reading (`ci_reading`).
 - Per-behavior F1 always appears next to any average (section 4.1).
 - Context-only numbers (rows marked unverified) are never shown in the demo or README.
 
@@ -437,7 +485,10 @@ execution on one set of SAM tracks**:
 ### 7.2 Test run 1: order of operations
 
 1. **Pre-flight (label-free, $0).** Regenerate the dev-holdout predictions of all four arms with the frozen
-   config at the run commit, from cached tracks. The new prediction hashes must equal the logged ones:
+   config at the run commit, from cached tracks. **[A1]** The comparison is on the **prediction payload** (the
+   per-sequence files), separately from `manifest.json`, whose timing and provenance fields legitimately change
+   between executions; the scorer logs `payload_sha256` and `manifest_sha256` separately. The new per-sequence
+   file hashes must equal those of the logged runs (whose combined hashes were):
    - `zs_t1` d77eadc88c75... (run `c674ac`);
    - `zs_rules` ab3c0c2ac38d... (`07acb5`);
    - `fs_t1` d40ec583c780... (`7ef9fa`);
@@ -454,7 +505,17 @@ execution on one set of SAM tracks**:
      never dropped;
    - a `manifest.json` with `sample_fps`, `config` (including the frozen config's sha256 and the product git
      commit), `cost` (by stage and provider, uncached and marginal), `wall_clock_s` (per video and per stage,
-     with concurrency), `calls` (count, cache hits), and the machine spec.
+     with concurrency), `calls` (count, cache hits), and the machine spec;
+   - **[A1] fields the scorer now requires on test** (it refuses before the `started` record without them):
+     `arm` (= the arm id); `config.frozen_sha256`, `config.frozen_at_commit`, `config.run_commit`, and
+     `config.run_git_dirty_paths` (the `git status --porcelain` paths when the runner started; none may be under
+     `etho/`, `configs/`, or `scripts/test_run.py`); `frames.<seq>.src_frames` (decoded frame count) and
+     `frames.<seq>.n_samples` (null only for a failed sequence); `failed_sequences` (a list, `[]` if none).
+     For the speed verdict: `wall_clock_s.per_video.<seq>.{track_s, rules_s, tier1_s}`.
+   - **[A1] Label-free check of the outputs**, before step 3, without using a test run:
+     `uv run python -m eval.score_arms --split test --preflight-only --frozen-config configs/frozen_test_v1.json
+     --targets eval/targets_v1.json --primary zs_t1 --arm ... --compare ...` (same arms and comparisons as step
+     3). It runs every check of step 3's preflight, logs a `kind: "preflight"` record, and opens no label file.
 3. **Score all arms in one execution** (hashes are logged before any label is read):
    ```
    uv run python -m eval.score_arms --split test --purpose test-1 --confirm-test-run \
@@ -464,8 +525,27 @@ execution on one set of SAM tracks**:
    ```
    The scorer refuses to start, and logs nothing as a test run, if any frozen file's sha256 differs. It also
    refuses if `eval/` or this plan has uncommitted changes, or if a `score` execution under `test-1` already
-   loaded labels. It writes one `started` record holding every arm's per-file sha256 and manifest, **then**
-   opens labels. `eval.score` (single-arm) refuses the test split, so the arms can't be scored one at a time.
+   loaded labels. **[A1] Pre-label checks** (all label-free; any unexplained problem stops the run before the
+   `started` record, logged as `kind: "preflight", status: "refused"`, which does not use up a test run):
+   - *Predictions:* a file for every sequence in every arm; npz/jsonl syntax; `sample_fps` declared and dividing
+     30, `sample_stride` (if present) equal to 30 / `sample_fps`, file and manifest rates agreeing; label codes in
+     {0, 1, 2, 3}; per sequence, `n_samples == ceil(src_frames / 3)`, the file's label count equal to
+     `n_samples`, and `src_frames` equal to the expected annotation length (index `frames`); every arm's
+     `frames` and `failed_sequences` identical (one execution).
+   - *Failures:* a sequence with no `n_samples` must be listed in `failed_sequences`, and its placeholder must be
+     empty or all "other". It is then scored as "other", never dropped.
+   - *Accepting a mismatch:* only by naming it, `--accept-length-mismatch SEQ=REASON`, which is logged in the
+     `started` record. A mismatch that would make the file unscorable without an undeclared truncation (more
+     samples than the annotation allows) cannot be accepted.
+   - *Freeze coverage:* exactly the arms `zs_t1, zs_rules, fs_t1, fs_rules`, primary `zs_t1` (and the targets
+     file's `primary_arm`), all four comparisons of this command; every manifest's `config` matches the frozen
+     config's sha256 and `frozen_at_commit`, all arms share one `run_commit`; `git diff <frozen_at_commit>
+     <run_commit> -- etho/` is empty; the tier-1 `PROMPT` in `etho/adjudication/tier1.py` at `run_commit` hashes
+     to `tier1.prompt_sha256` (read with `ast`, not imported); the frozen config and each frozen asset are
+     byte-identical at `run_commit`. The runner script's sha256 at `run_commit` is recorded (it is not frozen).
+   It then writes one `started` record holding every arm's per-file sha256, payload and manifest hashes, the
+   manifest, the preflight report, and the label-free speed computation, **then** opens labels. `eval.score`
+   (single-arm) refuses the test split, so the arms can't be scored one at a time.
    - **Per-sequence results are sealed.** They go only to
      `eval/results/<run_id>.per_sequence.sealed.json`, whose sha256 is logged. They are not printed and not
      written to `runs.jsonl` or the result JSON.
@@ -509,7 +589,8 @@ For **each of the four arms**:
 
 Also reported:
 - **Targets** (section 10), each verdict printed by the scorer: MET, MET ROBUSTLY, or NOT MET, at full precision.
-  Speed, cost, and identity verdicts are computed by hand from the logs, with the arithmetic shown.
+  **[A1]** F1, the F1 levels, tier-1 lift, and speed are computed by the scorer; cost, identity, and coverage
+  verdicts are computed by hand from the logs with the same direction-aware rule, with the arithmetic shown.
 - **Cost and time** per section 4.4: per stage, per video, pooled, uncached and marginal, plus the actual spend
   from `ops/spend.jsonl`.
 - **Identity**: the full output of step 4.
@@ -519,43 +600,43 @@ Also reported:
 **The few-shot arm is reported even if it loses**, labeled "few-shot (18 simulated corrections from dev
 labels)". It is never called zero-shot. Wording:
 - if the paired `fs_t1 - zs_t1` macro CI lies entirely above 0: "with 18 corrections, macro F1 rose by X [CI]";
-- if the CI contains 0: "no measurable change (X [CI])";
+- if the CI contains 0: **[A1]** "inconclusive: X [CI]" (not "no measurable change", which reads as evidence
+  of no effect);
 - if the CI lies entirely below 0: "the corrections lowered macro F1 by X [CI]".
 
 The same rule applies per behavior. Dev evidence on this arm is mixed: holdout +0.0605 [-0.0179, +0.0828], and
 dev minus the corrected windows 0.4995 to 0.4461, which is -0.0534. The holdout number is also biased upward
 (section 1). So no direction is predicted.
 
-**Headline:** the `zs_t1` macro F1 of the headline run, always shown with its three per-behavior F1s and CIs.
+**Headline [A1]:** the `zs_t1` macro F1 of **test-1**, always shown with its three per-behavior F1s and CIs and
+the section 1 supervision statement.
 - Shown next to: the supervised .793 (labeled "supervised, 70 labeled videos"; a reference, not a target), the
   random floor, and time and cost vs the cited 3-4x manual figure, showing both 3x and 4x.
 - The comparison wording rules of section 5 apply.
 
-### 7.4 Test run 2: when it is justified
+### 7.4 Test run 2 [A1]
 
-A test-2 counts as **qualifying** only if it is one of the following.
-- **(a) A bug fix.** The defect can be shown **without test labels**, the fix is verified on dev, and the
-  defect would have affected dev the same way. Examples: a crash, truncated or missing outputs, a wrong
-  config or prompt actually loaded (hash mismatch against the frozen config), a frame-mapping error, a cache
-  key collision. "Attack F1 was low on test" is not a bug.
-- **(b) A dev-justified change** that meets all of these:
-  - motivated and measured on dev only, then checked once on dev-holdout;
-  - written as a dated amendment (the change, its dev and holdout evidence, and the expected effect) and
-    committed **before** anyone opens the sealed per-sequence file or inspects any per-video test output;
-  - not a change whose motivation cites any test-1 number. Test-1 aggregates will be known when the decision
-    is made, so a qualifying test-2 is still disclosed as "decided after seeing test-1 aggregate results".
+**Test-1 is the headline.** There is no route by which a later run replaces it because of a development change:
+after test-1's aggregate results are known, any development they prompt can be steered by them without that
+appearing in a written justification, so a "dev-justified" test-2 cannot be treated as held-out. (v1-final's
+route (b), "a dev-justified change" that could become the headline, is removed.)
 
-Anything else, and any test-2 decided after the seal is lifted, is **exploratory**. It is reported and labeled
-exploratory everywhere. It is never the headline, never shown in the demo as "the result", and never
-described as held-out.
-
-**Headline rule, pre-declared:**
-- If test-2 qualifies, the headline is test-2, shown with test-1 beside it, **regardless of which is higher**.
-- If there is no test-2, or it is exploratory, the headline is test-1.
+- **Default: test-2 is exploratory.** It is reported and labeled exploratory everywhere, with "decided after
+  seeing test-1 results". It is never the headline, never shown in the demo as "the result", and never described
+  as held-out.
+- **Single exception: a documented implementation defect.** If test-1 was affected by a specific defect that
+  can be **demonstrated without test labels** (a crash, truncated or missing outputs, a wrong config or prompt
+  actually loaded, a frame-mapping error, a cache-key collision; "attack F1 was low on test" is not a defect),
+  the fix is verified on dev, and the defect would have affected dev the same way, then a test-2 with only that
+  fix is a **corrected** run. The defect, its label-free evidence, and the fix are written as a dated amendment
+  and committed before test-2 runs. **Both results are kept and shown together**, the correction is named
+  ("test-1 X; corrected for <defect>: Y"), and this holds regardless of which number is higher. Only in this
+  case may the corrected run be cited as the main number, always next to test-1.
 - We never pick the better of the two.
 
 Test-2 reuses test-1's cached tracks ($0 SAM). It runs under `--purpose test-2` with the same four arms. Any
-arm it drops is listed with the reason.
+arm it drops is listed with the reason. The per-sequence seal (section 7.2) is lifted only after the test-2
+decision ("no test-2", "exploratory test-2: <what>", or "corrected test-2: <defect>") is committed.
 
 ### 7.5 Abort rules
 - If the projected Fireworks spend for test-1 passes the `ops/spend-plan.md` estimate by more than 50%, the
@@ -622,6 +703,9 @@ labels unless `--confirm-test-run` and `--purpose test-1|test-2` are given, `eva
 and clean, `test-2` follows a logged `test-1`, and the same (kind, purpose) hasn't already run. A run may only be
 re-executed if it failed before loading labels. One test run = at most one `score` and one `identity`
 execution under the same purpose. Fields:
+**[A1]** A third kind, `preflight`, is a label-free check by `eval.score_arms` (`--preflight-only`, or a refusal
+before the `started` record): `status` `ok` or `refused`, `labels_loaded: false`, the problems found. It is not a
+scoring execution and does not count toward the test-run limit.
 `run_id`, `time_utc`, `split` (`dev`|`dev_holdout`|`test`), `purpose` (e.g. `tune`, `holdout-check`,
 `test-1`, `test-2`, `ablation:<name>`), `git_commit`, `git_dirty`, `split_file` + sha256, `sequences`,
 `config` (full: definitions, rule hashes, thresholds, priority, models, efforts, SAM phrases, fps) +
@@ -650,12 +734,12 @@ arms of a test run.
 
 ## 10. Targets (v1-final, frozen at commit; written before any test run)
 
-Targets apply to the **zero-shot arm `zs_t1` on the official test split (all 19 sequences)**, in the headline
-run (section 7.4). The machine-readable copy is `eval/targets_v1.json`; if the two disagree, this section wins.
+Targets apply to the **frozen pipeline arm `zs_t1` on the official test split (all 19 sequences)**, in
+**test-1** [A1] (section 7.4). The machine-readable copy is `eval/targets_v1.json`; if the two disagree, this section wins.
 
 **The supervised .793 is a reference, not a target.** No target is set relative to it, and missing it isn't a
-failure. A zero-shot system with no labeled training frames isn't expected to reach a model trained on 70
-labeled videos.
+failure. A pipeline with no task-specific fine-tuning isn't expected to reach a model trained on 70 labeled
+videos.
 
 ### 10.1 Evidence the targets are based on (dev and dev-holdout, frozen arms)
 
@@ -732,13 +816,24 @@ Projected test F1 for `zs_t1` (method above; the evaluator's calculation, not a 
 | *zs_rules*, holdout rates (for the tier-1 lift) | .388 | .208 | .444 | .347 |
 
 The point projections cluster around macro 0.49-0.51. The holdout sequence-bootstrap CI is [.333, .611], and
-attack rests on 5 test videos, so a realistic range for test macro F1 is about **0.38-0.58**.
+attack rests on 5 test videos, so a realistic range for test macro F1 is about **0.38-0.58**. **[A1]** This range
+is a *planning judgment*, not a derived prediction interval: the transfer assumptions above do not establish its
+coverage, and it is not used to judge the result.
 
 ### 10.3 Targets
 
-A target is **MET** if the point estimate reaches the threshold. It is **MET ROBUSTLY** if the 95%
-sequence-bootstrap CI lower bound reaches it too. Otherwise it is **NOT MET**. Comparisons use full precision,
-with no rounding. All verdicts are reported, including NOT MET.
+A target is **MET** if the point estimate reaches the threshold. **[A1]** It is **MET ROBUSTLY** if the 95%
+sequence-bootstrap CI bound on the far side reaches it too: the **lower** bound for higher-is-better targets
+(F1, tier-1 lift, coverage), the **upper** bound for lower-is-better targets (identity error, speed, cost).
+Thresholds are inclusive (>= / <=). A metric without a CI (speed, cost, coverage as computed) can be MET but
+never MET ROBUSTLY. Otherwise it is **NOT MET**. Comparisons use full precision, with no rounding. All verdicts
+are reported, including NOT MET. `eval/targets_v1.json` encodes the direction of every target.
+
+**[A1] What counts as reaching a level.** An accuracy level ("minimum credible" or "good") is reached only if
+macro F1 **and each of the three per-behavior F1 thresholds** are MET; robustly only if all four are MET
+ROBUSTLY. Macro F1 alone never carries the level wording (the scorer prints `f1_level` with the failing
+components). The other targets (tier-1 lift, identity, coverage, speed, cost) are separate verdicts, each
+reported on its own; there is no single overall "success".
 
 | Metric (test, `zs_t1`) | Minimum credible | Good | Dev/holdout basis |
 |---|---|---|---|
@@ -749,18 +844,23 @@ with no rounding. All verdicts are reported, including NOT MET.
 | Tier-1 lift, `zs_t1 - zs_rules` macro (paired) | >= +0.03 | >= +0.10 | holdout +0.1652 [+0.0521, +0.2613] |
 | Identity error rate, all matches, overall (section 4.3) | <= 0.05 | <= 0.01 | dev 0.0019 |
 | Identity error rate, mount frames | reported; > 0.10 is flagged as a limitation | | dev 0.0098 |
-| Two-animal coverage (both labeled) | >= 0.95 | >= 0.98 | dev 0.992 |
-| **Speed**, real-time ratio, end to end (section 4.4) | pooled <= 1.0x, and median per video <= 1.0x | every video <= 1.0x, and pooled <= 0.5x | 5-min dev video, without tier-1: 0.22x (STATE.md; the evaluator has not seen the raw timing log); tier-1 took 97 s on a 7-min video with 6 slots, which is 0.23x; expected about 0.45x |
+| Two-animal coverage (both labeled), a retained-output diagnostic (section 4.3 [A1]) | >= 0.95 | >= 0.98 | dev 0.992 |
+| **Speed**, real-time ratio of summed per-video processing time, all 19 videos (section 4.4 [A1]) | pooled <= 1.0x, and median per video <= 1.0x | max per video <= 1.0x, and pooled <= 0.5x | 5-min dev video, without tier-1: 0.22x (STATE.md; the evaluator has not seen the raw timing log); tier-1 took 97 s on a 7-min video with 6 slots, which is 0.23x; expected about 0.45x |
 | **Cost per video-minute**, uncached (section 4.4) | <= $0.25 | <= $0.20 | SAM $0.120-0.124 (chunk minimums); tier-1 about $0.052-0.073 (section 8); planner, if run, about $0.007-0.009; expected about $0.17-0.21 |
 
 How the thresholds were chosen:
 - **Minimum credible:** about 3x the random floor for macro (.1345). It sits below the low end of the
   projections except for attack, where a long-video recall failure like mouse008 would miss it. Below it, the
-  zero-shot claim isn't demo-worthy as an accuracy result, and that is stated plainly.
+  accuracy result isn't demo-worthy, and that is stated plainly. **[A1]** "Minimum credible" is an
+  **engineering milestone**, not a scientific validation threshold: three times one particular random baseline
+  does not establish that the scores are useful for research, and the frequency-matched predictor is a
+  legitimate floor but not the strongest no-information predictor.
 - **Good:** what the holdout result would look like if it transferred to test, adjusted for the attack and
   mount prevalence effects in section 10.2.
-- **Speed:** the minimum credible threshold is Aniket's headline (<= 1x real time). Even at 1x, Etho is 3-4x
-  faster than the cited manual figure. The good threshold of 0.5x is close to the dev-based expectation.
+- **Speed:** the minimum credible threshold is Aniket's headline (<= 1x real time). At 1x, Etho's processing
+  time is a third to a quarter of the cited 3-4x manual annotation time; per section 4.4 [A1] that is a
+  contextual runtime comparison, not labor savings at equal quality. The good threshold of 0.5x is close to the
+  dev-based expectation.
 
 The draft's targets (macro >= 0.55 minimum and 0.70 stretch; attack .45, investigation .55, mount .65;
 wall-clock <= 0.3x) were set before any Etho run. They are **lowered here because of the dev and holdout
@@ -773,11 +873,21 @@ cost and time vs manual scoring.
 ## 11. Open questions and unresolved items before test run 1
 
 **Blocking test run 1 (preconditions):**
-1. **Codex eval-plan gate** on this exact text (Aniket's condition 2). Its findings are reconciled in section 13.
+1. **Codex eval-plan gate** on this exact text (Aniket's condition 2). **[A1]** Run 2026-10-28
+   (`ops/codex/ask-20261028-082550-84666.md`, gpt-6-astra, xhigh): "hold test-1 until the reporting rules and
+   runner issues below are resolved". Its findings are reconciled in amendment A1 (section 13). Whether A1
+   needs a second Codex look before test-1 is the lead's call; the evaluator recommends a short re-check of
+   sections 1, 5, 7.2-7.4, and 10.3.
 2. **Fireworks spend for test-1 isn't covered by the pre-approval.** Aniket approved the SAM pass (<= $20, Meta).
    Tier-1 on test is a separate job estimated at $7.5-23.3, central about $15 (section 8). It is over the $5
    single-job line and needs its own escalation (CLAUDE.md, escalation 1).
-3. **Pre-flight regeneration (section 7.2, step 1) has not been run.** The holdout predictions were made at
+3. **Pre-flight regeneration (section 7.2, step 1).** **[A1] Status:** the lead reports it passed (commit 69ab02c,
+   "pre-flight passed"); Codex independently confirmed all 20 holdout payloads match. The evaluator checked
+   label-free on 2026-10-28 that the per-sequence files in `data/runs/PF/{zs_t1,zs_rules,fs_t1,fs_rules}` equal
+   those of the four logged holdout runs (5 files per arm, all equal). The strict preflight of those directories
+   (`score-dev_holdout-20261028T084711Z-05b1b3`, kind `preflight`) passed every check except one: the manifests
+   don't yet record `config.run_git_dirty_paths`. `scripts/test_run.py` had uncommitted changes in the working
+   tree at the time, which is the case that field exists to catch. Original v1-final text: The holdout predictions were made at
    2f3c448 with a dirty tree. `etho/rules/sandbox.py` and `etho/adjudication/tier1.py` changed between that run
    and the frozen commit 4ada51c.
    - Tier-1 prompt template: sha256 `ada77a63...` at 2f3c448 and `bb53933f...` (frozen) at 4ada51c. By diff, the
@@ -793,6 +903,12 @@ cost and time vs manual scoring.
 
    The current manifests use ad-hoc keys (`cost_usd`, `wall_s`, `predict_wall_s`), so those fields show up as
    null in `runs.jsonl`. Without (c), the speed and cost targets can't be checked from the log.
+   **[A1] Status:** the runner (`scripts/test_run.py`, lead's) now writes (a), (b), and most of (c), including
+   `wall_clock_s.per_video` with `track_s`, `rules_s`, `tier1_s` (the scorer's speed computation on the PF
+   manifests reproduces the manifest's own median 0.10225x and max 0.14208x; those PF timings had all tier-1
+   calls cached, so they are not speed evidence). Still needed for test-1: `config.run_git_dirty_paths`
+   (section 7.2, step 2), and in `cost` the uncached-vs-marginal split, cache status, retries, failed-call spend,
+   and concurrency (section 4.4).
 5. Whether the test pipeline runs the perception planner (section 4.4 says how each case is reported).
 
 **Not blocking; reported as limitations:**
@@ -816,10 +932,10 @@ cost and time vs manual scoring.
 - bout IoU: 0.3 and 0.5 are both reported, with 0.3 primary;
 - SAM chunking: 60 s chunks, which is ADR-001 option C, recorded in the frozen config.
 
-**Still open, not blocking:** video frame count vs annotation length has been verified on only 2 dev videos
-(section 3). The scorer pads or clips predictions to the label length, so it would **not** catch a mismatch. The
-pipeline should log each test video's decoded frame count next to the expected length, which is label-free
-(index `frames`). A mismatch would be a label-free defect under section 7.4(a).
+**[A1] Resolved in the scorer:** video frame count vs annotation length. The runner logs each video's decoded
+`src_frames`; `eval.score_arms` compares it with the index `frames` before any label is opened and refuses on an
+unexplained mismatch (section 7.2, step 3). On the 5 dev-holdout pre-flight videos all five match (checked
+label-free, 2026-10-28). The scorer still pads a short accepted prediction with "other" when scoring.
 
 ## 12. Changelog: draft v1 to v1-final (2026-10-28)
 
@@ -842,7 +958,8 @@ The draft v1 is commit fcd187c (sha256 of the file then:
   - per-sequence results are sealed until the test-2 decision is committed;
   - the identity check on test uses frozen parameters;
   - a pre-flight regeneration check, reporting rules for every arm (including a losing few-shot arm), and
-    a qualifying vs exploratory test-2 rule. The headline is test-1 unless test-2 qualifies.
+    a qualifying vs exploratory test-2 rule. The headline is test-1 unless test-2 qualifies (superseded by A1:
+    test-1 is the headline; section 7.4).
 - **Disclosure (section 1):**
   - how dev-holdout was actually used (7 looks; it informed the few-shot self-check);
   - the evaluator re-read the test aggregates for the projection.
@@ -867,4 +984,78 @@ The draft v1 is commit fcd187c (sha256 of the file then:
 
 ## 13. Amendments (dated; append only after this plan is committed)
 
-None yet.
+### A1 (2026-10-28, ~08:50 UTC): Codex eval-plan gate reconciliation, before any test run
+
+**Context.** The Codex eval-plan gate (`ops/codex/ask-20261028-082550-84666.md`, gpt-6-astra, reasoning xhigh)
+reviewed v1-final (e68f1e7) and recommended holding test-1 until specific issues were fixed. The lead directed
+the amendments below. No test label, video, keypoint, or prediction was opened. No model call was made. The
+in-place edits are tagged [A1]; v1-final's wording is in e68f1e7.
+
+**What changed, and why.**
+1. **Headline (7.3, 7.4, 10).** Test-1 is the headline. v1-final route (b), where a "dev-justified change" could
+   make test-2 the headline, is removed: once test-1 aggregates are known they can steer development without
+   showing up in a justification. Test-2 is exploratory, with one exception: a specific implementation defect
+   that can be shown without test labels. In that case both results are kept, shown together, and the
+   correction is named.
+2. **Supervision wording (1, 2, 5, 10).** The headline phrase "zero-shot / no labeled training frames" is
+   replaced with: "No task-specific model fine-tuning and no labeled examples in any prompt; pipeline settings
+   (prompts, thresholds, cascade rules) were selected using labeled development videos." The correction arm
+   stays "few-shot (N corrections)". Test-1 is called the "first test prediction evaluation", not first
+   test-label access. The claim that test aggregates influenced no pipeline setting is narrowed: they shaped the
+   dev set and the 10 fps rate. "Dev-holdout ... not tuned on" (section 2) now defers to the candid section 1
+   account. *The product's public one-liner is Aniket's decision and is not changed here.*
+3. **Pre-label validation (7.2, `eval/score_arms.py`).** Before any label file is opened, and before the
+   `started` record, the scorer checks: files present for every sequence and arm; npz/jsonl syntax;
+   `sample_fps` and `sample_stride`; label codes; `n_samples == ceil(src_frames/3)`; file length == `n_samples`;
+   `src_frames` == index `frames`; failed-sequence placeholders declared in `failed_sequences` and all
+   "other"; identical `frames` and `failed_sequences` across arms. Any unexplained problem refuses the run,
+   logged as `kind: "preflight", status: "refused"`. That record is not a test run. A length mismatch can be
+   accepted only by name and reason, and never if it would make the file unscorable. `--preflight-only` runs the
+   same checks with no labels at all. Codex also asked for chunk continuity; the manifest doesn't record chunks,
+   so that isn't checked (the lead could add it).
+4. **Freeze coverage (7.2, `eval/score_arms.py`).** The scorer checks:
+   - exactly the four named arms, primary `zs_t1`, and all four planned comparisons;
+   - each manifest's `arm` and `config` (frozen sha256, `frozen_at_commit`, a single `run_commit`, and
+     `run_git_dirty_paths` with nothing under `etho/`, `configs/`, or `scripts/test_run.py`);
+   - `git diff <frozen_at_commit> <run_commit> -- etho/` is empty;
+   - the tier-1 prompt hash at `run_commit` equals `tier1.prompt_sha256` (computed with `ast`; it reproduces
+     `bb53933f...` at 4ada51c and at 69ab02c);
+   - the frozen config and its assets are byte-identical at `run_commit`.
+
+   Prediction payload hashes (`payload_sha256`) are logged separately from the manifest hash, and the pre-flight
+   equality is on payloads.
+5. **Claim rules (5, 7.3, 10.2, 10.3, `targets_v1.json`, `score_arms.py`).**
+   - No "matches" or equivalence claim on CI overlap; report the observed gap.
+   - A paired CI containing 0 is "inconclusive" (the scorer prints `ci_reading`).
+   - Lower-is-better targets are MET ROBUSTLY only if the CI upper bound is at or below the threshold
+     (direction-aware `_verdict`; directions in `targets_v1.json`).
+   - An accuracy level requires macro F1 and all three per-behavior thresholds (`f1_level`). There is no single
+     overall "success".
+   - "Minimum credible" is an engineering milestone, not scientific validation, and the 0.38-0.58 range is a
+     planning judgment.
+   - The bootstrap's scope is stated (4.1, `metrics.bootstrap_scope`). The .793 +/- .011 is a std over
+     training runs, not a CI.
+   - Per-behavior undefined-bootstrap fractions are kept in the result (`ci95_undefined_frac`, `eval/score.py`).
+6. **Identity diagnostics (4.3, `eval/identity.py`).** Unknown rate, 3+ detections, and both-labeled coverage
+   are "retained-output diagnostics". The exported tracks keep only resident/intruder, so the first two are zero
+   by construction. The evaluator confirmed this by reading `etho/tracking/pipeline.py`.
+7. **Speed (4.4, 10.3, `score_arms.speed_from_manifest`).** Speed is the per-video sum of the stage wall-clocks
+   (track including chunking and SAM, rules, tier-1), not one measured file-to-output interval. All 19 videos
+   are in the denominator, failures included. Targets use pooled, median, and max, computed by the scorer from
+   the `zs_t1` manifest.
+8. **Manual baseline (4.4, 10.3).** The 3-4x MARS figure supports a contextual runtime comparison, not
+   demonstrated labor savings at equal quality.
+
+**Not changed.** Targets' numeric thresholds, metrics, splits, arms, the frozen config, and the identity
+parameters.
+
+**Codex points not adopted, and why.**
+- "Alternatively commit the second configuration before revealing test metrics": not needed, since no test-2
+  headline route remains.
+- "Decide the planner configuration explicitly": still open item 5 (lead's).
+- Complete uncached-vs-marginal cost reconstruction: a runner requirement, listed in section 11 item 4.
+
+**Verification.** `uv run pytest -q eval/tests`: 87 passed (2026-10-28). Label-free strict preflight of the
+dev-holdout pre-flight outputs: `score-dev_holdout-20261028T084711Z-05b1b3` (refused only for the missing
+`run_git_dirty_paths`). Non-strict preflight of existing dev directories passed (scratch log, not in
+`runs.jsonl`).

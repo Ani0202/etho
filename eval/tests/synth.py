@@ -36,6 +36,12 @@ def write_dataset(root: Path, seqs: dict, split_name: str = "dev") -> Path:
         kp, sc = keypoints_from_paths(mouse_paths(len(lab), i))
         np.savez_compressed(d / f"{name}.npz", labels=np.asarray(lab, np.int8), keypoints=kp.astype(np.float16),
                             scores=sc.astype(np.float16), vocab=json.dumps(VOCAB))
+    # CalMS21-style index (expected annotation length per sequence), as in data/calms21/seq/index_*.json
+    src = "test" if split_name == "test" else "train"
+    idx = {name: {"split": src, "frames": int(len(lab)),
+                  "counts": {k: int(np.sum(np.asarray(lab) == v)) for k, v in VOCAB.items()}}
+           for name, lab in seqs.items()}
+    (root / "labels" / f"index_calms21_task1_{src}.json").write_text(json.dumps(idx))
     split = {"dev": [], "dev_holdout": [], "test": []}
     split[split_name] = list(seqs)
     sf = root / "split.json"

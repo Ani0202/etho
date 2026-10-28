@@ -334,6 +334,9 @@ def score_split(gt_by_seq: dict, pred_by_seq: dict, reps: int = 10_000, seed: in
     for i, b in enumerate(BEHAVIORS):
         blk = _metric_block(pooled[i])
         blk["ci95"] = {k: ci["behaviors"][b][k] for k in ("precision", "recall", "f1")}
+        # fraction of resamples dropped from each CI because the quantity was 0/0 (EVAL_PLAN 4.1, amendment A1)
+        blk["ci95_undefined_frac"] = {k: ci["behaviors"][b][f"{k}_undefined_frac"]
+                                      for k in ("precision", "recall", "f1")}
         blk["ci95_no_gt_resample_frac"] = ci["behaviors"][b]["no_gt_frac"]
         beh[b] = blk
     macro = float(np.mean([beh[b]["f1"] for b in BEHAVIORS]))

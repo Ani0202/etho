@@ -227,6 +227,15 @@ def swap_events(match_label: np.ndarray, usable: np.ndarray) -> tuple[int, list[
     return int(changed.sum()), per_mouse
 
 
+RETAINED_OUTPUT_NOTE = {
+    "metrics": ["unknown_rate_tracks", "detections", "coverage_both_labeled"],
+    "note": "Retained-output diagnostics (EVAL_PLAN 4.3, amendment A1): computed on the exported tracks table, "
+            "which keeps only the resident/intruder assignments the pipeline retained. Unknown-labeled and extra "
+            "raw SAM detections are not exported, so unknown_rate_tracks and detections['3+'] are zero by "
+            "construction on that export, and coverage counts retained labels only. They describe the exported "
+            "output, not raw SAM detection quality."}
+
+
 def summarize(per: list[dict]) -> dict:
     """Pool per-sequence arrays into the reported metrics (overall and per GT behavior)."""
     cat = {k: np.concatenate([p[k] for p in per]) for k in
@@ -392,7 +401,8 @@ def run(split: str, tracks_dir: Path, purpose: str | None = None, labels_dir: Pa
                                        p["min_kp_score"], p["min_speed_px"])
             if split != "test":
                 offsets[s] = centroid_offsets(tr, d["keypoints"], d["scores"], p["min_kp_score"])
-        metrics = {**summarize(per), "per_sequence": per_seq, "alignment": align}
+        metrics = {**summarize(per), "per_sequence": per_seq, "alignment": align,
+                   "retained_output_diagnostics": RETAINED_OUTPUT_NOTE}
         if offsets:
             metrics["centroid_definition_median_px"] = offsets
         rec = {**base, "time_utc": common.now_utc(), "status": "ok", "labels_loaded": True,
@@ -419,12 +429,14 @@ def format_report(rec: dict) -> str:
     lines = [f"run {rec['run_id']} split={rec['split']}" + (" PARTIAL" if rec["partial"] else ""),
              f"{o['n_samples']} grid samples, {o['video_minutes']:.2f} video min; params {rec['params']}",
              "", f"{'':<14}{'id err':>8}{'id err unamb':>13}{'ambig':>7}{'cov both lab':>13}"
-                 f"{'cov both ok':>12}{'unknown':>9}{'n eval':>8}"]
+                 f"{'cov both ok':>12}{'unknown*':>9}{'n eval':>8}"]
     for name, b in [("overall", o)] + list(m["by_behavior"].items()):
         lines.append(f"{name:<14}{_f(b['identity_error_rate']):>8}{_f(b['identity_error_rate_unambiguous']):>13}"
                      f"{_f(b['ambiguous_frac_of_evaluated'], '.3f'):>7}{_f(b['coverage_both_labeled']):>13}"
                      f"{_f(b['coverage_both_matched_correct']):>12}{_f(b['unknown_rate_tracks']):>9}"
                      f"{b['identity_eval_samples']:>8}")
+    lines.append("* 'cov both lab', 'unknown', and detections are retained-output diagnostics: the exported tracks "
+                 "hold only retained resident/intruder labels, so unknown and 3+ detections are 0 by construction")
     lines.append(f"\nswap events: {o['swap_events']} ({_f(o['swap_events_per_min'], '.3f')}/min); "
                  f"unambiguous only: {o['swap_events_unambiguous']} "
                  f"({_f(o['swap_events_unambiguous_per_min'], '.3f')}/min)")
