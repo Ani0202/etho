@@ -113,3 +113,28 @@ Codex's own stricter version is in `ops/codex/ask-20261028-165452-293961.md`.
 
 *Blocking:* no. It affects the README, the demo and the report text, not the results.
 *Fallback if no reply in 2 h:* use the recommended version above in written material.
+
+## 2026-10-28 ~17:55 UTC: Fly vs. Fly needs more than the approved $13.60 to run your "clearly above random on train" check
+- **What we found (evaluator, train labels only):** in the 5-min dev windows, wing threat occurs only in movie 2
+  (6 bouts). Movies 1-2 alone can't show "clearly above random". The check needs the spare train movies 3-5
+  tracked as well, and ADR-002's $13.60 didn't include that.
+- **Spent so far:** $3.71 of `ablation` (probe plus dev movies 1-2 tracked at 30 fps: both flies found in 99.5-99.9% of
+  frames, 0.25x real time).
+- **Lunge is decided first, on dev movies 1-2,** for about $0.5 of LLM and no new SAM. Then:
+
+| Path | Extra SAM | Fly total (incl. LLM) | `ablation` used |
+|---|---|---|---|
+| Lunge GO: wing threat and lunge, 5-min windows at 30 fps (train 3-5 $5.47, test $9.12) | $14.6 | **~$19.3** | ~97% |
+| Lunge NO-GO, A: wing threat only, 10-min windows at 10 fps (train 1-5 $6.1, test $6.1) | $12.2 | ~$16.4 | ~82% |
+| Lunge NO-GO, B: wing threat only, 5-min windows at 10 fps (train 1-5 $3.0, test $3.0) | $6.0 | ~$10.2 | ~51% (within approval) |
+| Stop now: qualitative clip, no F1 | $0 | $3.71 | 19% |
+
+- **Risk on path B:** the test windows may hold fewer than 10 wing-threat bouts. The result would then be "not
+  evaluable" and we'd make no claim. Train mid5 had 19 bouts over 5 movies.
+- **Trade-off:** paths GO and A leave almost nothing in `ablation` for Etho Local (Glimmer distillation). That is a stretch
+  goal, and I don't expect to reach it before the Nov 2 freeze.
+
+*Recommend:* approve up to **$19.5 total** for the flies from `ablation` (whichever path lunge selects), and drop
+Etho Local. *Blocking:* only the spare-movie tracking. Meanwhile I'll do the lunge decision, the definitions and
+the Codex critique of the fly eval plan, all within the approved $13.60. *Fallback if no reply in 2 h:* stay
+within $13.60, so path B if lunge is NO-GO; if lunge is GO, wait for your reply.
