@@ -11,8 +11,9 @@ from etho.gateway import Gateway
 
 
 def nframes(p):
-    return int(subprocess.run(["ffprobe", "-v", "error", "-count_packets", "-select_streams", "v:0", "-show_entries",
-                               "stream=nb_read_packets", "-of", "csv=p=0", str(p)], capture_output=True, text=True).stdout)
+    cmd = ["ffprobe", "-v", "error", "-count_packets", "-select_streams", "v:0", "-show_entries",
+           "stream=nb_read_packets", "-of", "csv=p=0", str(p)]
+    return int(subprocess.run(cmd, capture_output=True, text=True).stdout)
 
 
 def one(gw, video, phrase, tag="eval-sam"):
@@ -43,7 +44,8 @@ def chunks(video, chunk_s, outdir):
 
 
 if __name__ == "__main__":
-    video, phrase = Path(sys.argv[1]), (sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else "mouse")
+    video = Path(sys.argv[1])
+    phrase = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else "mouse"
     gw = Gateway()
     if "--chunk-s" in sys.argv:
         cs = int(sys.argv[sys.argv.index("--chunk-s") + 1])
