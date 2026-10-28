@@ -1099,6 +1099,9 @@ Under section 7.4, this is the committed test-2 decision for CalMS21. **There wi
   - is never reported as a test result.
 - This amendment changes no metric, target, split, frozen config, or reported test number.
 
+### A7 (2026-10-28, ~20:45 UTC): fly baseline arms must share the predictions' features (section 14.15, F4)
+Made after the lunge gate and before the wing gate or any fly test label. It changes no CalMS21 item.
+
 ### A6 (2026-10-28, ~19:30 UTC): fly scorer integrity checks and gateway freeze rule (section 14.14, amendment F3)
 Made before any fly gate run. It changes no CalMS21 item.
 
@@ -1773,3 +1776,20 @@ before the `started` record). On gate and test runs:
   hash, tampered tracking file: each refused, and a gate run with an override logs nothing;
 - the flat field form resolved through `tracking_run`;
 - `gateway_diff` on real history, which lists only `etho/gateway/` files.
+
+### 14.15 Amendment F4 (2026-10-28, ~20:45 UTC): baseline arms must be computed from the same features
+**Context.** The lunge gate ran once (`flies-dev-20261028T204035Z-5c949b`, GO, decision record in 2d6ca50). Its
+report-only baseline arms (`data/runs/F1_baselines/`) had been generated from **earlier** versions of the dev
+`features.npz`: sha256 `f0a46de5...` and `686ace6b...`, while the gate predictions' manifest records `4ee92e9f...`
+and `1b471f02...`.
+- The gate decision does not use the baselines (14.12 item 1), so the decision is unaffected.
+- A report-only re-score of the same gate predictions, with baselines regenerated from the current features
+  (`flies-dev-20261028T204126Z-dc70a7`, purpose `baseline:refresh-current-features`, not a gate execution), gave
+  identical baseline numbers: wing_proxy 0.989, lunge_speed 0.143 frame F1.
+
+**Rule.** ADR-004's condition (c) puts the baseline "on the same frames". From now on, a fly test run also
+refuses, label-free and before the `started` record, unless every frozen baseline arm's manifest records, for
+every movie, the same `features_sha256` as the predictions' manifest. `eval/flies_baselines.py predict` already
+writes it.
+
+**Verification.** `uv run pytest eval/tests` and `make check`, both green (counts in the commit message).

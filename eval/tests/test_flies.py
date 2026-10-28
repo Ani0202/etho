@@ -466,9 +466,18 @@ def test_decision_tree_end_to_end(tmp_path):
         bls[name] = bd
     with pytest.raises(SystemExit, match="not produced with the frozen"):
         fs.run("test", "mid5", p_test, purpose="test-1", baselines=bls, **tkw)
+    feats = {f"movie{m}": v["features_sha256"] for m, v in
+             ((m, json.loads((p_test / "manifest.json").read_text())["config"]["inputs"][f"movie{m}"])
+              for m in fx.TEST_MOVIES)}
+    for name, bd in bls.items():  # amendment F4: built from other features -> refused
+        (bd / "manifest.json").write_text(json.dumps({"config": {
+            "baseline": name, "params_sha256": fx.common.sha256_file(fs.BASELINE_PARAMS),
+            "features_sha256": {**feats, "movie7": "0" * 64}}}))
+    with pytest.raises(SystemExit, match="movie7 features"):
+        fs.run("test", "mid5", p_test, purpose="test-1", baselines=bls, **tkw)
     for name, bd in bls.items():
         (bd / "manifest.json").write_text(json.dumps({"config": {
-            "baseline": name, "params_sha256": fx.common.sha256_file(fs.BASELINE_PARAMS)}}))
+            "baseline": name, "params_sha256": fx.common.sha256_file(fs.BASELINE_PARAMS), "features_sha256": feats}}))
     assert not [x for x in log.read_text().splitlines() if '"flies-test"' in x]  # refusals logged nothing
     rec_t = fs.run("test", "mid5", p_test, purpose="test-1", baselines=bls, **tkw)
     assert rec_t["baselines"]["wing_proxy"]["files_sha256"]["movie6.npz"]

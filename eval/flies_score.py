@@ -929,6 +929,14 @@ def run(split: str, window: str, pred_dir: Path, behaviors=fx.SCORED, purpose: s
             if bcfg.get("baseline") != name or bcfg.get("params_sha256") != common.sha256_file(BASELINE_PARAMS):
                 raise SystemExit(f"flies test split: baseline {name} was not produced with the frozen "
                                  f"{BASELINE_PARAMS}")
+            # amendment F4: the baseline must be computed from the same per-movie features as the predictions
+            main_cfg = manifest.get("config", {})
+            for m in movies:
+                want = _movie_inputs(main_cfg, m).get("features_sha256")
+                got = (bcfg.get("features_sha256") or {}).get(f"movie{m}")
+                if not want or got != want:
+                    raise SystemExit(f"flies test split: baseline {name} movie{m} features {got and got[:12]} != "
+                                     f"prediction features {want and want[:12]}")
     for name, d in (baselines or {}).items():  # report-only arms, validated and hashed before any label is read
         bfiles = {m: Path(d) / f"movie{m}.npz" for m in movies}
         miss = [m for m, q in bfiles.items() if not q.exists()]
