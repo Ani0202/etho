@@ -122,3 +122,4 @@ For eval, planner outputs on test are logged and never inspected by a person (EV
 3. Commit only code, a manifest, and derived metrics, never raw data.
 
 Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possible.
+- 2026-10-28: SAM mask decoding: numba port of meta-sam-parser's codec (`etho/tracking/mask_codec.py`, derived under the SAM License, copy in `third_party/meta-sam-parser/LICENSE`). Bit-exact with the reference, which the differential fuzzing also confirmed, including its strict one_bit canonical checks (restored incrementally). Measured: one_bit 0.66-0.94 ms/mask (~170-250x), lossless 1.5-2.9 ms/mask (~55-100x). The line parser no longer decodes, so each mask is decoded once.
