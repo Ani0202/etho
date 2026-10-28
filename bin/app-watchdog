@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Health-based watchdog for the Etho web app. systemd's Restart=on-failure only sees a process that exits; this also
+# catches one that is alive but hung. Run every minute by a systemd timer (docs/HOSTING.md section 10), as root.
+#
+# Asks GET /api/health locally. A failure is no answer within ETHO_WATCHDOG_TIMEOUT seconds, a non-200 status or a body
+# without "ok":true. After ETHO_WATCHDOG_FAILS failures in a row (default 2) it restarts the service, and never more
+# than once per ETHO_WATCHDOG_MIN_GAP seconds (default 120). A service that is not active (stopped on purpose, or
+# already being restarted by systemd) is left alone, so the stop timer and `systemctl stop` are not undone.
+# Everything goes to the journal (tag etho-app-watchdog) and to $ETHO_WATCHDOG_LOG when set.
+url="${ETHO_HEALTH_URL:-http://127.0.0.1:8000/api/health}"
+timeout="${ETHO_WATCHDOG_TIMEOUT:-10}"
+need="${ETHO_WATCHDOG_FAILS:-2}"
+gap="${ETHO_WATCHDOG_MIN_GAP:-120}"
+service="${ETHO_SERVICE:-etho-app}"
+state="${ETHO_WATCHDOG_STATE:-/run/etho-app-watchdog}"
+systemctl_bin="${ETHO_SYSTEMCTL:-systemctl}"
+mkdir -p "$state" 2>/dev/null || { echo "cannot create $state" >&2; exit 1; }
+
+say() {
+  local msg="$(date -u +%FT%TZ) $*"
+  echo "$msg"
+  command -v logger >/dev/null 2>&1 && logger -t etho-app-watchdog -- "$*" 2>/dev/null
+  [ -n "${ETHO_WATCHDOG_LOG:-}" ] && echo "$msg" >> "$ETHO_WATCHDOG_LOG"
+  return 0
+}
+
+if ! "$systemctl_bin" is-active --quiet "$service"; then
+  rm -f "$state/fails"
+  exit 0
+fi
+
+body=$(curl -sS --max-time "$timeout" -w '\n%{http_code}' "$url" 2>&1)
+code=$(printf '%s' "$body" | tail -n1)
+if [ "$code" = "200" ] && printf '%s' "$body" | grep -q '"ok" *: *true'; then
+  rm -f "$state/fails"
+  exit 0
+fi
+
+fails=$(( $(cat "$state/fails" 2>/dev/null || echo 0) + 1 ))
+echo "$fails" > "$state/fails"
+say "health check failed ($fails/$need): http=${code:-none}"
+[ "$fails" -lt "$need" ] && exit 0
+
+now=$(date +%s)
+last=$(cat "$state/last_restart" 2>/dev/null || echo 0)
+if [ $(( now - last )) -lt "$gap" ]; then
+  say "not restarting: last restart was $(( now - last )) s ago (minimum gap $gap s)"
+  exit 0
+fi
+echo "$now" > "$state/last_restart"
+rm -f "$state/fails"
+say "restarting $service after $need failed health checks"
+"$systemctl_bin" restart "$service" || say "systemctl restart failed"

@@ -20,10 +20,24 @@
     <p class="sub" id="tagline" style="margin:6px 0 0"></p>
   </div>
 
+  <div class="note" id="mode-note" hidden></div>
+
   <h2 id="show-h">Precomputed showcase runs <span class="sub">(open instantly, zero spend)</span></h2>
   <div class="show" id="showcases" aria-labelledby="show-h"><div class="sub">Loading...</div></div>
 
-  <form id="form" class="card" style="margin-top:20px" novalidate>
+  <div class="card" id="access-card" style="margin-top:20px" hidden>
+    <h2>Unlock live uploads</h2>
+    <p class="sub" style="margin:0 0 8px">Scoring your own video makes paid model calls, so it needs the access code from the submission notes.
+      Browsing the showcase runs above never needs it.</p>
+    <form id="access-form" class="row" novalidate>
+      <div class="fit"><label for="code">Access code</label>
+        <input type="password" id="code" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="256"></div>
+      <div class="fit"><button type="submit" class="primary" id="unlock">Unlock</button></div>
+    </form>
+    <div class="err" id="access-err" role="alert"></div>
+  </div>
+
+  <form id="form" class="card" style="margin-top:20px" novalidate hidden>
     <h2>Score your own video</h2>
     <div id="drop" class="drop" tabindex="0" role="button" aria-label="Choose a video file">
       <div><strong>Drop a video here</strong> or click to choose</div>
@@ -41,9 +55,20 @@
       resident-intruder definitions (Segalin et al., MARS, eLife 2021).</p>
     <div id="behs"></div>
     <button type="button" class="small" id="add">+ Add behavior</button>
-    <div class="note" style="margin-top:16px">Your video frames are sent to Meta's Model API (Standard mode, not the data-contributor mode) for
-      tracking and rule writing, and to Fireworks (Muse Spark Open) for tier-1 checks. Detector code runs in a local sandbox.
-      The app estimates the cost before starting and refuses a job that would pass its daily spend cap.</div>
+    <div class="note" id="privacy" style="margin-top:16px"><strong>Privacy notice.</strong>
+      Uploads are processed by Meta's Model API in Standard mode. Meta states that it "does not use your Content from
+      Standard Services to train Meta Models" and keeps API content as described in its Terms and Privacy Policy
+      (<a href="https://dev.meta.ai/legal/commitments" target="_blank" rel="noopener noreferrer">Meta Model API Data
+      Commitments</a>). Frame strips from your video are sent to Fireworks (Muse Spark Open) for the tier-1 checks;
+      Fireworks and Meta keep request logs under their own policies. Within about <span id="ret-h">24</span> hours
+      after upload, the video, its results and every intermediate file made from it are deleted from this server. The
+      clips uploaded to Meta's Files API for tracking are deleted there through its API right after tracking, again
+      when the job ends, and again at that deadline if an attempt failed. Kept longer: detector code written from your
+      behavior definitions (no video or user data; it is reused when someone writes the same definition), the spend
+      ledger (job id, times, token counts, cost, and the phrase used to find the animals), and server logs that include
+      job links. Revising a showcase also uses the Standard models. Only upload video you have the right to share.
+      Detector code runs in a local sandbox. The app estimates the cost before starting and refuses a job that would
+      pass its spend cap.</div>
     <div class="row">
       <div class="fit"><button type="submit" class="primary" id="go">Score video</button></div>
       <div id="est" class="sub"></div>

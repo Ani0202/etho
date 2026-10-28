@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,7 +58,33 @@ MAX_SRC_FPS = 125.0
 _HARDEN = ["-protocol_whitelist", "file"]
 
 
-def probe(path: Path) -> VideoInfo:
+def confined(cmd: list[str], rw_dir: Path | None) -> list[str]:
+    """Run `cmd` under bubblewrap: no network, no pid/ipc/uts namespaces of the host, a read-only /usr, a private
+    /tmp and an empty environment, and only `rw_dir` (the job's own directory) visible and writable. For an upload,
+    ffprobe and ffmpeg parse untrusted bytes; a parser bug then finds nothing but that one directory. With
+    `rw_dir=None` (localhost) the command is returned unchanged. A missing bwrap raises: the caller is a public
+    deployment, which refuses live use without it."""
+    if rw_dir is None:
+        return cmd
+    bw = shutil.which("bwrap")
+    if not bw:
+        raise ValidationError("the video checker is unavailable", 503, "sandbox_unavailable")
+    a = [bw, "--unshare-all", "--die-with-parent", "--new-session", "--clearenv", "--setenv", "PATH", "/usr/bin:/bin",
+         "--ro-bind", "/usr", "/usr"]
+    for top in ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32"):
+        if os.path.islink(top):
+            a += ["--symlink", os.readlink(top), top]
+        elif os.path.isdir(top):
+            a += ["--ro-bind", top, top]
+    for f in ("/etc/ld.so.cache", "/etc/ld.so.conf", "/etc/ld.so.conf.d", "/etc/alternatives"):   # libblas etc.
+        if os.path.exists(f):
+            a += ["--ro-bind", f, f]
+    d = str(Path(rw_dir).resolve())
+    a += ["--proc", "/proc", "--dev", "/dev", "--size", str(64 << 20), "--tmpfs", "/tmp", "--bind", d, d, "--chdir", d]
+    return a + cmd
+
+
+def probe(path: Path, *, confine: bool = False) -> VideoInfo:
     """ffprobe the file (forced demuxer, file protocol only); raises ValidationError if it is not a decodable
     video. Duration is the largest of the container duration, the stream duration and decoded-frame-count / fps,
     and packets are actually counted, so a container that lies about its length cannot slip under the limit."""
@@ -64,9 +92,10 @@ def probe(path: Path) -> VideoInfo:
     if ext not in DEMUXER:
         raise ValidationError(f"unsupported file type {ext or '(none)'}", 415, "bad_type")
     try:
-        out = subprocess.run(["ffprobe", "-v", "error", *_HARDEN, "-f", DEMUXER[ext], "-count_packets",
-                              "-print_format", "json", "-show_streams", "-show_format", str(path)],
-                             capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+        cmd = ["ffprobe", "-v", "error", *_HARDEN, "-f", DEMUXER[ext], "-count_packets",
+               "-print_format", "json", "-show_streams", "-show_format", str(path)]
+        out = subprocess.run(confined(cmd, path.parent if confine else None), capture_output=True, text=True,
+                             timeout=60, stdin=subprocess.DEVNULL)
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         raise ValidationError(f"could not inspect the video ({type(e).__name__})", 400, "probe_failed") from e
     if out.returncode != 0:
@@ -104,8 +133,8 @@ def probe(path: Path) -> VideoInfo:
                      str(v.get("codec_name", "")), path.stat().st_size, frames)
 
 
-def check_video(path: Path, cfg: AppConfig) -> VideoInfo:
-    info = probe(path)
+def check_video(path: Path, cfg: AppConfig, *, confine: bool = False) -> VideoInfo:
+    info = probe(path, confine=confine)
     if info.duration_s > cfg.max_duration_s:
         raise ValidationError(f"video is {info.duration_s:.0f} s long; the limit is {cfg.max_duration_s:.0f} s",
                               413, "too_long")
@@ -117,7 +146,8 @@ def check_video(path: Path, cfg: AppConfig) -> VideoInfo:
     return info
 
 
-def remux_clean(src: Path, dst: Path, cfg: AppConfig, *, fps: int = 10, timeout_s: float = 600.0) -> None:
+def remux_clean(src: Path, dst: Path, cfg: AppConfig, *, fps: int = 10, timeout_s: float = 600.0,
+                confine: bool = False) -> None:
     """Re-encode the upload to a clean H.264 mp4 at `fps` before it reaches the pipeline (whose own ffmpeg calls
     are not hardened): same forced demuxer and file-only protocol, first video stream only, no audio, data or
     subtitle streams, and cut at the duration limit. The result is also what the pipeline's chunking sees, so
@@ -125,10 +155,11 @@ def remux_clean(src: Path, dst: Path, cfg: AppConfig, *, fps: int = 10, timeout_
     ext = src.suffix.lower()
     tmp = dst.with_name(dst.stem + ".part.mp4")
     try:
-        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", *_HARDEN, "-f", DEMUXER[ext], "-i", str(src),
-                        "-t", f"{cfg.max_duration_s + 1:g}", "-map", "0:v:0", "-an", "-sn", "-dn", "-vf", f"fps={fps}",
-                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-                        "-movflags", "+faststart", "-f", "mp4", str(tmp)],
+        cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", *_HARDEN, "-f", DEMUXER[ext], "-i", str(src),
+               "-t", f"{cfg.max_duration_s + 1:g}", "-map", "0:v:0", "-an", "-sn", "-dn", "-vf", f"fps={fps}",
+               "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+               "-movflags", "+faststart", "-f", "mp4", str(tmp)]
+        subprocess.run(confined(cmd, dst.parent if confine else None),
                        check=True, capture_output=True, timeout=timeout_s, stdin=subprocess.DEVNULL)
         tmp.replace(dst)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:

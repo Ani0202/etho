@@ -8,9 +8,11 @@ import logging
 import os
 import re
 import shutil
+import tempfile
 import threading
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
@@ -20,14 +22,18 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from etho.gateway import Gateway, GatewayConfig
 from etho.rules.sandbox import SandboxUnavailable, isolation_status
 
 from . import corrections as C
+from .access import COOKIE, AccessControl, shared_bucket
 from .backend import FPS, Backend
 from .config import AppConfig
 from .guards import RateLimiter, Refused, SpendGuard, client_key
 from .jobgw import AppLedger, stage_of_caller
 from .jobs import TERMINAL, Job, JobManager, QueueFull, new_job_id, sse
+from .live import LiveState
+from .retention import Retention
 from .store import ID_RE, Project, fork_showcase, list_showcases, read_json, resolve_project, write_json
 from .validate import ValidationError, check_definitions, check_extension, check_text, check_video
 
@@ -35,6 +41,11 @@ STATIC = Path(__file__).parent / "static"
 STRIP_RE = re.compile(r"^[A-Za-z0-9_.-]{1,120}\.jpg$")
 CALL_KEYS = ("attempt", "cost_usd", "latency_s", "cache_hit", "usage", "check", "revision_rejected", "n_corrections")
 MULTIPART_SLACK = 1_000_000  # form fields and boundaries around the file
+# POSTs that can never start a model call: entering or dropping the access code, and cancelling a job (cancelling
+# only ever stops spending). Every other POST (and any other non-read method) is refused unless live use is on and
+# the visitor has the access code: a route added later is closed by default.
+SAFE_POST = re.compile(r"^/api/(access|access/logout|jobs/[A-Za-z0-9_-]+/cancel)$")
+READ_METHODS = ("GET", "HEAD", "OPTIONS")
 SSE_MAX_S = 1800.0
 
 # Pages and API responses: scripts only from this origin, no inline script, no framing by other sites.
@@ -51,17 +62,57 @@ def default_definitions(cfg: AppConfig) -> dict:
     return {"behaviors": d.get("behaviors", {}), "subject": d.get("subject", ""), "partner": d.get("partner", "")}
 
 
-def err(status: int, code: str, message: str, headers: dict | None = None) -> JSONResponse:
-    return JSONResponse({"error": code, "message": message}, status_code=status, headers=headers)
+# What the browser UI shows for each refusal: a plain sentence that says what happened and that the showcase is still
+# open. API clients still get the structured error and status; `friendly` is extra.
+SHARED_BUCKET_WARNING = ("every visitor appears as one client (a loopback or Tailscale address): the per-client job "
+                         "limit and the wrong-code throttle are one shared bucket, so ETHO_APP_RATE_JOBS is a total")
+OPEN = "The precomputed showcase runs stay open."
+FRIENDLY = {
+    "daily_cap": "Today's live budget for this demo is used up, so uploads and revisions are paused. " + OPEN +
+                 " Live use reopens as the 24-hour window moves on.",
+    "total_cap": "The live budget for this demo is used up, so uploads and revisions are closed. " + OPEN,
+    "read_only": "This site is a read-only showcase: uploads and revisions are switched off. " + OPEN,
+    "killed": "Live scoring is switched off right now. " + OPEN,
+    "expired": "The live window for this demo has ended. " + OPEN,
+    "access_required": "Live scoring needs the access code from the submission notes. Enter it on the home page. " +
+                       OPEN,
+    "access_unavailable": "Live scoring is not available right now. " + OPEN,
+    "access_throttled": "Too many wrong codes from your connection; please wait a few minutes and try again.",
+    "wrong_code": "That access code is not valid.",
+    "queue_full": "The scoring queue is full right now. Please try again in a few minutes. " + OPEN,
+    "rate_limited": "You have reached the hourly limit for scoring jobs. Please try again later. " + OPEN,
+    "busy": "The server is busy with other uploads. Please try again in a moment.",
+}
+
+
+def err(status: int, code: str, message: str, headers: dict | None = None, friendly: str | None = None) -> JSONResponse:
+    body = {"error": code, "message": message}
+    if friendly or code in FRIENDLY:
+        body["friendly"] = friendly or FRIENDLY[code]
+    return JSONResponse(body, status_code=status, headers=headers)
 
 
 def refusal(e: Refused) -> JSONResponse:
     h = {"Retry-After": str(int(e.retry_after) + 1)} if e.retry_after else None
-    return err(e.status, e.code, e.message, h)
+    return err(e.status, e.code, e.message, h, e.friendly)
+
+
+@dataclass
+class AppGatewayConfig(GatewayConfig):
+    """The gateway's config with an optional private response cache (ops/ and the ledger stay the shared ones, so
+    the caps and tag budgets are still enforced across every process)."""
+    cache_override: Path | None = None
+
+    @property
+    def cache_dir(self) -> Path:
+        return self.cache_override or GatewayConfig.cache_dir.fget(self)
 
 
 def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, gateway_factory=None,
-               ledger: AppLedger | None = None, start_worker: bool = True, clock=None, now=None) -> FastAPI:
+               ledger: AppLedger | None = None, start_worker: bool = True, clock=None, now=None,
+               isolation=None) -> FastAPI:
+    """`now` (a callable returning an aware datetime) drives the rolling cap window, the live-window expiry and
+    cookie expiry; `clock` (monotonic seconds) drives the per-client rate limit; both exist for tests."""
     cfg = cfg or AppConfig()
     try:
         _iso = isolation_status()
@@ -69,15 +120,21 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                                           "rule sandbox isolation: %s (%s)", _iso["mode"], _iso["detail"])
     except SandboxUnavailable as e:
         logging.getLogger("etho.app").error("rule sandbox misconfigured, jobs will fail: %s", e)
-    ledger = ledger or AppLedger(cfg.ledger_path)
+    ledger = ledger or AppLedger(cfg.ledger_path, cfg.caller_prefix)
     guard = SpendGuard(cfg, ledger, now=now)
+    access = AccessControl(cfg, now=now)
+    live = LiveState(cfg, access, now=now, isolation=isolation or isolation_status_safe)
     limiter = RateLimiter(cfg.rate_limit_jobs, cfg.rate_window_s, **({"clock": clock} if clock else {}))
     if gateway_factory is None:
-        from etho.gateway import Gateway
-        gateway_factory = Gateway
-    manager = JobManager(cfg, backend or Backend(cfg), ledger, guard, gateway_factory)
+        def gateway_factory():
+            return Gateway(AppGatewayConfig(root=cfg.root, cache_override=cfg.gateway_cache_root))
+    manager = JobManager(cfg, backend or Backend(cfg), ledger, guard, gateway_factory, live=live)
     manager.load_existing()
-    manager.cleanup()
+    retention = Retention(cfg, manager, ledger)
+    try:
+        retention.run_once(startup=True)
+    except Exception:                  # a bad file or ledger row must not stop the service from starting
+        logging.getLogger("etho.app").exception("startup retention pass failed; the timer will retry")
     admit_lock = threading.Lock()
     upload_sem = threading.BoundedSemaphore(cfg.max_concurrent_uploads)
     probe_sem = threading.BoundedSemaphore(cfg.max_concurrent_probes)
@@ -88,16 +145,29 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     @asynccontextmanager
     async def lifespan(app):
         yield
+        retention.stop()
         manager.stop()
 
-    app = FastAPI(title="Etho", docs_url=None, redoc_url=None, lifespan=lifespan)
+    app = FastAPI(title="Etho", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.cfg, app.state.manager, app.state.ledger = cfg, manager, ledger
     app.state.guard, app.state.limiter = guard, limiter
+    app.state.access, app.state.live, app.state.retention = access, live, retention
     if start_worker:
         manager.start()
+        retention.start()
 
     def who(request: Request) -> str:
         return client_key(request.client.host if request.client else None)
+
+    def spend_refusal(request: Request) -> Refused | None:
+        """Why this request may not start work that costs money (None = it may). Order: is live use on at all
+        (read-only, kill switch, live window), then does the visitor hold a valid access cookie."""
+        r = live.refusal()
+        if r is not None:
+            return r
+        if not access.valid(request.cookies.get(COOKIE)):
+            return Refused("live use needs the access code: enter it on the home page first", 401, "access_required")
+        return None
 
     @app.exception_handler(ValidationError)
     async def _validation(_: Request, e: ValidationError):
@@ -115,7 +185,11 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     async def gate(request: Request, call_next):
         """Cheap refusals first, before any body is read; then security headers on every response."""
         resp = None
-        if request.method == "POST":
+        if request.method not in READ_METHODS and not SAFE_POST.match(request.url.path):
+            gated = spend_refusal(request)
+            if gated is not None:
+                resp = refusal(gated)          # before any body is read
+        if resp is None and request.method == "POST":
             cl, te = request.headers.get("content-length"), request.headers.get("transfer-encoding")
             if request.url.path == "/api/jobs":
                 limit = cfg.max_upload_mb * 1e6 + MULTIPART_SLACK
@@ -164,24 +238,123 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     # ---- config and showcases ----------------------------------------------------------------
-    @app.get("/api/config")
-    def api_config():
-        d = default_definitions(cfg)
-        spent = ledger.spend_today(guard.now())
+    def cap_status() -> dict:
+        """The caps for display; a ledger that cannot be read shows as no budget left (the caps close then too)."""
         try:
-            sandbox = isolation_status()
-        except SandboxUnavailable as e:
-            sandbox = {"mode": "unavailable", "detail": str(e)[:200]}
-        return {"sandbox": sandbox, "limits": {"max_upload_mb": cfg.max_upload_mb, "max_duration_s": cfg.max_duration_s,
+            return guard.status()
+        except Exception:
+            logging.getLogger("etho.app").exception("could not read the spend ledger")
+            return {"tag": cfg.tag, "daily_cap_usd": cfg.daily_cap_usd, "spent_24h_usd": None,
+                    "daily_remaining_usd": 0.0, "total_cap_usd": cfg.total_cap_usd, "spent_total_usd": None,
+                    "total_remaining_usd": 0.0 if cfg.total_cap_usd is not None else None, "reserved_usd": None,
+                    "remaining_usd": 0.0, "ledger_error": True}
+
+    def capped_by() -> str | None:
+        """'daily_cap' / 'total_cap' when not even the smallest job fits, else None."""
+        try:
+            room, which = guard.headroom()
+        except Exception:
+            return "daily_cap"
+        return which if room < cfg.estimate_job_usd(1.0, 1) else None
+
+    def is_admin(request: Request) -> bool:
+        """The operator's view: a visitor holding a valid access cookie, or the access code in X-Etho-Admin (checked
+        and throttled like any code entry)."""
+        if access.valid(request.cookies.get(COOKIE)):
+            return True
+        hdr = request.headers.get("x-etho-admin")
+        if not hdr:
+            return False
+        try:
+            access.attempt(who(request), hdr)
+            return True
+        except Refused:
+            return False
+
+    def live_view(request: Request) -> dict:
+        st = live.snapshot()
+        granted = access.valid(request.cookies.get(COOKIE))
+        capped = capped_by() if st["mode"] == "live" else None
+        message = {"killed": FRIENDLY["killed"], "expired": FRIENDLY["expired"],
+                   "read-only": FRIENDLY["read_only"]}.get(st["mode"], FRIENDLY.get(capped or "", ""))
+        return {"mode": st["mode"], "live_until": st["live_until"], "capped": capped, "message": message,
+                "access_required": st["access_required"], "access_granted": granted,
+                "can_submit": st["mode"] == "live" and granted and capped is None}
+
+    @app.get("/api/config")
+    def api_config(request: Request):
+        d = default_definitions(cfg)
+        cap = cap_status()
+        sandbox = {"mode": live.sandbox().get("mode") if cfg.public else isolation_status_safe().get("mode")}
+        return {"sandbox": sandbox, "live": live_view(request),
+                "limits": {"max_upload_mb": cfg.max_upload_mb, "max_duration_s": cfg.max_duration_s,
                            "extensions": [".mp4", ".mov", ".avi"], "max_behaviors": cfg.max_behaviors,
                            "rate_limit_jobs": cfg.rate_limit_jobs, "rate_window_s": cfg.rate_window_s},
+                "retention_hours": cfg.retention_hours,
                 "defaults": d,
                 "text": {"tagline": cfg.tagline, "tile_title": cfg.tile_title, "tile_value": cfg.tile_value,
                          "tile_sub": cfg.tile_sub},
-                "cap": {"cap_usd": cfg.daily_cap_usd, "spent_today_usd": round(spent, 4),
-                        "remaining_usd": round(guard.remaining(manager.outstanding_usd()), 4)},
+                "cap": {"cap_usd": cfg.daily_cap_usd, "spent_today_usd": cap["spent_24h_usd"],
+                        "remaining_usd": cap["remaining_usd"], "total_cap_usd": cfg.total_cap_usd,
+                        "total_remaining_usd": cap["total_remaining_usd"]},
                 "estimate": {"sam_usd_per_s": cfg.est_sam_usd_per_s, "tier1_usd_per_s": cfg.est_tier1_usd_per_s,
                              "fixed_usd": cfg.est_fixed_usd, "per_behavior_usd": cfg.est_per_behavior_usd}}
+
+    # ---- access code, health ------------------------------------------------------------------
+    @app.post("/api/access")
+    async def api_access(request: Request):
+        if not access.required:
+            return err(400, "no_code_needed", "this server does not ask for an access code")
+        try:
+            payload = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return err(400, "bad_json", "body must be JSON")
+        code = payload.get("code") if isinstance(payload, dict) else None
+        client = who(request)
+        try:
+            token = access.attempt(client, code)
+        except Refused as e:
+            log = logging.getLogger("etho.app.access")        # never the code itself, only who and what happened
+            log.warning("access code refused for %s: %s", client, e.code)
+            if (d := access.delay_for(e)) > 0:                  # slows a guesser; the right code is never delayed
+                await asyncio.sleep(d)
+            return refusal(e)
+        logging.getLogger("etho.app.access").info("access code accepted for %s", client)
+        resp = JSONResponse({"granted": True, "expires_in_s": cfg.cookie_ttl_s})
+        resp.set_cookie(COOKIE, token, max_age=int(cfg.cookie_ttl_s), httponly=True, samesite="strict", path="/",
+                        secure=cfg.public or request.url.scheme == "https")
+        return resp
+
+    @app.post("/api/access/logout")
+    def api_access_logout():
+        resp = JSONResponse({"granted": False})
+        resp.delete_cookie(COOKIE, path="/")
+        return resp
+
+    @app.get("/api/health")
+    def api_health(request: Request):
+        """Anyone gets the mode and the budget left. The operator (a valid access cookie, or the code in the
+        `X-Etho-Admin` header) also gets reasons, sandbox, queue, retention and how the client address looks."""
+        st = live.snapshot()
+        cap = cap_status()
+        out = {"ok": True, "mode": st["mode"], "live_until": st["live_until"],
+               "caps": {"remaining_usd": cap["remaining_usd"], "daily_remaining_usd": cap["daily_remaining_usd"],
+                        "total_remaining_usd": cap["total_remaining_usd"]}}
+        if not is_admin(request):
+            return out
+        who_key = who(request)
+        shared = shared_bucket(who_key)
+        out.update({"reasons": st["reasons"], "access_required": st["access_required"],
+                    "access_problem": access.problem(), "sandbox": live.sandbox(), "caps": cap,
+                    "queue": manager.queue_len(),
+                    "running": any(j.status == "running" for j in list(manager.jobs.values())),
+                    "retention": retention.last, "retention_hours": cfg.retention_hours,
+                    "client_seen_as": who_key,
+                    "shared_client_bucket": shared,
+                    "warnings": ([SHARED_BUCKET_WARNING] if shared else []),
+                    "ledger_bad_rows": ledger.bad_rows, "ledger_unreadable": ledger.unreadable,
+                    "time": (now() if now else datetime.now(timezone.utc)).isoformat()})
+        return out
 
     @app.get("/api/showcases")
     def api_showcases():
@@ -191,6 +364,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     @app.post("/api/jobs")
     def api_submit(request: Request, video: Annotated[UploadFile, File()], definitions: Annotated[str, Form()],
                    subject: Annotated[str, Form()] = "", partner: Annotated[str, Form()] = ""):
+        if (gated := spend_refusal(request)) is not None:     # also checked here: the handler is safe on its own
+            raise gated
         ext = check_extension(video.filename or "")
         try:
             raw_defs = json.loads(definitions)
@@ -218,7 +393,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             if not probe_sem.acquire(timeout=15):
                 raise Refused("too many videos are being inspected; try again in a moment", 503, "busy")
             try:
-                info = check_video(dest, cfg)        # ffprobe: real frame count, duration, decodable; nothing spent
+                # ffprobe (under bwrap when public): real frame count, duration, decodable; nothing spent
+                info = check_video(dest, cfg, confine=cfg.public)
             finally:
                 probe_sem.release()
             est = cfg.estimate_job_usd(info.duration_s, len(defs))
@@ -233,8 +409,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                        "created": datetime.now(timezone.utc).isoformat(timespec="seconds"), "est_cost_usd": est}
                 write_json(base / "input.json", inp)
                 try:
-                    manager.submit(Job(jid, jid, "analyze", base, est_cost_usd=est))
-                except QueueFull:
+                    manager.submit(Job(jid, jid, "analyze", base, est_cost_usd=est))   # reserves the spend ceiling
+                except (QueueFull, Refused):
                     limiter.release(cid)
                     raise
         except BaseException as e:
@@ -365,6 +541,9 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
 
     @app.post("/api/projects/{pid}/revise")
     async def api_revise(pid: str, request: Request):
+        # A revision (of a showcase too) makes model calls that cost money: live use and the code are required.
+        if (gated := spend_refusal(request)) is not None:
+            return refusal(gated)
         if project_or_none(pid) is None:
             return err(404, "not_found", "no such project")
         try:
@@ -409,9 +588,11 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                       params={"corrections": cumulative, "base_version": latest,
                               "user_corrections": prior_user + [c.model_dump() for c in cs]})
             try:
-                manager.submit(job)
-            except QueueFull as e:
+                manager.submit(job)               # reserves the spend ceiling
+            except (QueueFull, Refused) as e:
                 shutil.rmtree(forked.base if forked else d, ignore_errors=True)
+                if isinstance(e, Refused):
+                    raise
                 raise Refused(str(e), 503, "queue_full") from e
             limiter.record(cid)
         return {"job_id": job.id, "project_id": p.id, "rev": n, "est_cost_usd": est,
@@ -471,7 +652,7 @@ def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
             "partner": res.get("partner"),
             "ledger": {"rows": n_calls, "by_stage_usd": {k: round(x, 6) for k, x in by_stage.items()},
                        "total_usd": round(sum(by_stage.values()), 6)},
-            "sandbox": isolation_status_safe(),
+            "sandbox": {"mode": isolation_status_safe().get("mode")},
             "note": res.get("audit_note")}
 
 
@@ -486,9 +667,22 @@ def main(argv: list[str] | None = None) -> None:
                     help="proxy addresses uvicorn trusts for X-Forwarded-For (rate limits key on the rewritten "
                          "client address); the default trusts only a proxy on this machine")
     a = ap.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = AppConfig()
-    os.chdir(cfg.root)  # tier 1 reads cache/chunks relative to the repo root
-    uvicorn.run(create_app(cfg), host=a.host, port=a.port, log_level="info", proxy_headers=True,
+    cfg.data_dir.mkdir(parents=True, exist_ok=True)
+    cfg.work_dir.mkdir(parents=True, exist_ok=True)
+    os.chdir(cfg.work_dir)  # tier 1 reads cache/chunks relative to the working directory (public: the app's own)
+    if cfg.public:          # the planner's sampled frames and upload spools go where retention sweeps them
+        cfg.tmp_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.environ["TMPDIR"] = str(cfg.tmp_dir)
+        tempfile.tempdir = str(cfg.tmp_dir)
+    app = create_app(cfg)
+    st = app.state.live.snapshot()
+    logging.getLogger("etho.app").info(
+        "mode %s %s; tag %s; caps $%.2f per 24 h and %s in total; retention %g h; live until %s",
+        st["mode"], st["reasons"], cfg.tag, cfg.daily_cap_usd,
+        "no" if cfg.total_cap_usd is None else f"${cfg.total_cap_usd:.2f}", cfg.retention_hours, st["live_until"])
+    uvicorn.run(app, host=a.host, port=a.port, log_level="info", proxy_headers=True,
                 forwarded_allow_ips=a.forwarded_allow_ips)
 
 

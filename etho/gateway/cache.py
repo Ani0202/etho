@@ -48,6 +48,13 @@ class DiskCache:
             json.dump(value, f)
         tmp.replace(p)
 
+    def delete_json(self, key: str) -> bool:
+        """Drop one cached JSON entry (used to forget a Files API id once the file is deleted)."""
+        p = self._path(key, ".json.gz")
+        existed = p.exists()
+        p.unlink(missing_ok=True)
+        return existed
+
     @contextmanager
     def lock(self, key: str):
         """Exclusive cross-process lock for one request key (lookup, call, publish)."""

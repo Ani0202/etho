@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Summary of ops/uptime.jsonl for a checkpoint report. Usage: bin/uptime-report [--since 24h|7d|2026-11-04T21:00-05:00] [--json]
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root" || exit 2
+py="$root/.venv/bin/python"; [ -x "$py" ] || py=python3
+exec env ETHO_ROOT="$root" "$py" -m etho.app.uptime report "$@"

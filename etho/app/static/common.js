@@ -26,13 +26,24 @@ function s(tag, attrs, ...kids) {
   return el;
 }
 
+/* Refusals that mean "live use is not available to you right now": the page then falls back to the showcase and says why. */
+const LIVE_OFF = new Set(["daily_cap", "total_cap", "read_only", "killed", "expired", "access_required", "access_unavailable"]);
+
+/* Every failure becomes a sentence for the page, never raw JSON, an HTTP status line or a proxy's error page. */
 async function api(path, opts) {
-  const r = await fetch(path, opts);
+  let r;
+  try { r = await fetch(path, opts); } catch (e) {
+    const err = new Error("The server can't be reached right now. Pages that are already open keep working; please reload in a minute.");
+    err.status = 0; err.code = "network"; throw err;
+  }
   let body = null;
-  try { body = await r.json(); } catch (e) { /* not JSON */ }
+  try { body = await r.json(); } catch (e) { /* not JSON: a proxy or error page */ }
   if (!r.ok) {
-    const err = new Error((body && body.message) || `HTTP ${r.status}`);
-    err.status = r.status; err.code = body && body.error; throw err;
+    const said = body && typeof body === "object" && (body.friendly || body.message);
+    const err = new Error(typeof said === "string" && said ? said
+      : r.status >= 500 ? "The server is temporarily unavailable (a short outage or a restart). Please reload in a minute; the showcase will be back."
+      : "That request could not be completed. Please reload the page and try again.");
+    err.status = r.status; err.code = body && typeof body === "object" ? body.error : null; throw err;
   }
   return body;
 }
@@ -93,7 +104,7 @@ async function loadHeader() {
   try {
     const c = await api("/api/config");
     const el = document.getElementById("spend");
-    if (el) el.textContent = `app spend today ${fmt.usd(c.cap.spent_today_usd)} of ${fmt.usd(c.cap.cap_usd)}`;
+    if (el) el.textContent = c.live && c.live.mode !== "live" ? "" : `live budget left today ${fmt.usd(c.cap.remaining_usd)}`;
     const t = document.getElementById("tag");
     if (t) t.textContent = c.text.tagline;
     const t2 = document.getElementById("tagline");

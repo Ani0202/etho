@@ -34,11 +34,11 @@ from .config import AppConfig
 from .detcache import DetectorCache, Provenance
 from .jobgw import JobBudgetExceeded, JobCancelled, JobGateway
 from .overlay import render_overlay
+from .retention import note_chunk_dirs
 from .store import SEQ, Project, read_json, write_json
 from .validate import ValidationError, remux_clean
 
 FPS = 10.0
-CHUNK_DIR = Path("cache/chunks")  # relative to the repo root: tier-1 hard-codes the same path (bin/app chdirs)
 
 
 class StageSkipped(Exception):
@@ -125,7 +125,7 @@ class Backend:
         if not clean.exists():
             src = p.video_path()
             ctx.say("re-encoding the upload to a clean 10 fps mp4 (the pipeline never sees the original container)")
-            remux_clean(src, clean, self.cfg, fps=int(FPS))
+            remux_clean(src, clean, self.cfg, fps=int(FPS), confine=self.cfg.public)
             src.unlink(missing_ok=True)                  # keep only what the pipeline needs
         frames = count_frames(clean)
         if frames > (self.cfg.max_duration_s + 2) * FPS:
@@ -156,7 +156,10 @@ class Backend:
         def work():
             t0 = self._since(ctx)
             try:
-                return prepare_chunks(video, CHUNK_DIR, stride=None, fps=int(FPS), chunk_s=chunk_s)
+                chunks = prepare_chunks(video, self.cfg.chunk_cache_dir, stride=None, fps=int(FPS), chunk_s=chunk_s)
+                # retention deletes them with the project
+                note_chunk_dirs(self.cfg, ctx.project.base, [c.path for c in chunks], src=video)
+                return chunks
             finally:
                 ctx.state.setdefault("substeps", {}).setdefault("plan", []).append(
                     {"name": "cut chunks", "start_s": t0, "end_s": self._since(ctx)})
@@ -182,7 +185,8 @@ class Backend:
         ctx.say(f'tracking "{ph}" with SAM 3.1 (10 fps, {n_chunks} chunk{"s" if n_chunks != 1 else ""} of '
                 f'{chunk_s} s in parallel)')
         r = track_video(video, ctx.project.seq_dir, gw=ctx.gw, phrase=ph, public_data=ctx.public_data,
-                        stride=None, fps=int(FPS), chunk_s=chunk_s, tag=self.cfg.tag, chunk_dir=CHUNK_DIR)
+                        stride=None, fps=int(FPS), chunk_s=chunk_s, tag=self.cfg.tag,
+                        chunk_dir=self.cfg.chunk_cache_dir)
         info_path = ctx.project.seq_dir / "tracking.json"          # later stages need the chunk length
         write_json(info_path, {**read_json(info_path, {}), "app_chunk_s": chunk_s})
         ctx.state["table"] = r.table
@@ -399,9 +403,10 @@ class Backend:
 
     def stage_overlay(self, ctx: Ctx) -> None:
         info = read_json(ctx.project.seq_dir / "tracking.json")
-        chunks = prepare_chunks(Path(info["src"]), CHUNK_DIR, stride=info.get("src_stride"),
+        chunks = prepare_chunks(Path(info["src"]), self.cfg.chunk_cache_dir, stride=info.get("src_stride"),
                                 fps=int(info.get("sample_fps", FPS)),
                                 chunk_s=int(info.get("app_chunk_s", 60)))   # runs tracked before this change: 60
+        note_chunk_dirs(self.cfg, ctx.project.base, [c.path for c in chunks], src=Path(info["src"]))
         r = render_overlay([c.path for c in chunks], ctx.project.seq_dir, ctx.state["final"], ctx.state["names"],
                            FPS, ctx.outdir / "overlay.mp4",
                            progress=lambda i, n: ctx.say(f"rendering overlay video: {i}/{n} frames"))

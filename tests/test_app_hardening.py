@@ -2,7 +2,6 @@
 SSE limits."""
 
 import json
-import os
 import subprocess
 import threading
 import time
@@ -178,10 +177,10 @@ def test_the_pipeline_only_sees_the_clean_mp4(tmp_path, monkeypatch):
 def test_retention_removes_old_finished_projects_only(tmp_path, monkeypatch):
     client, c = make_app(tmp_path, monkeypatch, cfg_kw={"retention_hours": 1.0, "rate_limit_jobs": 9})
     old, fresh = run_job(client, c), run_job(client, c)
-    for root, dirs, files in os.walk(c.cfg.jobs_dir / old):
-        for n in dirs + files:
-            os.utime(os.path.join(root, n), (time.time() - 7200,) * 2, follow_symlinks=False)
-    os.utime(c.cfg.jobs_dir / old, (time.time() - 7200,) * 2)
+    jf = c.cfg.jobs_dir / old / "job.json"                  # the age is counted from the upload (job.json created_at)
+    d = json.loads(jf.read_text())
+    d["created_at"] = time.time() - 7200
+    jf.write_text(json.dumps(d))
     assert c.manager.cleanup() == [old]
     assert not (c.cfg.jobs_dir / old).exists() and (c.cfg.jobs_dir / fresh).exists()
     assert client.get(f"/api/projects/{old}").status_code == 404 and old not in c.manager.jobs

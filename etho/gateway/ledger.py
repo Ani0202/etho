@@ -73,12 +73,23 @@ class Ledger:
         return by_provider, by_tag
 
     def _inflight(self) -> list[dict]:
+        """Live reservations. A file that is unreadable, not JSON, or lacks the fields a reservation has (a half
+        written or tampered file) is skipped and logged, never raised on: it must not stop every other call."""
         out = []
         for p in self.inflight_dir.glob("*.json"):
             try:
-                out.append(json.loads(p.read_text()))
-            except (OSError, json.JSONDecodeError):
-                continue
+                d = json.loads(p.read_text())
+                ok = (isinstance(d, dict) and isinstance(d.get("id"), str) and "/" not in d["id"]
+                      and isinstance(d.get("provider"), str)
+                      and isinstance(d.get("tag"), str) and isinstance(d.get("pid"), int)
+                      and not isinstance(d.get("pid"), bool) and isinstance(d.get("est"), (int, float))
+                      and not isinstance(d.get("est"), bool) and 0 <= d["est"] < float("inf"))
+            except (OSError, ValueError, RecursionError):
+                ok = False
+            if ok:
+                out.append(d)
+            else:
+                print(f"gateway: ignoring malformed reservation file {p.name}", file=sys.stderr)
         return out
 
     def _reap_abandoned(self) -> None:

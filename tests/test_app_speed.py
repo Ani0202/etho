@@ -70,7 +70,7 @@ def test_cache_miss_then_hit_and_feature_doc_invalidates(tmp_path, monkeypatch):
                                                             "the intruder")[:16]
     d, p = cache.get("sniff", "close and sniffing", "the resident", "the intruder")             # hit
     assert d.code == CODE["investigation"] and d.behavior == "sniff" and d.calls == []
-    assert p.source == "cache" and "j1" in p.origin and "no model call" in p.origin
+    assert p.source == "cache" and "j1" not in p.origin and "no model call" in p.origin   # never another job's id
     # any change to the inputs is a miss
     assert cache.get("sniff", "close and sniffing!", "the resident", "the intruder") is None
     assert cache.get("sniff", "close and sniffing", "the resident", "another mouse") is None
