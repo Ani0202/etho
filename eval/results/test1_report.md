@@ -985,9 +985,10 @@ numbers are not comparable to the pooled macro F1 of section 2.
 | mouse089 | 11274 | 0 / 2739 / 1313 | – | 0.5647 | 0.6316 | 567 | 0.5982 / 0.4534 / 0.5810 / 0.5377 |
 
 Observations, all visible in the table:
-- Attack appears only in mouse075-079. Within those videos,  attack F1 ranges from 0.3860 to 0.7060.
-- Every one of the other 14 videos except mouse081 contains predicted-attack false positives: 260 to 1,604
-  frames per video, 18,190 pooled.
+- Attack appears only in mouse075-079. Within those videos, `zs_t1` attack F1 ranges from 0.3860 to 0.7060.
+- Each of the 14 videos without attack, except mouse081, contains predicted-attack false positives, 396 to
+  1,584 frames per video. In total, 18,190 false-positive attack frames are pooled over all 19 videos,
+  including 260-3,239 per attack video.
 - Investigation F1 is lowest in the attack videos mouse076-078 (0.16-0.34), where investigation is confused
   with attack.
 - Mount F1 is high where mount is common (mouse072 0.8799, mouse074 0.7567) and low where it is rare (mouse075
@@ -998,7 +999,7 @@ Observations, all visible in the table:
 The rule, fixed in `eval/demo_clip.py` before it ran:
 - windows of 120, 180, 240, or 300 s, starting on 10 s multiples;
 - at least 3 attack bouts **and** at least 3 mount bouts in the ground truth, each 0.5 s or longer;
-- within each video, the window with the highest  macro F1;
+- within each video, the window with the highest `zs_t1` macro F1;
 - videos ranked by that F1.
 
 **No window in any test video qualifies** (logged run `analysis-test-20261028T175934Z-222a75`). Attack and mount
@@ -1013,10 +1014,10 @@ barely co-occur in the CalMS21 test set: mount is absent from all of mouse076-07
 | `analysis-test-20261028T180007Z-5a24de` | attack >= 3 | 5 (mouse075-079) |
 | `analysis-test-20261028T180008Z-072925` | mount >= 3 | 13 |
 
-**Candidates.** Window F1 is , frame-level, computed inside the window only. Bout counts are ground-truth
+**Candidates.** Window F1 is `zs_t1`, frame-level, computed inside the window only. Bout counts are ground-truth
 bouts of 0.5 s or longer, with all bouts in parentheses.
 
-| # | Video, segment | Attack bouts | Mount bouts | Investigation bouts |  F1 in window: attack / investigation / mount | Whole-video  F1: attack / investigation / mount |
+| # | Video, segment | Attack bouts | Mount bouts | Investigation bouts | `zs_t1` F1 in window: attack / investigation / mount | Whole-video `zs_t1` F1: attack / investigation / mount |
 |---|---|---|---|---|---|---|
 | **1 (recommended if one clip must show both)** | **mouse075, 0-300 s** (frames 0-9000) | 11 (11) | **1** (1) | 17 (22) | 0.5283 / 0.7544 / 0.0810 | 0.6223 / 0.6995 / 0.0734 |
 | 2 (attack-rich) | mouse076, 230-350 s (frames 6900-10500) | 9 (11) | 0 | 12 (22) | 0.7595 / 0.5000 / – | 0.7060 / 0.3152 / – |
