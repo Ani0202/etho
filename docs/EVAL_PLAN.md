@@ -1099,6 +1099,9 @@ Under section 7.4, this is the committed test-2 decision for CalMS21. **There wi
   - is never reported as a test result.
 - This amendment changes no metric, target, split, frozen config, or reported test number.
 
+### A6 (2026-10-28, ~19:30 UTC): fly scorer integrity checks and gateway freeze rule (section 14.14, amendment F3)
+Made before any fly gate run. It changes no CalMS21 item.
+
 ### A5 (2026-10-28, ~18:50 UTC): fly claim bar changed by the owner (section 14.13, amendment F2, ADR-004)
 Made before any fly gate run, and before any fly test label was opened. It changes no CalMS21 item.
 
@@ -1714,3 +1717,59 @@ passed. The new tests cover:
 - the claim verdict rules;
 - the test refusal without frozen baseline arms or with unfrozen parameters;
 - the CLAIMABLE line in the printed report.
+
+### 14.14 Amendment F3 (2026-10-28, ~19:30 UTC): manifest integrity checks; etho/gateway freeze rule
+**Context.** A pre-gate review of the fly scoring branch found two scorer-side gaps. `runs.jsonl` holds no
+`gate-lunge` or `gate-wing` execution, and no frozen pipeline config exists yet. The status stays FROZEN. Free
+`tune` runs are unaffected, because every check below applies only to gate and test runs.
+
+**1. Prediction-manifest checks** (`verify_manifest_inputs`; label-free; failing any of them refuses the run
+before the `started` record). On gate and test runs:
+- `config.detectors_sha256` must be present and equal one of the frozen config's `assets.detectors` hashes. The
+  detectors file used is then a frozen asset, not just any file with a matching name.
+- `config.override` must be absent or empty. The runner's `--override` is a tuning tool, and a gate or test
+  prediction made with one is refused.
+- `config.window`, if present, must equal the scored window.
+- **Per-movie inputs:**
+  - each scored movie must record `features_sha256` and `tracking_sha256`;
+  - the files are re-hashed: the recorded paths, or else `data/runs/<tracking_run>/movieN/{features.npz,
+    tracking.json}`;
+  - a missing file, or any mismatch, refuses the run.
+  - This pins the tracking outputs the predictions were computed from.
+  - The coordinator's wording was "check if the manifest records them". The evaluator chose to **require** them
+    on gate and test runs. A refusal is label-free and costs nothing, so requiring them is the safer default.
+    The accepted field shapes are in the `eval/flies_score.py` docstring.
+- The verified hashes are written into the run log (`frozen_config.manifest_inputs`).
+
+**2. `etho/gateway` freeze rule. Decision: exclude it from the empty-diff rule, and disclose its diff.**
+`FROZEN_TREES` is now `etho/`, excluding `etho/app` and `etho/gateway`, plus `configs/`. Options:
+- **(A) Keep the gateway in the freeze and re-freeze after the hosting merge.** Re-freezing after a gate has run
+  would change the frozen-config hash, so the committed decision record and the test run would refuse. It works
+  only if the merge lands before the freeze. It also blocks any later transport fix, such as a timeout or retry
+  bug found during the test pass.
+- **(B) Exclude it, and record its diff.** Chosen, for four reasons:
+  - The gateway is transport, accounting and cache. It does not decide predictions.
+  - In this pipeline, fly predictions come from the frozen detectors (an asset, hash-checked) applied to
+    per-movie features. The runner's predict step makes no model calls (`calls: 0`).
+  - The only model output upstream of a prediction is SAM tracking. Its request parameters live in the frozen
+    tracking config (an asset), and its outputs are pinned by the per-movie `features_sha256` / `tracking_sha256`
+    re-hash of item 1.
+  - The pending hosting branch changes `Gateway.delete_file` and inflight reaping, which are transport and
+    accounting only; SAM and LLM request bodies are unchanged.
+- **Disclosure.** Every gate and test run logs `frozen_config.gateway_diff`: the changed files under
+  `etho/gateway/`, with git blob hashes at `frozen_at_commit` and `run_commit`, and a diffstat. Any fly result
+  run with a non-empty gateway diff is reported with that list.
+- **What still guards the gateway:**
+  - uncommitted gateway changes at run time are still refused (`run_dirty_paths`);
+  - the gateway's own code is never edited by the evaluator.
+- **Residual risk.** A gateway change that silently altered request bodies would not be caught by this rule. On
+  test, every SAM call is a fresh call, so the cache-miss argument does not apply there; the disclosed diff is
+  the guard. If any gateway diff touches request construction (for example `Gateway.chat` / `_request` payload
+  fields), the evaluator reviews it before the test run, and the review is recorded with the run.
+- **Reverse:** remove `":!etho/gateway"` from `FROZEN_TREES` (option A).
+
+**Verification.** `uv run pytest eval/tests`: 120 passed; `make check`: lint clean, 514 passed. New tests:
+- detectors not a frozen asset, missing detectors hash, non-empty override, window mismatch, missing per-movie
+  hash, tampered tracking file: each refused, and a gate run with an override logs nothing;
+- the flat field form resolved through `tracking_run`;
+- `gateway_diff` on real history, which lists only `etho/gateway/` files.

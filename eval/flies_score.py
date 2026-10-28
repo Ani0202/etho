@@ -18,7 +18,14 @@ movies (10,000 resamples, seed 20261028). Fly-specific rules:
 
 Prediction directory (`--pred-dir`): one `movieN.npz` per movie, plus `manifest.json` ({"config", "cost",
 "wall_clock_s", "calls", "notes"}; on gate and test runs `config.frozen_sha256` must equal the sha256 of
-`--frozen-config` and `config.run_commit` must name the commit the pipeline ran at).
+`--frozen-config` and `config.run_commit` must name the commit the pipeline ran at). Amendment F3, gate and test
+runs: `config.detectors_sha256` must equal one of the frozen config's `assets.detectors` hashes;
+`config.override` must be empty or absent; `config.window`, if present, must equal the scored window; and every
+movie needs recorded `features_sha256` and `tracking_sha256`. Give them as `config.inputs` (or
+`config.per_movie`) = {"movieN": {"features_sha256", "tracking_sha256", "features_path"?, "tracking_path"?}}, or
+as flat `config.features_sha256` / `config.tracking_sha256` = {"movieN": sha}. Without paths they resolve to
+data/runs/<config.tracking_run>/movieN/{features.npz, tracking.json}. Each file is re-hashed before any label
+is read.
 
   key                       dtype / shape            meaning
   window                    int [2]                  absolute native frames [start, end): mid5 = [22500, 31500),
@@ -93,7 +100,11 @@ LUNGE_GATE = {"split": "dev", "movies": [1, 2], "window": "mid5", "sample_fps": 
 GATE_STAGE = {"gate-lunge": "lunge", "gate-wing": "wing"}
 REQUIRED_ASSET_ROLES = ("definitions", "detectors", "tracking", "runner")
 DEFINITIONS_PATH = "configs/flies_definitions.json"
-FROZEN_TREES = ("etho/", ":!etho/app", "configs/")
+# Amendment F3: etho/gateway (transport, accounting, cache) is outside the empty-diff rule; its diff between
+# frozen_at_commit and run_commit is recorded in the run log instead (file list + blob hashes at both commits).
+FROZEN_TREES = ("etho/", ":!etho/app", ":!etho/gateway", "configs/")
+DISCLOSED_TREES = ("etho/gateway/",)
+RUNS_DIR = Path("data/runs")
 
 
 # --------------------------------------------------------------------------- predictions
@@ -582,6 +593,80 @@ def _git(*args) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], capture_output=True, text=True)
 
 
+def _movie_inputs(cfg: dict, movie: int) -> dict:
+    """Per-movie input hashes from a prediction manifest config, in any of the accepted shapes:
+    config.inputs / config.per_movie = {"movieN": {"features_sha256", "tracking_sha256", "features_path"?,
+    "tracking_path"?}}, or flat config.features_sha256 / config.tracking_sha256 = {"movieN" or "N": sha}."""
+    out = {}
+    for key in ("inputs", "per_movie"):
+        d = cfg.get(key)
+        if isinstance(d, dict):
+            e = d.get(f"movie{movie}", d.get(str(movie)))
+            if isinstance(e, dict):
+                out.update(e)
+    for kind in ("features", "tracking"):
+        d = cfg.get(f"{kind}_sha256")
+        if isinstance(d, dict) and f"{kind}_sha256" not in out:
+            v = d.get(f"movie{movie}", d.get(str(movie)))
+            if v:
+                out[f"{kind}_sha256"] = v
+    return out
+
+
+def verify_manifest_inputs(manifest_config: dict, cfg: dict, window: str, movies, runs_dir: Path = RUNS_DIR) -> dict:
+    """Amendment F3 (label-free; gate and test runs): the detectors file used is a frozen asset, no ad-hoc
+    override, the manifest's window is the scored one, and each movie's features.npz / tracking.json re-hash to
+    the values the manifest recorded. Returns a report; raises SystemExit on any problem."""
+    probs, rep_ = [], {"inputs": {}}
+    det = manifest_config.get("detectors_sha256")
+    frozen_det = {x.get("sha256") for x in (cfg.get("assets") or {}).get("detectors") or [] if isinstance(x, dict)}
+    if not det:
+        probs.append("prediction manifest config.detectors_sha256 missing")
+    elif det not in frozen_det:
+        probs.append(f"detectors_sha256 {det[:12]} is not one of the frozen config's assets.detectors")
+    rep_["detectors_sha256"] = det
+    if manifest_config.get("override"):
+        probs.append(f"prediction manifest has a non-empty override {manifest_config['override']!r}")
+    mw = manifest_config.get("window")
+    if mw is not None and list(mw) != list(fx.WINDOWS[window]):
+        probs.append(f"manifest window {mw} != scored window {list(fx.WINDOWS[window])}")
+    run_name = manifest_config.get("tracking_run")
+    for m in movies:
+        e = _movie_inputs(manifest_config, m)
+        got = {}
+        for kind, fname in (("features", "features.npz"), ("tracking", "tracking.json")):
+            sha = e.get(f"{kind}_sha256")
+            if not sha:
+                probs.append(f"movie{m}: manifest records no {kind}_sha256")
+                continue
+            fp = Path(e[f"{kind}_path"]) if e.get(f"{kind}_path") else (
+                Path(runs_dir) / str(run_name) / f"movie{m}" / fname if run_name else None)
+            actual = common.sha256_file(fp) if fp is not None and fp.exists() else None
+            if actual != sha:
+                probs.append(f"movie{m}: {kind} {fp} hashes to {actual and actual[:12]}, manifest {sha[:12]}")
+            got[kind] = {"path": str(fp), "sha256": sha, "verified": actual == sha}
+        rep_["inputs"][f"movie{m}"] = got
+    if probs:
+        raise SystemExit("prediction manifest: " + "; ".join(probs))
+    return rep_
+
+
+def gateway_diff(frozen_at: str, run_commit: str) -> dict:
+    """Disclosure for the trees excluded from the empty-diff rule (amendment F3)."""
+    r = _git("diff", "--name-only", frozen_at, run_commit, "--", *DISCLOSED_TREES)
+    if r.returncode != 0:
+        return {"error": r.stderr.strip()[:300]}
+    files = [f for f in r.stdout.splitlines() if f]
+
+    def blob(c, f):
+        q = _git("rev-parse", f"{c}:{f}")
+        return q.stdout.strip() if q.returncode == 0 else None
+    stat = _git("diff", "--stat", frozen_at, run_commit, "--", *DISCLOSED_TREES).stdout.strip()
+    return {"trees": list(DISCLOSED_TREES), "frozen_at_commit": frozen_at, "run_commit": run_commit,
+            "files": [{"path": f, "blob_at_frozen": blob(frozen_at, f), "blob_at_run": blob(run_commit, f)}
+                      for f in files], "diffstat": stat[-2000:]}
+
+
 def verify_frozen_flies_config(path: Path, manifest_config: dict, check_git: bool = True) -> dict:
     """Schema + hashes + code freeze. Returns info; raises SystemExit on any problem."""
     from eval.score_arms import verify_frozen_config
@@ -607,7 +692,7 @@ def verify_frozen_flies_config(path: Path, manifest_config: dict, check_git: boo
     run_commit = manifest_config.get("run_commit")
     if not run_commit:
         probs.append("prediction manifest config.run_commit missing")
-    dirty = [p for p in manifest_config.get("run_dirty_paths", []) or []
+    dirty = [p for p in manifest_config.get("run_dirty_paths", []) or []  # gateway must be committed too
              if (p.startswith("etho/") and not p.startswith("etho/app/")) or p.startswith("configs/")]
     if dirty:
         probs.append(f"pipeline ran with uncommitted changes in frozen paths: {dirty[:5]}")
@@ -615,10 +700,13 @@ def verify_frozen_flies_config(path: Path, manifest_config: dict, check_git: boo
         rc = _git("diff", "--quiet", cfg["frozen_at_commit"], run_commit, "--", *FROZEN_TREES,
                   f":!{Path(path).as_posix()}").returncode
         if rc != 0:
-            probs.append(f"git diff {cfg['frozen_at_commit'][:10]} {run_commit[:10]} -- etho/ configs/ is not "
-                         "empty (or a commit is unknown)")
+            probs.append(f"git diff {cfg['frozen_at_commit'][:10]} {run_commit[:10]} -- etho/ configs/ "
+                         "(excluding etho/app, etho/gateway) is not empty (or a commit is unknown)")
+        else:
+            info["gateway_diff"] = gateway_diff(cfg["frozen_at_commit"], run_commit)
     if probs:
         raise SystemExit("frozen config: " + "; ".join(probs))
+    info["_cfg"] = cfg
     return info
 
 
@@ -737,7 +825,7 @@ def run(split: str, window: str, pred_dir: Path, behaviors=fx.SCORED, purpose: s
         criteria_path: Path | None = None, frozen_config: Path | None = None, confirm_test_run: bool = False,
         notes: str = "", check_git: bool = True, plan_file: Path = PLAN_FILE,
         data_manifest: Path = fx.MANIFEST, decision_path: Path = DECISION_FILE, shift_reps: int = SHIFT_REPS,
-        now_utc: str | None = None, baselines: dict | None = None) -> dict:
+        now_utc: str | None = None, baselines: dict | None = None, runs_dir: Path = RUNS_DIR) -> dict:
     all_movies = list(fx.split_movies(split))
     if window not in fx.WINDOWS:
         raise SystemExit(f"--window must be one of {sorted(fx.WINDOWS)}")
@@ -819,6 +907,8 @@ def run(split: str, window: str, pred_dir: Path, behaviors=fx.SCORED, purpose: s
     frozen_info = None
     if controlled:
         frozen_info = verify_frozen_flies_config(frozen_config, manifest.get("config", {}), check_git)
+        frozen_info["manifest_inputs"] = verify_manifest_inputs(manifest.get("config", {}), frozen_info.pop("_cfg"),
+                                                                window, movies, runs_dir)
         want_fps = LUNGE_GATE["sample_fps"] if stage == "lunge" else BRANCHES[decision["branch"]]["sample_fps"]
         if fps != [str(float(want_fps))]:
             raise SystemExit(f"{purpose}: predictions at {fps} fps, the decision tree requires {want_fps}")

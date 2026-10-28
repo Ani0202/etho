@@ -377,6 +377,19 @@ def perfect_preds(root: Path, out: Path, movies, window, fps, frozen=None, behav
     cfg = {"name": "synthetic", "run_commit": "deadbeef"}
     if frozen is not None:
         cfg["frozen_sha256"] = fx.common.sha256_file(frozen)
+        cfg["detectors_sha256"] = json.loads(Path(frozen).read_text())["assets"]["detectors"][0]["sha256"]
+        cfg["override"] = {}
+        cfg["window"] = list(w)
+        cfg["inputs"] = {}
+        for m in movies:  # stand-ins for the tracking run's per-movie files (amendment F3)
+            d = out / "_inputs" / f"movie{m}"
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "features.npz").write_bytes(f"features {m}".encode())
+            (d / "tracking.json").write_text(json.dumps({"movie": m}))
+            cfg["inputs"][f"movie{m}"] = {k: str(d / f) for k, f in (("features_path", "features.npz"),
+                                                                      ("tracking_path", "tracking.json"))}
+            cfg["inputs"][f"movie{m}"].update({"features_sha256": fx.common.sha256_file(d / "features.npz"),
+                                               "tracking_sha256": fx.common.sha256_file(d / "tracking.json")})
     (out / "manifest.json").write_text(json.dumps({"config": cfg, "cost": {"usd": 0}}))
     return out
 
@@ -665,3 +678,56 @@ def test_claim_verdict_rules():
     assert m(0.60, 0.30, und=0.10)["verdict"] == "QUALITATIVE"
     assert m(0.60, 0.30, n_b=9)["verdict"] == "QUALITATIVE"
     assert m(0.60, 0.30, baseline=False)["reasons"] == ["frozen baseline wing_proxy not scored on the same frames"]
+
+
+def test_manifest_inputs_amendment_f3(tmp_path):
+    root = make_dataset(tmp_path / "data", movies=(1, 2))
+    plan, fc = frozen_setup(tmp_path)
+    cfg = json.loads(fc.read_text())
+    pred = perfect_preds(root, tmp_path / "p", (1, 2), "mid5", 30, fc)
+    man = json.loads((pred / "manifest.json").read_text())["config"]
+    rep = fs.verify_manifest_inputs(man, cfg, "mid5", (1, 2))
+    assert rep["inputs"]["movie2"]["features"]["verified"] and rep["detectors_sha256"] == man["detectors_sha256"]
+    for broken, msg in ((dict(man, detectors_sha256="0" * 64), "not one of the frozen"),
+                        ({k: v for k, v in man.items() if k != "detectors_sha256"}, "detectors_sha256 missing"),
+                        (dict(man, override={"lunge": {"post": {"min_s": 0.1}}}), "override"),
+                        (dict(man, window=[18000, 36000]), "window"),
+                        (dict(man, inputs={"movie1": man["inputs"]["movie1"]}), "movie2: manifest records no")):
+        with pytest.raises(SystemExit, match=msg):
+            fs.verify_manifest_inputs(broken, cfg, "mid5", (1, 2))
+    Path(man["inputs"]["movie1"]["tracking_path"]).write_text("changed")
+    with pytest.raises(SystemExit, match="movie1: tracking"):
+        fs.verify_manifest_inputs(man, cfg, "mid5", (1, 2))
+    # flat form, resolved through tracking_run under runs_dir
+    runs = tmp_path / "runs"
+    flat = {"detectors_sha256": man["detectors_sha256"], "tracking_run": "F9", "features_sha256": {},
+            "tracking_sha256": {}}
+    for m in (1, 2):
+        d = runs / "F9" / f"movie{m}"
+        d.mkdir(parents=True)
+        (d / "features.npz").write_bytes(b"f")
+        (d / "tracking.json").write_text("{}")
+        flat["features_sha256"][f"movie{m}"] = fx.common.sha256_file(d / "features.npz")
+        flat["tracking_sha256"][str(m)] = fx.common.sha256_file(d / "tracking.json")
+    assert fs.verify_manifest_inputs(flat, cfg, "mid5", (1, 2), runs)["inputs"]["movie1"]["tracking"]["verified"]
+    # a gate run refuses an override before anything is logged
+    log = tmp_path / "runs.jsonl"
+    m2 = json.loads((pred / "manifest.json").read_text())
+    m2["config"]["override"] = {"lunge": {"min_votes": 2}}
+    (pred / "manifest.json").write_text(json.dumps(m2))
+    with pytest.raises(SystemExit, match="override"):
+        fs.run("dev", "mid5", pred, purpose="gate-lunge", root=root, log_path=log, out_dir=None, check_git=False,
+               plan_file=plan, frozen_config=fc, decision_path=tmp_path / "d.json", reps=50, ref_reps=2,
+               shift_reps=0, criteria_path=Path("eval/flies_criteria_v1.json"))
+    assert not log.exists()
+
+
+def test_gateway_excluded_from_freeze_but_disclosed():
+    assert ":!etho/gateway" in fs.FROZEN_TREES and ":!etho/app" in fs.FROZEN_TREES
+    r = fx.common.subprocess.run(["git", "rev-parse", "HEAD", "HEAD~1"], capture_output=True, text=True)
+    if r.returncode != 0:
+        pytest.skip("no git history")
+    head, prev = r.stdout.split()
+    d = fs.gateway_diff(prev, head)
+    assert d["trees"] == ["etho/gateway/"] and isinstance(d["files"], list)
+    assert all(f["path"].startswith("etho/gateway/") for f in d["files"])
