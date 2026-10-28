@@ -1,0 +1,65 @@
+{
+ "name": "etho-calms21-test-v1",
+ "frozen_at_commit": "4ada51ca8f3a95b6b51f7ce8a9ead478e5625b8d",
+ "zero_shot_arm": {
+  "tracking": {
+   "sam_model": "sam-3.1",
+   "phrase": "mouse",
+   "sample_fps": 10,
+   "src_stride": 3,
+   "chunk_s": 60,
+   "mask_encoding": "one_bit",
+   "identity": "etho/tracking/identity.py (ADR-001 rules)"
+  },
+  "definitions": {
+   "path": "configs/calms21_definitions.json",
+   "sha256": "ec48048e19168d76ff48006b36f05488a1978b17788e7b4127481e71abc39f4c"
+  },
+  "detectors": {
+   "path": "configs/detectors/R1_zero_shot.json",
+   "sha256": "0b396e11e288b8a9d9714f1787db229c06c26a5920911762267150bf8f349252",
+   "model": "muse-spark-1.3-contributor",
+   "effort": "high",
+   "feature_stats_from": "dev (label-free)"
+  },
+  "overlap_priority": [
+   "mount",
+   "attack",
+   "investigation"
+  ],
+  "tier1": {
+   "model": "accounts/fireworks/models/muse-spark-open",
+   "effort": "low",
+   "frames_per_strip": 6,
+   "window_s": 3.0,
+   "confident": 0.6,
+   "allow": [
+    "investigation",
+    "none"
+   ],
+   "prompt_sha256": "bb53933f626c470fb6dc6472b802034cc9669a75f19322cd2f8ecd6153445481",
+   "features_in_prompt": false
+  },
+  "tier2": "not used"
+ },
+ "few_shot_arm": {
+  "description": "same as zero-shot arm, but detectors revised from 18 simulated dev corrections (correction loop with self-check)",
+  "detectors": {
+   "path": "configs/detectors/R1_revised_18corrections.json",
+   "sha256": "1146c85ebdd3c7bcb2aa1bc7a395ff89de0384666cc2460b156cc13f8bd29409"
+  },
+  "corrections": {
+   "path": "eval/results/corrections/R1_dev_t1a_inv_none_seed20261028_k3+3.json",
+   "sha256": "dc3cb17d4ac13282bac9e1d399b549bc0b2c0984343fd045b7ded17754668363"
+  }
+ },
+ "dev_results_for_reference": {
+  "zero_shot": {
+   "dev": 0.482,
+   "dev_holdout": 0.5026
+  },
+  "few_shot_18": {
+   "dev_holdout": 0.563
+  }
+ }
+}

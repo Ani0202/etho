@@ -1,0 +1,181 @@
+{
+ "definitions": "configs/calms21_definitions.json",
+ "model": "muse-spark-1.3-contributor",
+ "effort": "high",
+ "stats_from_split": "dev",
+ "revised_from": "data/runs/R1/detectors.json",
+ "corrections": "eval/results/corrections/R1_dev_t1a_inv_none_seed20261028_k3+3.json",
+ "n_corrections": 18,
+ "detectors": [
+  {
+   "behavior": "attack",
+   "code": "# Narrow fix: kept original core/chase/occlusion/pause logic; added (1) low-motion pin\n# for occluded piles (tight+head-close+close-centroid+strong i_vis drop+r facing/i away)\n# to catch still bite/pins (287s,324s) without allowing broad low-motion attack;\n# (2) fast-closing fully-visible veto (approach<<0 + i_vis high) to reject\n# investigation/run-in false positives (42-44s,197s) while leaving true tussle/chase.\ndef detect(t, fps):\n    _keys = list(t.keys())\n    n = len(t[_keys[0]])\n    def _get(names):\n        for k in names:\n            if k in t:\n                return np.asarray(t[k], dtype=float)\n        return np.full(n, np.nan)\n    r_present = _get(['r_present', 'present'])\n    r_area = _get(['r_area', 'area'])\n    i_area = _get(['i_area'])\n    r_speed = _get(['r_speed'])\n    i_speed = _get(['i_speed'])\n    dist_raw = _get(['dist'])\n    gap_raw = _get(['gap'])\n    r_h_raw = _get(['r_head_to_i', 'r_head_to_body', 'r_head_to_i_body', 'head_to_body'])\n    r_face_raw = _get(['r_facing', 'r_face'])\n    i_face_raw = _get(['i_facing', 'i_face'])\n    r_vis = _get(['r_visible_ratio'])\n    i_vis = _get(['i_visible_ratio'])\n    app_raw = _get(['approach', 'approach_speed', 'd_dist', 'ddist', 'dist_change'])\n    r_med = np.nanmedian(np.sqrt(r_area))\n    i_med = np.nanmedian(np.sqrt(i_area))\n    if np.isnan(r_med) and np.isnan(i_med):\n        L = 125.0\n    elif np.isnan(r_med):\n        L = float(i_med)\n    elif np.isnan(i_med):\n        L = float(r_med)\n    else:\n        L = float((r_med + i_med) / 2.0)\n    r_sp_sm = smooth(r_speed, 3)\n    i_sp_sm = smooth(i_speed, 3)\n    mov = np.fmax(r_speed, i_speed)\n    mov_sm = smooth(mov, 3)\n    dist_sm = smooth(dist_raw, 3)\n    gap_sm = smooth(gap_raw, 3)\n    rh_sm = smooth(r_h_raw, 3)\n    r_face_sm = smooth(r_face_raw, 3)\n    i_face_sm = smooth(i_face_raw, 3)\n    i_vis_sm = smooth(i_vis, 3)\n    app_sm = smooth(app_raw, 3)\n    contact = gap_sm < (0.25 * L)\n    tight = gap_sm < (0.08 * L)\n    head_close = rh_sm < (0.5 * L)\n    close_cent = dist_sm < (1.2 * L)\n    motion_high = mov_sm > (1.2 * L)\n    motion_vhigh = mov_sm > (2.0 * L)\n    core_bite = contact & head_close & motion_high\n    core_tussle = tight & motion_vhigh\n    core_pile = contact & close_cent & motion_vhigh\n    core = core_bite | core_tussle | core_pile\n    core = core & np.isfinite(mov_sm)\n    k_recent = int(round(float(fps) * 2.0))\n    if k_recent < 3:\n        k_recent = 3\n    recent_core = smooth(core.astype(float), k_recent) > 0.02\n    recent_contact = smooth(contact.astype(float), k_recent) > 0.02\n    chase_dist = dist_sm < (2.5 * L)\n    chase_motion = mov_sm > (1.5 * L)\n    r_faces = r_face_sm < 1.0\n    chase = chase_dist & chase_motion & r_faces\n    chase_keep = chase & recent_core\n    occluded_flag = (i_vis < 0.65) | (~np.isfinite(dist_raw)) | (~np.isfinite(gap_raw))\n    occluded_attack = occluded_flag & motion_high & recent_contact\n    r_slow = r_sp_sm < (0.7 * L)\n    i_slow = i_sp_sm < (0.7 * L)\n    both_slow = r_slow & i_slow\n    both_face = (r_face_sm < 0.9) & (i_face_sm < 0.9)\n    pause_dist = dist_sm < (2.0 * L)\n    pause = both_slow & both_face & (~tight) & pause_dist\n    # narrow low-motion pin: still pile with intruder occluded under resident\n    strong_occl = (i_vis_sm < 0.70) & np.isfinite(i_vis_sm)\n    pin = (tight & head_close & close_cent & strong_occl & (r_face_sm < 0.8) & (i_face_sm > 1.0))\n    pin = pin & np.isfinite(gap_sm) & np.isfinite(rh_sm) & np.isfinite(dist_sm)\n    # narrow investigation veto: fast closing while intruder fully visible\n    veto = (app_sm < (-0.8 * L)) & (i_vis_sm > 0.90) & contact\n    veto = veto & np.isfinite(app_sm) & np.isfinite(i_vis_sm)\n    raw = (core | chase_keep | occluded_attack | pin) & (~pause) & (~veto)\n    bridged = bouts_clean(raw, fps, min_s=0.3, max_gap_s=1.0)\n    final = bridged & (~pause) & (~veto)\n    if np.all(np.isnan(r_present)):\n        r_ok = np.isfinite(r_speed)\n    else:\n        r_ok = (r_present == 1)\n    r_ok = r_ok & np.isfinite(r_speed + 0.0)\n    final = final & r_ok\n    return np.asarray(final, dtype=bool)",
+   "model": "muse-spark-1.3-contributor",
+   "calls": [
+    {
+     "attempt": 0,
+     "cost_usd": 0.0,
+     "usage": {
+      "input_tokens": 3494,
+      "output_tokens": 9268,
+      "reasoning_tokens": 7513,
+      "cached_tokens": 0,
+      "billed_output_tokens": 9268
+     },
+     "cache_hit": true,
+     "latency_s": 0.0,
+     "n_corrections": 6,
+     "check": {
+      "fixed_old": 0,
+      "fixed_new": 5,
+      "n": 6,
+      "pos_old": 2592,
+      "pos_new": 4345,
+      "change": 0.6763117283950617
+     }
+    },
+    {
+     "attempt": 1,
+     "cost_usd": 0.0025071,
+     "usage": {
+      "input_tokens": 5351,
+      "output_tokens": 9860,
+      "reasoning_tokens": 8539,
+      "cached_tokens": 3441,
+      "billed_output_tokens": 9860
+     },
+     "cache_hit": false,
+     "latency_s": 78.56854862700129,
+     "n_corrections": 6,
+     "check": {
+      "fixed_old": 0,
+      "fixed_new": 5,
+      "n": 6,
+      "pos_old": 2592,
+      "pos_new": 2792,
+      "change": 0.07716049382716049
+     }
+    }
+   ],
+   "prompt_hash": "c8346702acd6d039"
+  },
+  {
+   "behavior": "investigation",
+   "code": "# Narrow fix to keep overall rate stable: kept base gap/head/dist/face/vis/active/bouts\n# as original; added (1) relative-direction gate r_facing<=i_facing+0.35 to reject\n# intruder-led contacts (FP 243s/108s) with little rate cost; (2) rare fast-closing\n# chase branch (approach<=-0.3*body) allowing gap<=0.6*body, head<=1.3*body,\n# face<=1.8 to catch tail/chase sniffs (miss 4.4s/49s) without broad relaxation;\n# (3) fast veto 2.5*body bypassed to 4.0*body only when closing or rear\n# (i_facing>=2.0) to keep fast/rear sniffs (miss 49s/140s) but still veto other bursts.\ndef detect(t, fps):\n    N = len(next(iter(t.values())))\n    r_area = np.asarray(t.get('r_area', np.full(N, np.nan)), dtype=float)\n    med = np.nanmedian(r_area)\n    if np.isfinite(med) and med > 0:\n        body = float(np.sqrt(med))\n    else:\n        body = 125.0\n    if not np.isfinite(body):\n        body = 125.0\n    body = float(min(max(body, 80.0), 180.0))\n\n    r_present = np.asarray(t.get('r_present', np.full(N, np.nan)), dtype=float)\n    i_present = np.asarray(t.get('i_present', np.full(N, np.nan)), dtype=float)\n    gap = np.asarray(t.get('gap', np.full(N, np.nan)), dtype=float)\n    dist = np.asarray(t.get('dist', np.full(N, np.nan)), dtype=float)\n    r_facing = np.asarray(t.get('r_facing', np.full(N, np.nan)), dtype=float)\n    i_facing = np.asarray(t.get('i_facing', np.full(N, np.nan)), dtype=float)\n    r_speed = np.asarray(t.get('r_speed', np.full(N, np.nan)), dtype=float)\n    r_hx = np.asarray(t.get('r_head_x', np.full(N, np.nan)), dtype=float)\n    r_hy = np.asarray(t.get('r_head_y', np.full(N, np.nan)), dtype=float)\n    r_vis = np.asarray(t.get('r_visible_ratio', np.full(N, np.nan)), dtype=float)\n    i_vis = np.asarray(t.get('i_visible_ratio', np.full(N, np.nan)), dtype=float)\n    _h = t.get('r_head_to_i', None)\n    if _h is None:\n        _h = t.get('r_head_to_body', None)\n    if _h is None:\n        _h = np.full(N, np.nan)\n    rhti = np.asarray(_h, dtype=float)\n    _a = t.get('approach', None)\n    if _a is None:\n        approach = np.full(N, np.nan)\n    else:\n        approach = np.asarray(_a, dtype=float)\n\n    k = max(3, int(round(float(fps) * 0.3)))\n    gap_s = smooth(gap, k)\n    rhti_s = smooth(rhti, k)\n    dist_s = smooth(dist, k)\n    fac_s = smooth(r_facing, k)\n    ifac_s = smooth(i_facing, k)\n    rspd_s = smooth(r_speed, k)\n    appr_s = smooth(approach, k)\n\n    hx_s = smooth(r_hx, k)\n    hy_s = smooth(r_hy, k)\n    dx = np.full(N, np.nan)\n    dy = np.full(N, np.nan)\n    dx[1:] = hx_s[1:] - hx_s[:-1]\n    dy[1:] = hy_s[1:] - hy_s[:-1]\n    head_spd = np.sqrt(dx * dx + dy * dy) * float(fps)\n    head_spd_s = smooth(head_spd, k)\n\n    gap_thr = 0.30 * body\n    head_on = 0.40 * body\n    head_off = 0.60 * body\n    dist_thr = 2.5 * body\n    face_thr = 0.9\n    face_relax = 1.3\n    nose_touch = 0.20 * body\n    low_r = 0.15 * body\n    low_h = 0.40 * body\n    high_base = 2.5 * body\n    high_chase = 4.0 * body\n\n    gap_chase = 0.60 * body\n    head_chase = 1.30 * body\n    face_loose = 1.8\n    close_thr = -0.30 * body\n    rel_margin = 0.35\n\n    present_ok = (r_present == 1) & (i_present == 1)\n    gap_ok = np.isfinite(gap_s) & (gap_s <= gap_thr)\n    head_hyst = hysteresis(-rhti_s, -head_on, -head_off)\n    head_hyst = np.asarray(head_hyst, dtype=bool)\n    dist_ok = np.isfinite(dist_s) & (dist_s <= dist_thr)\n    vis_ok = np.isfinite(r_vis) & np.isfinite(i_vis) & (r_vis >= 0.70) & (i_vis >= 0.60)\n\n    closing = np.isfinite(appr_s) & (appr_s <= close_thr)\n    rear = np.isfinite(ifac_s) & (ifac_s >= 2.0)\n    face_base = np.isfinite(fac_s) & ((fac_s <= face_thr) | ((np.isfinite(rhti_s) & (rhti_s <= nose_touch)) & (fac_s <= face_relax)))\n    face_extra = np.isfinite(fac_s) & closing & (fac_s <= face_loose)\n    face_ok = face_base | face_extra\n\n    has_iface = np.isfinite(ifac_s)\n    rel_ok = np.ones(N, dtype=bool)\n    rel_ok[has_iface] = np.isfinite(fac_s[has_iface]) & (fac_s[has_iface] <= ifac_s[has_iface] + rel_margin)\n\n    base = present_ok & gap_ok & head_hyst & face_ok & dist_ok & vis_ok & rel_ok\n\n    gap_c_ok = np.isfinite(gap_s) & (gap_s <= gap_chase)\n    head_c_ok = np.isfinite(rhti_s) & (rhti_s <= head_chase)\n    face_c_ok = np.isfinite(fac_s) & (fac_s <= face_loose)\n    chase = present_ok & gap_c_ok & head_c_ok & face_c_ok & dist_ok & vis_ok & rel_ok & closing\n\n    posture = base | chase\n\n    active_inst = (np.isfinite(rspd_s) & (rspd_s >= low_r)) | (np.isfinite(head_spd_s) & (head_spd_s >= low_h))\n    bad_head = np.isfinite(head_spd_s) & (head_spd_s > 5.0 * body)\n    active_inst = active_inst & (~bad_head)\n    w = max(3, int(round(float(fps) * 1.0)))\n    act_frac = smooth(active_inst.astype(float), w)\n    act_ok = np.isfinite(act_frac) & (act_frac >= 0.15)\n    bypass = closing | rear\n    veto_fast = (np.isfinite(rspd_s) & (rspd_s > high_base) & (~bypass)) | (np.isfinite(rspd_s) & (rspd_s > high_chase))\n\n    raw = posture & act_ok & (~veto_fast)\n    raw = np.asarray(raw, dtype=bool)\n    out = bouts_clean(raw, fps, min_s=0.3, max_gap_s=0.5)\n    return np.asarray(out, dtype=bool)",
+   "model": "muse-spark-1.3-contributor",
+   "calls": [
+    {
+     "attempt": 0,
+     "cost_usd": 0.0,
+     "usage": {
+      "input_tokens": 3382,
+      "output_tokens": 13407,
+      "reasoning_tokens": 10951,
+      "cached_tokens": 0,
+      "billed_output_tokens": 13407
+     },
+     "cache_hit": true,
+     "latency_s": 0.0,
+     "n_corrections": 6
+    },
+    {
+     "attempt": 1,
+     "cost_usd": 0.0,
+     "usage": {
+      "input_tokens": 5875,
+      "output_tokens": 15299,
+      "reasoning_tokens": 13553,
+      "cached_tokens": 3313,
+      "billed_output_tokens": 15299
+     },
+     "cache_hit": true,
+     "latency_s": 0.0,
+     "n_corrections": 6,
+     "check": {
+      "fixed_old": 3,
+      "fixed_new": 5,
+      "n": 6,
+      "pos_old": 2882,
+      "pos_new": 4156,
+      "change": 0.44205412907702984
+     }
+    },
+    {
+     "attempt": 2,
+     "cost_usd": 0.0029477,
+     "usage": {
+      "input_tokens": 7723,
+      "output_tokens": 10877,
+      "reasoning_tokens": 9142,
+      "cached_tokens": 0,
+      "billed_output_tokens": 10877
+     },
+     "cache_hit": false,
+     "latency_s": 88.26210525499846,
+     "n_corrections": 6,
+     "check": {
+      "fixed_old": 3,
+      "fixed_new": 5,
+      "n": 6,
+      "pos_old": 2882,
+      "pos_new": 3362,
+      "change": 0.16655100624566274
+     }
+    }
+   ],
+   "prompt_hash": "fdf5e4659c186aab"
+  },
+  {
+   "behavior": "mount",
+   "code": "def detect(t, fps):\n    n = -1\n    for v in list(t.values()):\n        av0 = np.asarray(v)\n        if av0.ndim >= 1:\n            n = av0.shape[0]\n            break\n    if n is None or n == -1:\n        return np.zeros(0, dtype=bool)\n    n = int(n)\n    if n <= 0:\n        return np.zeros(0, dtype=bool)\n\n    def _get(*cands):\n        for nm in cands:\n            if nm in t:\n                av = np.asarray(t[nm], dtype=float)\n                if av.ndim == 0:\n                    continue\n                if av.ndim != 1:\n                    av = np.asarray(av.ravel(), dtype=float)\n                if av.shape[0] != n:\n                    continue\n                return av\n        return np.full(n, np.nan)\n\n    r_area = _get('r_area')\n    i_area = _get('i_area')\n    r_cx = _get('r_cx', 'r_x')\n    i_cx = _get('i_cx', 'i_x')\n    dist = _get('dist')\n    gap = _get('gap')\n    r_vis = _get('r_visible_ratio', 'r_visible', 'r_vis')\n    i_vis = _get('i_visible_ratio', 'i_visible', 'i_vis')\n    r_face = _get('r_facing', 'r_face')\n    i_face = _get('i_facing', 'i_face')\n    r_h = _get('r_heading')\n    i_h = _get('i_heading')\n    r_speed = _get('r_speed')\n    i_speed = _get('i_speed')\n    r_ht = _get('r_head_to_i', 'r_head_to_body', 'r_head_to', 'r_head_to_intruder', 'r_htob')\n    i_ht = _get('i_head_to_r', 'i_head_to_body', 'i_head_to', 'i_head_to_resident', 'i_htob')\n    r_elo = _get('r_elong', 'r_elongation', 'r_aspect')\n    i_elo = _get('i_elong', 'i_elongation', 'i_aspect')\n    r_present = _get('r_present', 'r_exist')\n    i_present = _get('i_present', 'i_exist')\n\n    r_sqrt = np.sqrt(np.where(np.isfinite(r_area) & (r_area > 0), r_area, np.nan))\n    i_sqrt = np.sqrt(np.where(np.isfinite(i_area) & (i_area > 0), i_area, np.nan))\n    Lr = np.nanmedian(r_sqrt)\n    Li = np.nanmedian(i_sqrt)\n    if np.isfinite(Lr) and np.isfinite(Li):\n        L = (float(Lr) + float(Li)) * 0.5\n    elif np.isfinite(Lr):\n        L = float(Lr)\n    elif np.isfinite(Li):\n        L = float(Li)\n    else:\n        L = 125.0\n    if not np.isfinite(L) or L < 20.0 or L > 400.0:\n        L = 125.0\n\n    ffps = float(fps) if np.isfinite(float(fps)) else 10.0\n    if ffps < 1.0:\n        ffps = 10.0\n    k = int(round(ffps * 0.5))\n    if k < 3:\n        k = 3\n    if k > n and n >= 3:\n        k = n\n    if k < 1:\n        k = 1\n\n    dist_thr = 1.2 * L\n    gap_thr = 0.2 * L\n    head_thr = 0.6 * L\n    r_face_thr = 1.0\n    i_face_thr = 2.0\n    align_thr = 0.3\n    vis_thr = 0.8\n    vis_hi = 1.25\n    deep_thr = 0.65\n    elong_thr = 1.9\n    i_still_thr = 1.5 * L\n    r_still_thr = 3.0 * L\n\n    i_nan = (~np.isfinite(i_cx)) | (~np.isfinite(i_area))\n    i_nan = i_nan | (np.isfinite(i_present) & (i_present < 0.5))\n    r_ok = np.isfinite(r_cx) & np.isfinite(i_cx if False else r_cx) & np.isfinite(r_area)\n    r_ok = r_ok & ((~np.isfinite(r_present)) | (r_present > 0.5))\n\n    idx = np.arange(n)\n    fin_d = np.isfinite(dist)\n    ff_d = np.maximum.accumulate(np.where(fin_d, idx, -1))\n    dist_ff = np.full(n, np.nan)\n    has_d = ff_d >= 0\n    dist_ff[has_d] = dist[ff_d[has_d]]\n    fin_g = np.isfinite(gap)\n    ff_g = np.maximum.accumulate(np.where(fin_g, idx, -1))\n    gap_ff = np.full(n, np.nan)\n    has_g = ff_g >= 0\n    gap_ff[has_g] = gap[ff_g[has_g]]\n\n    dist_was_close = np.isfinite(dist_ff) & (dist_ff < dist_thr)\n    gap_was_close = np.isfinite(gap_ff) & (gap_ff < gap_thr)\n    i_nan_close = i_nan & (dist_was_close | gap_was_close)\n\n    dist_fill = np.where(np.isfinite(dist_ff), dist_ff, 1e6)\n    gap_fill = np.where(np.isfinite(gap_ff), gap_ff, 1e6)\n    dist_s = smooth(dist_fill, k)\n    gap_s = smooth(gap_fill, k)\n\n    i_vis_f = np.where(np.isfinite(i_vis), i_vis, np.where(i_nan_close, 0.0, np.nan))\n    i_vis_s = smooth(i_vis_f, k)\n    r_ht_f = np.where(np.isfinite(r_ht), r_ht, np.where(i_nan_close, 0.0, np.nan))\n    r_ht_s = smooth(r_ht_f, k)\n    i_ht_f = np.where(np.isfinite(i_ht), i_ht, np.where(i_nan_close, 0.0, np.nan))\n    i_ht_s = smooth(i_ht_f, k)\n    r_face_f = np.where(np.isfinite(r_face), r_face, np.where(i_nan_close, 0.0, np.nan))\n    i_face_f = np.where(np.isfinite(i_face), i_face, np.where(i_nan_close, np.pi, np.nan))\n    r_face_s = smooth(r_face_f, k)\n    i_face_s = smooth(i_face_f, k)\n    cos_raw = np.cos(r_h - i_h)\n    cos_f = np.where(np.isfinite(cos_raw), cos_raw, np.where(i_nan_close, 1.0, np.nan))\n    cos_s = smooth(cos_f, k)\n    i_speed_f = np.where(np.isfinite(i_speed), i_speed, np.where(i_nan_close, 0.0, np.nan))\n    i_speed_s = smooth(i_speed_f, k)\n    r_speed_s = smooth(r_speed, k)\n    r_elo_s = smooth(r_elo, k)\n    i_elo_s = smooth(i_elo, k)\n\n    prox = (dist_s < dist_thr) | (gap_s < gap_thr) | i_nan_close\n    grasp = (np.isfinite(r_ht_s) & (r_ht_s < head_thr)) | (np.isfinite(i_ht_s) & (i_ht_s < head_thr))\n    still = np.isfinite(i_speed_s) & np.isfinite(r_speed_s) & (i_speed_s < i_still_thr) & (r_speed_s < r_still_thr)\n    rearR = np.isfinite(r_face_s) & (r_face_s < r_face_thr)\n    rearI_align = (np.isfinite(i_face_s) & (i_face_s > i_face_thr)) | (np.isfinite(cos_s) & (cos_s > align_thr))\n    occ = (np.isfinite(i_vis_s) & (i_vis_s < vis_thr)) | (np.isfinite(i_vis_s) & (i_vis_s > vis_hi))\n    occ = occ | i_nan_close\n    deep = (np.isfinite(i_vis_s) & (i_vis_s < deep_thr)) | i_nan_close\n\n    both_fin = np.isfinite(r_elo_s) & np.isfinite(i_elo_s)\n    elong_gate = (~both_fin) | ((r_elo_s > elong_thr) & (i_elo_s > elong_thr))\n\n    sup = (rearR.astype(np.int64) if hasattr(rearR, 'astype') else rearR) + (rearI_align.astype(np.int64) if hasattr(rearI_align, 'astype') else rearI_align) + (occ.astype(np.int64) if hasattr(occ, 'astype') else occ)\n    must = prox & grasp & still & r_ok & elong_gate\n    raw = must & ((sup >= 2) | (deep & (sup >= 1)))\n    raw = np.asarray(raw, dtype=bool)\n\n    cleaned = bouts_clean(raw, ffps, min_s=0.5, max_gap_s=0.3)\n    out = np.asarray(cleaned, dtype=bool).ravel()\n    if out.size != n:\n        out = np.asarray(raw, dtype=bool).ravel()\n        if out.size != n:\n            tmp = np.zeros(n, dtype=bool)\n            m = out.size if out.size < n else n\n            if m > 0:\n                tmp[0:m] = out[0:m]\n            out = tmp\n    out = np.asarray(out, dtype=bool).reshape(n)\n    return out",
+   "model": "muse-spark-1.3-contributor",
+   "calls": [
+    {
+     "attempt": 0,
+     "cost_usd": 0.0,
+     "usage": {
+      "input_tokens": 4185,
+      "output_tokens": 11818,
+      "reasoning_tokens": 9342,
+      "cached_tokens": 0,
+      "billed_output_tokens": 11818
+     },
+     "cache_hit": true,
+     "latency_s": 0.0,
+     "n_corrections": 6,
+     "check": {
+      "fixed_old": 1,
+      "fixed_new": 5,
+      "n": 6,
+      "pos_old": 2373,
+      "pos_new": 2982,
+      "change": 0.25663716814159293
+     }
+    },
+    {
+     "attempt": 1,
+     "cost_usd": 0.0020371000000000005,
+     "usage": {
+      "input_tokens": 6763,
+      "output_tokens": 6804,
+      "reasoning_tokens": 4623,
+      "cached_tokens": 4081,
+      "billed_output_tokens": 6804
+     },
+     "cache_hit": false,
+     "latency_s": 53.76770923000004,
+     "n_corrections": 6,
+     "check": {
+      "fixed_old": 1,
+      "fixed_new": 6,
+      "n": 6,
+      "pos_old": 2373,
+      "pos_new": 1906,
+      "change": -0.19679730299199324
+     }
+    }
+   ],
+   "prompt_hash": "aec5a80098bf54f8"
+  }
+ ]
+}
