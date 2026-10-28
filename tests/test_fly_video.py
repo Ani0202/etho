@@ -4,6 +4,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pytest
 
 from etho.tracking.fly_video import _Writer, plan_chunks, prepare_fly_chunks, window_samples
 from etho.tracking.pipeline import count_frames
@@ -81,3 +82,31 @@ def test_native_scale_and_cache(tmp_path):
     # a different window is a different cache entry
     c3 = prepare_fly_chunks(src, tmp_path / "ch", **{**kw, "start": 20})
     assert c3[0].path != c1[0].path and decode_index(read_all(c3[0].path)[0], 1) == 20
+
+
+def test_stale_chunks_json_is_not_trusted_when_the_video_files_are_gone(tmp_path):
+    src = tmp_path / "m.mp4"
+    make_source(src, 200)
+    kw = dict(start=10, stop=130, stride=1, scale=1, chunk_s=2, overlap_s=0.5, src_fps=30.0)
+    c1 = prepare_fly_chunks(src, tmp_path / "ch", **kw)
+    Path(c1[1].path).unlink()                          # cache cleaned, chunks.json left behind
+    c2 = prepare_fly_chunks(src, tmp_path / "ch", **kw)
+    assert c2 == c1 and all(Path(c.path).stat().st_size > 0 for c in c2)
+    assert decode_index(read_all(c2[1].path)[0], 1) == 10 + c2[1].first
+    Path(c2[0].path).write_bytes(b"")                  # a truncated (empty) chunk is not trusted either
+    c3 = prepare_fly_chunks(src, tmp_path / "ch", **kw)
+    assert len(read_all(c3[0].path)) == c3[0].n_samples
+
+
+def test_failure_mid_cut_raises_and_leaves_no_chunks_json_or_ffmpeg(tmp_path):
+    import subprocess
+
+    src = tmp_path / "m.mp4"
+    make_source(src, 100)
+    with pytest.raises(RuntimeError, match="ran out of frames"):   # the window runs past the end of the movie
+        prepare_fly_chunks(src, tmp_path / "ch", start=10, stop=500, stride=1, scale=1, chunk_s=2, overlap_s=0.5)
+    assert not list((tmp_path / "ch").glob("*/chunks.json"))
+    with pytest.raises(RuntimeError, match="fewer than"):
+        prepare_fly_chunks(src, tmp_path / "ch", start=400, stop=500, stride=1, scale=1)
+    out = subprocess.run(["pgrep", "-f", f"ffmpeg.*{tmp_path}"], capture_output=True, text=True).stdout
+    assert out.strip() == ""                                       # no orphaned ffmpeg writers

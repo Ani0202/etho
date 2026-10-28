@@ -4,7 +4,11 @@ Two levels:
   1. Within one SAM request (a chunk): SAM's own track ids. `slot_chunk` binds each track id to
      one of two slots the first time it appears (Hungarian against the slots' constant-velocity
      predictions when both are free) and keeps the binding; a third object while both slots are
-     held by live tracks is ignored (it is counted in `n_objects` only).
+     held by live tracks is ignored (it is counted in `n_objects` only). When two tracks bound to
+     the same slot are both present, the one with more samples in the chunk keeps it, so a short-lived
+     spurious object that grabbed a free slot never displaces the real fly when it comes back.
+     `relabel_swaps` then looks at every close-contact run: if the paths before and after fit better with
+     the two tracks exchanged, the rest of the chunk is relabeled and the identity epoch is bumped.
   2. Across the parallel, overlapping chunks: `stitch` matches the new chunk's slots to the global
      slots (A, B) by Hungarian on the overlap samples. Cost = distance from the global fly's
      (observed, or constant-velocity predicted) centroid, in body lengths, + normalized area
@@ -30,7 +34,9 @@ UNKNOWN_BL = 1.0        # centroids closer than this many body lengths: identity
 AMBIGUOUS_MARGIN = 0.5  # cost margin (body lengths) between best and alternative pairing
 MAX_EXTRAP = 6          # samples of constant-velocity extrapolation before holding the position
 AREA_W = 1.0            # weight of the normalized area difference relative to distance in body lengths
-MIN_PRESENCE = 0.02     # a track must appear in this fraction of the chunk to hold a slot
+MIN_SAMPLES = 5         # a track must appear in this many samples of the chunk to hold a slot
+NEUTRAL_COST = 3.0      # body lengths: cost of a pairing with no data on one side (never attractive, never free)
+SWAP_MARGIN_BL = 0.25   # per-fly cost margin (body lengths) for relabeling after a contact run
 
 
 def major_len(area: float, elong: float) -> float:
@@ -107,6 +113,7 @@ def stitch(prev: tuple[Traj, Traj], new: tuple[Traj, Traj], overlap: list[int], 
     """Match the new chunk's two slots to the global slots. `overlap` = samples both chunks cover."""
     C = np.zeros((2, 2))
     cnt = 0
+    nodata = False
     for k in range(2):
         for j in range(2):
             c, n = pair_cost(prev[k], new[j], overlap, bl)
@@ -118,7 +125,10 @@ def stitch(prev: tuple[Traj, Traj], new: tuple[Traj, Traj], overlap: list[int], 
                     c = float(np.hypot(p[0] - q[0], p[1] - q[1]) / bl
                               + AREA_W * abs(p[2] - q[2]) / max(p[2], q[2], 1.0))
                     n = 1
-            C[k, j] = c if n else 0.0
+            if n == 0:  # nothing to compare: a large neutral cost, and the stitch cannot be trusted
+                nodata = True
+                c = NEUTRAL_COST
+            C[k, j] = c
             cnt = max(cnt, n)
     keep, swap = C[0, 0] + C[1, 1], C[0, 1] + C[1, 0]
     rows, cols = linear_sum_assignment(C)
@@ -134,6 +144,8 @@ def stitch(prev: tuple[Traj, Traj], new: tuple[Traj, Traj], overlap: list[int], 
     reasons = []
     if cnt == 0:
         reasons.append("no comparable samples")
+    elif nodata:
+        reasons.append("a slot has no data to compare")
     if margin < AMBIGUOUS_MARGIN:
         reasons.append(f"margin {margin:.2f} < {AMBIGUOUS_MARGIN}")
     return Stitch(perm, float(best), float(alt), bool(reasons), cnt, n_apart, "; ".join(reasons))
@@ -141,26 +153,26 @@ def stitch(prev: tuple[Traj, Traj], new: tuple[Traj, Traj], overlap: list[int], 
 
 def slot_chunk(objs: list[dict], first: int, last: int, bl: float, area_med: float) -> tuple[list[Traj], dict]:
     """Bind SAM tracks to two slots inside one chunk. objs: dicts with g, track, cx, cy, area (source px).
-    Returns (two slot trajectories keyed by global sample, per-sample slot -> object dict list)."""
+    Returns (two slot trajectories keyed by global sample, per-sample [slot0 obj, slot1 obj])."""
     by_g: dict[int, list[dict]] = defaultdict(list)
-    n_samp = max(1, last - first)
     ntr: dict[str, int] = defaultdict(int)
     for o in objs:
         ntr[o["track"]] += 1
     for o in objs:
-        # drop sliver tracks and blobs much smaller/larger than a fly
-        if ntr[o["track"]] / n_samp < MIN_PRESENCE:
+        # drop slivers (a track seen in fewer than MIN_SAMPLES samples) and blobs far from fly-sized
+        if ntr[o["track"]] < MIN_SAMPLES:
             continue
         if area_med > 0 and not (0.35 * area_med <= o["area"] <= 3.0 * area_med):
             continue
         by_g[o["g"]].append(o)
-    slots = [Traj(), Traj()]
     bind: dict[str, int] = {}
     assigned: dict[int, list[dict | None]] = {}
+    slots = [Traj(), Traj()]
     for g in sorted(by_g):
         row: list[dict | None] = [None, None]
         pend = []
-        for o in sorted(by_g[g], key=lambda o: -o["area"]):
+        # longest-lived tracks first: they win a slot over a short-lived track bound to the same slot
+        for o in sorted(by_g[g], key=lambda o: (-ntr[o["track"]], -o["area"])):
             s = bind.get(o["track"])
             if s is not None and row[s] is None:
                 row[s] = o
@@ -182,10 +194,61 @@ def slot_chunk(objs: list[dict], first: int, last: int, bl: float, area_med: flo
                 bind[pend[i]["track"]] = free[j]
         for s in (0, 1):
             if row[s] is not None:
-                o = row[s]
-                slots[s].add(g, o["cx"], o["cy"], o["area"])
+                slots[s].add(g, row[s]["cx"], row[s]["cy"], row[s]["area"])
         assigned[g] = row
     return slots, assigned
+
+
+def traj_from_rows(assigned: dict[int, list[dict | None]], slot: int) -> Traj:
+    t = Traj()
+    for g, row in assigned.items():
+        o = row[slot]
+        if o is not None:
+            t.add(g, o["cx"], o["cy"], o["area"])
+    return t
+
+
+def _runs(flag: np.ndarray) -> list[tuple[int, int]]:
+    runs, i, n = [], 0, len(flag)
+    while i < n:
+        if flag[i]:
+            j = i
+            while j + 1 < n and flag[j + 1]:
+                j += 1
+            runs.append((i, j))
+            i = j + 1
+        else:
+            i += 1
+    return runs
+
+
+def relabel_swaps(assigned: dict[int, list[dict | None]], first: int, last: int, bl: float) -> list[int]:
+    """After each close-contact run, test whether the paths fit better with the two slots exchanged;
+    if so (by SWAP_MARGIN_BL per fly) exchange them for the rest of the chunk. Runs in time order, so a
+    later run sees the labels as already corrected. Edits `assigned` in place; returns the global
+    samples at which the labeling changed (each starts a new identity epoch)."""
+    n = last - first
+    a_xy = np.full((n, 2), np.nan)
+    b_xy = np.full((n, 2), np.nan)
+    for g, row in assigned.items():
+        if row[0] is not None:
+            a_xy[g - first] = (row[0]["cx"], row[0]["cy"])
+        if row[1] is not None:
+            b_xy[g - first] = (row[1]["cx"], row[1]["cy"])
+    unk = unknown_mask(a_xy, b_xy, bl)
+    bumps = []
+    for i, j in _runs(unk):
+        c = _run_costs(a_xy, b_xy, i, j)
+        if c is None or j + 1 >= n:
+            continue
+        keep, swap = c
+        if (keep - swap) / 2.0 > SWAP_MARGIN_BL * bl:
+            a_xy[j + 1:], b_xy[j + 1:] = b_xy[j + 1:].copy(), a_xy[j + 1:].copy()
+            for g in range(first + j + 1, last):
+                if g in assigned:
+                    assigned[g] = [assigned[g][1], assigned[g][0]]
+            bumps.append(first + j + 1)
+    return bumps
 
 
 def unknown_mask(a_xy: np.ndarray, b_xy: np.ndarray, bl: float, thr: float = UNKNOWN_BL) -> np.ndarray:
@@ -206,32 +269,26 @@ def _extrap(xy: np.ndarray, idx: np.ndarray, t: float) -> np.ndarray | None:
     return np.array([np.polyval(np.polyfit(idx[ok], xy[ok, d], 1), t) for d in (0, 1)])
 
 
+def _run_costs(a_xy: np.ndarray, b_xy: np.ndarray, i: int, j: int, k: int = 5) -> tuple[float, float] | None:
+    """(keep, swap) fit cost of the run [i, j]: the paths before and after are extrapolated linearly to the
+    middle of the run and compared as kept vs exchanged. None if either side has no data."""
+    n = len(a_xy)
+    mid = (i + j) / 2.0
+    pre_i, post_i = np.arange(max(0, i - k), i), np.arange(j + 1, min(n, j + 1 + k))
+    pts = [_extrap(a_xy[pre_i], pre_i, mid), _extrap(b_xy[pre_i], pre_i, mid),
+           _extrap(a_xy[post_i], post_i, mid), _extrap(b_xy[post_i], post_i, mid)]
+    if any(p is None for p in pts):
+        return None
+    a0, b0, a1, b1 = pts
+    return (float(np.hypot(*(a1 - a0)) + np.hypot(*(b1 - b0))),
+            float(np.hypot(*(b1 - a0)) + np.hypot(*(a1 - b0))))
+
+
 def suspect_swaps(a_xy: np.ndarray, b_xy: np.ndarray, unknown: np.ndarray, k: int = 5) -> tuple[int, int]:
-    """Diagnostic for a silent SAM id swap across a close-contact run (it never relabels anything).
-    For each run of `unknown` samples the paths before and after are extrapolated linearly to the
-    middle of the run; a swap is suspected if exchanging the two post-run paths fits better.
-    Returns (n_runs, n_suspect)."""
-    n = len(unknown)
-    runs, i = [], 0
-    while i < n:
-        if unknown[i]:
-            j = i
-            while j + 1 < n and unknown[j + 1]:
-                j += 1
-            runs.append((i, j))
-            i = j + 1
-        else:
-            i += 1
+    """Diagnostic: (n close-contact runs, n runs where exchanging the post-run paths fits better at all)."""
+    runs = _runs(unknown)
     sus = 0
     for i, j in runs:
-        mid = (i + j) / 2.0
-        pre_i, post_i = np.arange(max(0, i - k), i), np.arange(j + 1, min(n, j + 1 + k))
-        pts = [_extrap(a_xy[pre_i], pre_i, mid), _extrap(b_xy[pre_i], pre_i, mid),
-               _extrap(a_xy[post_i], post_i, mid), _extrap(b_xy[post_i], post_i, mid)]
-        if any(p is None for p in pts):
-            continue
-        a0, b0, a1, b1 = pts
-        keep = np.hypot(*(a1 - a0)) + np.hypot(*(b1 - b0))
-        swap = np.hypot(*(b1 - a0)) + np.hypot(*(a1 - b0))
-        sus += int(swap < keep)
+        c = _run_costs(a_xy, b_xy, i, j, k)
+        sus += int(c is not None and c[1] < c[0])
     return len(runs), sus

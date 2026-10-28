@@ -3,11 +3,15 @@
 import numpy as np
 
 from etho.tracking.fly_identity import (
+    MIN_SAMPLES,
+    NEUTRAL_COST,
     Traj,
     major_len,
+    relabel_swaps,
     slot_chunk,
     stitch,
     suspect_swaps,
+    traj_from_rows,
     unknown_mask,
 )
 
@@ -127,3 +131,73 @@ def test_suspect_swaps_flags_an_exchange_across_contact():
     a2[30:], b2[30:] = b[30:].copy(), a[30:].copy()        # SAM swapped ids during the pass
     runs, sus = suspect_swaps(a2, b2, unknown_mask(a2, b2, BL))
     assert sus == 1
+
+
+def test_stitch_slot_with_no_data_gets_a_neutral_cost_and_is_ambiguous():
+    ov = list(range(30, 40))
+    A = traj({g: (20 + g, 20, 210) for g in range(40)})
+    B = Traj()                                              # this global fly was never observed
+    nA = traj({g: (20 + g, 20, 210) for g in ov})
+    nB = traj({g: (100, 100, 210) for g in ov})
+    st = stitch((A, B), (nB, nA), ov, BL)
+    assert st.perm == (1, 0)                                # the observed fly still finds its track
+    assert st.ambiguous and "no data" in st.reason
+    assert st.alt_cost >= NEUTRAL_COST                      # an empty slot is never a free match
+    # both global slots empty: nothing can be decided
+    st = stitch((Traj(), Traj()), (nA, nB), ov, BL)
+    assert st.ambiguous and st.n_compared == 0
+
+
+def test_slot_chunk_keeps_short_tracks_but_drops_slivers_below_five_samples():
+    objs = []
+    for g in range(100):
+        objs.append(obj(g, "c0:0", 20 + g * 0.5, 30))
+        objs.append(obj(g, "c0:1", 100, 100))
+    for g in range(60, 60 + MIN_SAMPLES - 1):
+        objs.append(obj(g, "c0:8", 60, 60))                  # 4 samples: a sliver
+    _, assigned = slot_chunk(objs, 0, 100, BL, 210.0)
+    assert all(o["track"] != "c0:8" for r in assigned.values() for o in r if o)
+    # a fly that is only found for 6 samples of a 1800-sample chunk (SAM lost it) still counts
+    objs2 = [obj(g, "c0:0", 20, 30) for g in range(1800)] + [obj(g, "c0:1", 100, 100) for g in range(1700, 1706)]
+    _, assigned2 = slot_chunk(objs2, 0, 1800, BL, 210.0)
+    assert any(o and o["track"] == "c0:1" for o in assigned2[1703])
+
+
+def test_spurious_object_in_a_free_slot_does_not_displace_the_real_fly_when_it_returns():
+    objs = []
+    for g in range(100):
+        if not 40 <= g < 60:                                 # the real fly 0 is lost for 20 samples
+            objs.append(obj(g, "c0:0", 20 + g * 0.5, 30))
+        objs.append(obj(g, "c0:1", 100, 100))
+        if g >= 45:
+            objs.append(obj(g, "c0:9", 60, 35))              # a spurious object appears near where fly 0 was
+    slots, assigned = slot_chunk(objs, 0, 100, BL, 210.0)
+    s0 = next(k for k in (0, 1) if assigned[10][k]["track"] == "c0:0")
+    assert assigned[50][s0]["track"] == "c0:9"               # it may hold the free slot while fly 0 is gone
+    assert assigned[70][s0]["track"] == "c0:0"               # but the longer-lived track wins the slot back
+    assert assigned[70][1 - s0]["track"] == "c0:1"
+    assert traj_from_rows(assigned, s0).pts[70][0] == 20 + 70 * 0.5
+
+
+def test_relabel_swaps_exchanges_the_rest_of_the_chunk_after_a_silent_sam_swap():
+    n = 100
+    rows = {}
+    for g in range(n):
+        f1 = {"track": "c0:0", "cx": 20 + g, "cy": 60.0, "area": 210.0}       # fly 1 moves right
+        f2 = {"track": "c0:1", "cx": 100 - g, "cy": 70.0, "area": 210.0}      # fly 2 moves left, 10 px lower
+        rows[g] = [f1, f2] if g < 40 else [dict(f2, track="c0:0"), dict(f1, track="c0:1")]   # SAM swaps ids at 40
+    bumps = relabel_swaps(rows, 0, n, BL)
+    assert len(bumps) == 1 and 50 <= bumps[0] <= 56
+    for g in list(range(0, 27)) + list(range(bumps[0], n)):                   # everywhere outside the contact run
+        assert rows[g][0]["cx"] == 20 + g and rows[g][1]["cx"] == 100 - g, g
+
+
+def test_relabel_swaps_leaves_a_clean_pass_and_an_undecidable_one_alone():
+    n = 100
+    clean = {g: [{"track": "0", "cx": 20.0 + g, "cy": 60.0, "area": 210.0},
+                 {"track": "1", "cx": 100.0 - g, "cy": 70.0, "area": 210.0}] for g in range(n)}
+    assert relabel_swaps(clean, 0, n, BL) == []                               # passed through: kept pairing fits
+    # flies 3 px apart for a while and then part: position cannot say which is which -> no relabel
+    near = {g: [{"track": "0", "cx": 50.0, "cy": 60.0, "area": 210.0},
+                {"track": "1", "cx": 53.0, "cy": 60.0, "area": 210.0}] for g in range(n)}
+    assert relabel_swaps(near, 0, n, BL) == []

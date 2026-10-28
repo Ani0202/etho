@@ -87,6 +87,15 @@ class _Writer:
         if self.p.wait() != 0:
             raise RuntimeError("ffmpeg failed while writing a chunk")
 
+    def abort(self) -> None:
+        """Best-effort cleanup after an error: never raises."""
+        try:
+            self.p.stdin.close()
+        except OSError:
+            pass
+        self.p.kill()
+        self.p.wait()
+
 
 def prepare_fly_chunks(src: Path, out_dir: Path, *, start: int = 22500, stop: int = 31500, stride: int = 1,
                        scale: int = 4, chunk_s: float = 60.0, overlap_s: float = 1.0, src_fps: float = 30.0,
@@ -98,39 +107,51 @@ def prepare_fly_chunks(src: Path, out_dir: Path, *, start: int = 22500, stop: in
     d = out_dir / hashlib.sha256(ident.encode()).hexdigest()[:16]
     done = d / "chunks.json"
     if done.exists():
-        return [FlyChunk(**c) for c in json.loads(done.read_text())["chunks"]]
+        cached = [FlyChunk(**c) for c in json.loads(done.read_text())["chunks"]]
+        if all(Path(c.path).is_file() and Path(c.path).stat().st_size > 0 for c in cached):
+            return cached
+        done.unlink()  # chunks.json outlived its video files (cleaned cache): cut them again
     d.mkdir(parents=True, exist_ok=True)
     n = window_samples(start, stop, stride)
     fps = src_fps / stride
     plan = plan_chunks(n, fps, chunk_s, overlap_s)
     cap = cv2.VideoCapture(str(src))
-    if not cap.isOpened():
-        raise RuntimeError(f"cannot open {src}")
-    for _ in range(start):  # sequential skip: exact, and 144 px frames decode in ~0.2 ms
-        if not cap.grab():
-            raise RuntimeError(f"{src} has fewer than {start} frames")
-    chunks = [FlyChunk(i, str(d / f"c{i:03d}.mp4"), first, own1 - first, own0, own1, start, stride, scale)
-              for i, (first, own0, own1) in enumerate(plan)]
     writers: dict[int, _Writer] = {}
-    for g in range(n):
-        ok, frame = cap.read()
-        if not ok:
-            raise RuntimeError(f"{src}: ran out of frames at source frame {start + stride * g}")
-        live = [c for c in chunks if c.first <= g < c.own1]
-        if live:
-            up = upscale(frame, scale)
-            for c in live:
-                if c.index not in writers:
-                    writers[c.index] = _Writer(Path(c.path), up.shape[1], up.shape[0], fps, crf)
-                writers[c.index].write(up)
-        for c in chunks:
-            if c.own1 - 1 == g and c.index in writers:
-                writers.pop(c.index).close()
-        for _ in range(stride - 1):  # skip to the next sample
-            cap.grab()
-    cap.release()
-    for w in writers.values():
-        w.close()
+    try:
+        if not cap.isOpened():
+            raise RuntimeError(f"cannot open {src}")
+        for _ in range(start):  # sequential skip: exact, and 144 px frames decode in ~0.2 ms
+            if not cap.grab():
+                raise RuntimeError(f"{src} has fewer than {start} frames")
+        chunks = [FlyChunk(i, str(d / f"c{i:03d}.mp4"), first, own1 - first, own0, own1, start, stride, scale)
+                  for i, (first, own0, own1) in enumerate(plan)]
+        for g in range(n):
+            ok, frame = cap.read()
+            if not ok:
+                raise RuntimeError(f"{src}: ran out of frames at source frame {start + stride * g}")
+            live = [c for c in chunks if c.first <= g < c.own1]
+            if live:
+                up = upscale(frame, scale)
+                for c in live:
+                    if c.index not in writers:
+                        writers[c.index] = _Writer(Path(c.path), up.shape[1], up.shape[0], fps, crf)
+                    writers[c.index].write(up)
+            for c in chunks:
+                if c.own1 - 1 == g and c.index in writers:
+                    w = writers[c.index]
+                    w.close()                      # on failure `w` stays in `writers` and is aborted below
+                    del writers[c.index]
+            for _ in range(stride - 1):  # skip to the next sample
+                cap.grab()
+        for w in list(writers.values()):
+            w.close()
+        writers.clear()
+    except BaseException:
+        for w in writers.values():
+            w.abort()
+        raise
+    finally:
+        cap.release()
     for c in chunks:  # verify what ffmpeg actually wrote
         got = count_frames(Path(c.path))
         if got != c.n_samples:

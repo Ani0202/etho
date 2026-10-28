@@ -6,29 +6,29 @@ areas in source pixels, and writes overlay PNGs for a visual wing check.
 
   uv run python scripts/fly_probe.py --movie 1 --starts 22500 27000 --scales 1 4 --out <dir> [--phrase fly]
 
-Run with ETHO_ROOT pointing at the shared checkout so the spend ledger and caches are shared.
+ETHO_ROOT (the shared checkout) is required: its ledger pays and its data/ holds the movies.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from etho.gateway import Gateway
+from etho.tracking.fly_pipeline import PHRASE, make_gateway
 from etho.tracking.fly_video import prepare_fly_chunks, upscale
 from etho.tracking.sam_parse import parse_line
 
-DATA = Path("/home/ubuntu/work/etho/data/flyvsfly/Aggression")
 COLORS = [(0, 0, 255), (0, 200, 0), (255, 128, 0), (255, 0, 255)]
 
 
-def probe(gw: Gateway, movie: int, start: int, scale: int, phrase: str, out: Path, n: int = 50) -> dict:
-    src = DATA / f"movie{movie}" / f"movie{movie}.mp4"
+def probe(gw, data: Path, movie: int, start: int, scale: int, phrase: str, out: Path, n: int = 50) -> dict:
+    src = data / f"movie{movie}" / f"movie{movie}.mp4"
     chunks = prepare_fly_chunks(src, out / "chunks", start=start, stop=start + n, stride=1, scale=scale,
                                 chunk_s=3600, overlap_s=0)
     c = chunks[0]
@@ -95,15 +95,19 @@ def main() -> None:
     ap.add_argument("--movie", type=int, default=1)
     ap.add_argument("--starts", type=int, nargs="+", default=[22500])
     ap.add_argument("--scales", type=int, nargs="+", default=[1, 4])
-    ap.add_argument("--phrase", default="fly")
+    ap.add_argument("--phrase", default=PHRASE)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     if a.movie not in (1, 2, 3, 4, 5):
         raise SystemExit("probe on TRAIN movies only")
-    gw = Gateway()
+    if not os.environ.get("ETHO_ROOT"):
+        raise SystemExit("set ETHO_ROOT to the shared checkout")
+    root = Path(os.environ["ETHO_ROOT"]).resolve()
+    gw = make_gateway(root)
+    data = root / "data/flyvsfly/Aggression"
     for s in a.starts:
         for sc in a.scales:
-            r = probe(gw, a.movie, s, sc, a.phrase, a.out)
+            r = probe(gw, data, a.movie, s, sc, a.phrase, a.out)
             print(json.dumps({k: v for k, v in r.items() if k != "ids"}))
             for oid, st in r["ids"].items():
                 print("   id", oid, st)
