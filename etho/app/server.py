@@ -420,8 +420,10 @@ def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
                 except json.JSONDecodeError:
                     pass
     spec = read_json(p.version_file(v, "detectors"), {})
+    prov = spec.get("provenance", {})
     dets = [{"behavior": d["behavior"], "model": d.get("model"), "prompt_hash": d.get("prompt_hash"),
-             "code": d["code"], "calls": [{k: c[k] for k in CALL_KEYS if k in c} for c in d.get("calls", [])]}
+             "source": prov.get(d["behavior"]), "code": d["code"],
+             "calls": [{k: c[k] for k in CALL_KEYS if k in c} for c in d.get("calls", [])]}
             for d in spec.get("detectors", [])]
     vf = p.version_file(v, "verdicts")
     verdicts = []
@@ -444,7 +446,7 @@ def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
             by_stage[s] = by_stage.get(s, 0.0) + float(r.get("cost_usd", 0.0) or 0.0)
             n_calls += 1
     return {"version": v, "plan": res.get("plan"), "detectors": dets, "calls": calls, "verdicts": verdicts,
-            "tracking": {k: track.get(k) for k in ("phrase", "timings", "cost_usd", "cache_hits")},
+            "tracking": {k: track.get(k) for k in ("phrase", "timings", "cost_usd", "cache_hits", "app_chunk_s")},
             "definitions": res["behaviors"]["definitions"], "subject": res.get("subject"),
             "partner": res.get("partner"),
             "ledger": {"rows": n_calls, "by_stage_usd": {k: round(x, 6) for k, x in by_stage.items()},

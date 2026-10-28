@@ -6,6 +6,9 @@ Stages (revision):  revise, predict, tier1, report, overlay
 A stage ends `done`, `skipped` (non-essential stage failed; the job goes on) or `failed` (the job stops).
 One worker thread takes jobs in submission order; jobs wait in the queue, they never run concurrently
 (the provider rate limits and the spend cap both assume it).
+Within a job, stages in `PARALLEL_GROUPS` run at the same time (the report's methods-paragraph model call and
+the overlay render share nothing). Every stage records its wall-clock window (`start_s`/`end_s`, seconds after
+the job started), and a job's total time is job end minus job start, never the sum of its stages.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ import threading
 import time
 import uuid
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -30,6 +34,9 @@ from .store import read_json, resolve_project, write_json
 ANALYZE_STAGES = ("validate", "plan", "track", "synthesize", "predict", "tier1", "report", "overlay")
 REVISE_STAGES = ("revise", "predict", "tier1", "report", "overlay")
 TERMINAL = ("done", "failed", "cancelled")
+# Consecutive stages that run concurrently: the first name starts the group, the others join it. Model-call
+# cost during a group is attributed to the first stage (the others make no model calls).
+PARALLEL_GROUPS = (("report", "overlay"),)
 
 
 class QueueFull(Exception):
@@ -44,6 +51,8 @@ class Stage:
     message: str = ""
     cost_usd: float = 0.0
     started: float | None = field(default=None, repr=False)   # monotonic, while running
+    start_s: float | None = None   # wall-clock window, seconds after the job started (queue wait excluded)
+    end_s: float | None = None
 
 
 @dataclass
@@ -86,6 +95,21 @@ class Job:
         return j
 
 
+def stage_groups(stages: list[Stage]) -> list[list[Stage]]:
+    """Split the stage list into steps; each step is a list of stages that run at the same time."""
+    out: list[list[Stage]] = []
+    i = 0
+    while i < len(stages):
+        group = [stages[i]]
+        for g in PARALLEL_GROUPS:
+            if stages[i].name == g[0]:
+                while i + len(group) < len(stages) and stages[i + len(group)].name in g[1:]:
+                    group.append(stages[i + len(group)])
+        out.append(group)
+        i += len(group)
+    return out
+
+
 def new_job_id() -> str:
     return "j" + uuid.uuid4().hex[:12]
 
@@ -105,6 +129,8 @@ class JobManager:
         self.jobs: dict[str, Job] = {}
         self._queue: deque[str] = deque()
         self._cv = threading.Condition()
+        self._persist_lock = threading.Lock()
+        self._tls = threading.local()          # the stage whose thread is calling `say`
         self._stop = False
         self._thread: threading.Thread | None = None
 
@@ -227,11 +253,12 @@ class JobManager:
             el = (now - s.started) if (s.status == "running" and s.started) else s.elapsed_s
             cost = job.gw.stage_cost.get(s.name, s.cost_usd) if (s.status == "running" and job.gw) else s.cost_usd
             stages.append({"name": s.name, "status": s.status, "elapsed_s": round(el, 1), "message": s.message,
-                           "cost_usd": round(cost, 4)})
+                           "cost_usd": round(cost, 4), "start_s": s.start_s, "end_s": s.end_s})
         cur = next((s for s in job.stages if s.status == "running"), None)
         running = job.status == "running" and job.started_mono is not None
         return {"id": job.id, "project_id": job.project_id, "kind": job.kind, "rev": job.rev, "status": job.status,
                 "stage": cur.name if cur else None,
+                "running_stages": [s.name for s in job.stages if s.status == "running"],
                 "stage_index": job.stages.index(cur) + 1 if cur else sum(s.status in ("done", "skipped")
                                                                           for s in job.stages),
                 "n_stages": len(job.stages), "message": (cur.message if cur and cur.message else job.message),
@@ -254,7 +281,8 @@ class JobManager:
 
     def _persist(self, job: Job) -> None:
         try:
-            write_json(job.dir / "job.json", job.to_disk())
+            with self._persist_lock:    # stages of a parallel group persist from different threads
+                write_json(job.dir / "job.json", job.to_disk())
         except OSError:
             pass
 
@@ -304,11 +332,12 @@ class JobManager:
         version = 0 if job.kind == "analyze" else int(job.rev)
         ctx = Ctx(self.cfg, project, job, gw, outdir, version, public_data=project.public_data,
                   say=lambda m: None)
-        current: list[Stage] = []
 
         def say(msg: str) -> None:
-            if current:
-                current[0].message = msg
+            # the stage whose thread is talking; a helper thread started by a stage falls back to a running one
+            st = getattr(self._tls, "stage", None) or next((s for s in job.stages if s.status == "running"), None)
+            if st is not None:
+                st.message = msg
             job.message = msg
             self.touch(job)
 
@@ -320,38 +349,68 @@ class JobManager:
         except Refused as e:
             job.outcome, job.error = "failed", e.message
             return
-        for st in job.stages:
+        for group in stage_groups(job.stages):
             if job.cancel_requested:
                 job.outcome, job.message = "cancelled", "cancelled"
                 return
-            current[:] = [st]
-            st.status, st.started = "running", time.monotonic()
-            gw.stage = st.name
-            self.touch(job)
-            try:
-                getattr(self.backend, f"stage_{st.name}")(ctx)
-                st.status = "done"
-            except StageSkipped as e:
-                st.status, st.message = "skipped", str(e)
-            except JobCancelled:
-                st.status, st.message = "failed", "cancelled"
-                job.outcome, job.message = "cancelled", "cancelled"
+            gw.stage = group[0].name
+            if len(group) == 1:
+                errs = [(group[0], self._exec_stage(job, ctx, gw, group[0]))]
+            else:
+                with ThreadPoolExecutor(len(group), thread_name_prefix="etho-stage") as ex:
+                    errs = list(zip(group, ex.map(lambda s: self._exec_stage(job, ctx, gw, s), group), strict=True))
+            failed = False
+            for st, e in errs:
+                if e is not None:
+                    self._fail_stage(job, st, e)
+                    failed = True
+            if failed:
                 return
-            except JobBudgetExceeded as e:
-                st.status, st.message = "failed", str(e)
-                job.outcome, job.error = "failed", f"{st.name}: {e}"
-                return
-            except Exception as e:
-                st.status = "failed"
-                job.outcome, job.error = "failed", f"{st.name}: {type(e).__name__}: {e}"[:600]
-                st.message = job.error
-                return
-            finally:
-                st.elapsed_s = round(time.monotonic() - st.started, 2)
-                st.cost_usd = round(gw.stage_cost.get(st.name, 0.0), 6)
-                st.started = None
-                self._persist(job)
-                self.touch(job)
-        current.clear()
         self.backend.finalize(ctx, ledger_cost=self.ledger.job_cost(job.id) or None)
         job.outcome = "done"
+
+    def _exec_stage(self, job: Job, ctx: Ctx, gw: JobGateway, st: Stage) -> Exception | None:
+        """Run one stage on the calling thread and record its status and wall-clock window.
+        Returns the exception that ended it (None for done or skipped); the caller decides what it means."""
+        self._tls.stage = st
+        st.status, st.started = "running", time.monotonic()
+        st.start_s = round(st.started - job.started_mono, 2) if job.started_mono is not None else None
+        self.touch(job)
+        err: Exception | None = None
+        try:
+            getattr(self.backend, f"stage_{st.name}")(ctx)
+            st.status = "done"
+        except StageSkipped as e:
+            st.status, st.message = "skipped", str(e)
+        except Exception as e:
+            err = e
+        finally:
+            now = time.monotonic()
+            st.elapsed_s = round(now - st.started, 2)
+            st.end_s = round(now - job.started_mono, 2) if job.started_mono is not None else None
+            st.cost_usd = round(gw.stage_cost.get(st.name, 0.0), 6)
+            st.started = None
+            self._tls.stage = None
+            if err is not None:
+                st.status = "failed"
+            self._persist(job)
+            self.touch(job)
+        return err
+
+    def _fail_stage(self, job: Job, st: Stage, e: Exception) -> None:
+        """Mark a stage failed; the first failure in stage order decides how the job ends."""
+        if isinstance(e, JobCancelled):
+            st.message = "cancelled"
+            job.outcome = job.outcome or "cancelled"
+            job.message = "cancelled"
+        elif isinstance(e, JobBudgetExceeded):
+            st.message = str(e)
+            if job.outcome is None:
+                job.outcome, job.error = "failed", f"{st.name}: {e}"
+        else:
+            msg = f"{st.name}: {type(e).__name__}: {e}"[:600]
+            st.message = msg
+            if job.outcome is None:
+                job.outcome, job.error = "failed", msg
+        self._persist(job)
+        self.touch(job)

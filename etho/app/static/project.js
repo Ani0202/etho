@@ -124,25 +124,59 @@
   function metricsCard() {
     const m = V().metrics;
     return h("div", { class: "card" }, h("h2", {}, "Per-behavior metrics"),
-      h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "behavior"), h("th", {}, "bouts"), h("th", {}, "total s"), h("th", {}, "% of video"), h("th", {}, "first at s"), h("th", {}, "mean bout s"))),
+      h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "behavior"), h("th", {}, "bouts"), h("th", {}, "total s"), h("th", {}, "% of video"), h("th", {}, "first at s"), h("th", {}, "mean bout s"), h("th", { class: "l" }, "detector"))),
         h("tbody", {}, ...names().map(b => h("tr", {}, h("td", {}, h("span", { class: "sw", style: { background: colorVar(cidx()[b]) } }), " ", b),
-          h("td", {}, m[b].bouts), h("td", {}, m[b].total_s), h("td", {}, m[b].pct_time), h("td", {}, m[b].latency_s ?? "-"), h("td", {}, m[b].mean_bout_s ?? "-"))))));
+          h("td", {}, m[b].bouts), h("td", {}, m[b].total_s), h("td", {}, m[b].pct_time), h("td", {}, m[b].latency_s ?? "-"), h("td", {}, m[b].mean_bout_s ?? "-"),
+          h("td", { class: "l" }, detectorChip(b)))))),
+      detectorNote());
+  }
+
+  // Where each behavior's detector came from: reused (benchmark seed or an earlier upload), written now, or revised.
+  function detectorSource(b) {
+    return ((S.ver ? V() : P()).detector_sources || []).find(d => d.behavior === b) || null;
+  }
+  function detectorChip(b) {
+    const d = detectorSource(b);
+    if (!d) return h("span", { class: "sub" }, "n/a");
+    return h("span", { class: "chip", title: d.origin + (d.note ? ` (${d.note})` : "") }, SRC_LABEL[d.source] || d.source);
+  }
+  function detectorNote() {
+    const ds = ((S.ver ? V() : P()).detector_sources || []).filter(d => d.source === "seed" || d.source === "cache");
+    if (!ds.length) return null;
+    return h("div", { class: "hint" }, "Reused detectors skipped the model call: " + ds.map(d => `${d.behavior} (${d.origin})`).join("; ") + ".");
   }
 
   function stagesCard() {
     const src = S.ver ? V() : P();
-    const stages = src.stages, tot = Math.max(1e-9, ...stages.map(s => s.elapsed_s || 0));
+    const stages = src.stages;
     const timing = S.ver ? V().timing : P().timing;
-    const rows = stages.map(st => h("tr", {}, h("td", { class: "l" }, STAGE_LABEL[st.name] || st.name, st.status === "skipped" ? h("span", { class: "chip", style: { marginLeft: "6px" } }, "skipped") : null),
-      h("td", { class: "l" }, h("div", { class: "bar", title: st.message }, h("i", { style: { width: `${100 * (st.elapsed_s || 0) / tot}%` } }))),
-      h("td", {}, st.elapsed_s === null ? "-" : fmt.time(st.elapsed_s)), h("td", {}, fmt.usd(st.cost_usd))));
+    // Timeline: each bar sits at its wall-clock window (seconds after the job started), so stages that ran at
+    // the same time are drawn on top of each other in time. Precomputed runs have no windows: bars start at 0.
+    const span = Math.max(1e-9, timing.wall_s || 0, ...stages.map(s => s.end_s || 0));
+    const have = stages.some(s => s.start_s !== null && s.start_s !== undefined);
+    const maxEl = Math.max(1e-9, ...stages.map(s => s.elapsed_s || 0));
+    const lab = n => STAGE_LABEL[n] || n;
+    const rows = stages.map(st => {
+      const left = have && st.start_s != null ? 100 * st.start_s / span : 0;
+      const width = Math.max(0.8, 100 * (st.elapsed_s || 0) / (have ? span : maxEl));
+      const over = (st.overlaps || []).map(lab);
+      const subs = (st.substeps || []).map(x => `${x.name} ${x.start_s.toFixed(1)} to ${x.end_s.toFixed(1)} s`);
+      return h("tr", {}, h("td", { class: "l" }, lab(st.name), st.status === "skipped" ? h("span", { class: "chip", style: { marginLeft: "6px" } }, "skipped") : null,
+          over.length ? h("span", { class: "chip", style: { marginLeft: "6px" }, title: "These stages were running at the same time" }, `ran with ${over.join(", ")}`) : null,
+          subs.length ? h("div", { class: "hint", style: { margin: "2px 0 0" } }, `inside it, in parallel: ${subs.join("; ")}`) : null),
+        h("td", { class: "l" }, h("div", { class: "bar", title: have && st.start_s != null ? `${st.start_s} s to ${st.end_s} s after the job started. ${st.message || ""}` : st.message },
+          h("i", { style: { width: `${Math.min(width, 100 - left)}%`, marginLeft: `${left}%` } }))),
+        h("td", {}, st.elapsed_s === null ? "-" : fmt.time(st.elapsed_s)), h("td", {}, fmt.usd(st.cost_usd)));
+    });
+    const anyOverlap = stages.some(s => (s.overlaps || []).length || (s.substeps || []).length);
     return h("div", { class: "card" }, h("h2", {}, S.ver ? `Timing and cost of revision ${S.ver}` : "Per-stage timing and cost"),
-      h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "stage"), h("th", { class: "l" }, ""), h("th", {}, "time"), h("th", {}, "cost"))),
+      h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "stage"), h("th", { class: "l" }, have ? `timeline (0 to ${fmt.time(span)})` : ""), h("th", {}, "time"), h("th", {}, "cost"))),
         h("tbody", {}, ...rows),
-        h("tfoot", {}, h("tr", {}, h("td", {}, h("strong", {}, "total")), h("td", {}), h("td", {}, h("strong", {}, timing.wall_s === null ? "n/a" : fmt.time(timing.wall_s))),
+        h("tfoot", {}, h("tr", {}, h("td", {}, h("strong", {}, "total (job end minus job start)")), h("td", {}), h("td", {}, h("strong", {}, timing.wall_s === null ? "n/a" : fmt.time(timing.wall_s))),
           h("td", {}, h("strong", {}, fmt.usd((S.ver ? V() : P()).cost.total_usd)))))),
       h("div", { class: "hint" }, timing.x_realtime === null ? "Timings were not recorded for this precomputed run." :
-        `${fmt.time(timing.wall_s)} wall-clock for ${fmt.time(timing.video_s)} of video = ${fmt.x(timing.x_realtime)} real time (queue wait excluded).`));
+        `${fmt.time(timing.wall_s)} wall-clock for ${fmt.time(timing.video_s)} of video = ${fmt.x(timing.x_realtime)} real time (queue wait excluded).` +
+        (anyOverlap && timing.stage_sum_s != null ? ` Some stages overlap, so the stage times add up to ${fmt.time(timing.stage_sum_s)}, more than the total.` : "")));
   }
 
   // ---- corrections
@@ -295,7 +329,8 @@
       ...Object.entries(a.definitions).map(([k, v]) => h("div", { style: { fontSize: "13px" } }, h("strong", {}, k), ": ", v)));
     if (a.plan && a.plan.steps && a.plan.steps.length) out.push(h("h3", {}, `Perception plan (SAM phrase "${a.plan.phrase}")`), pre(JSON.stringify(a.plan.steps, null, 1)));
     out.push(h("h3", {}, "Detector code (runs in a sandbox, written by the model from your definitions)"),
-      ...a.detectors.map(d => h("details", {}, h("summary", {}, `${d.behavior}  (${d.model}, prompt ${d.prompt_hash || "n/a"})`), pre(d.code),
+      ...a.detectors.map(d => h("details", {}, h("summary", {}, `${d.behavior}  (${d.model}, prompt ${d.prompt_hash || "n/a"}; ${d.source ? (SRC_LABEL[d.source.source] || d.source.source) : "source n/a"})`),
+        d.source ? h("div", { class: "hint" }, d.source.origin + (d.source.note ? ` Note: ${d.source.note}.` : "") + (d.source.key ? ` Cache key ${d.source.key}.` : "")) : null, pre(d.code),
         h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "attempt"), h("th", {}, "cost"), h("th", {}, "latency"), h("th", {}, "tokens in/out"), h("th", {}, "check"))),
           h("tbody", {}, ...d.calls.map(c => h("tr", {}, h("td", {}, c.attempt ?? "-"), h("td", {}, fmt.usd(c.cost_usd)), h("td", {}, c.latency_s ?? "-"),
             h("td", {}, c.usage ? `${c.usage.input_tokens}/${c.usage.billed_output_tokens ?? c.usage.output_tokens}` : "-"),

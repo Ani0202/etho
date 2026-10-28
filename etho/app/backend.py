@@ -9,7 +9,8 @@ sequences them, supplies the job's gateway, and handles files.
 from __future__ import annotations
 
 import json
-from concurrent.futures import ThreadPoolExecutor
+import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,7 +29,9 @@ from etho.tracking.pipeline import count_frames, prepare_chunks, track_video
 
 from . import behaviors as B
 from . import corrections as C
+from . import tuning
 from .config import AppConfig
+from .detcache import DetectorCache, Provenance
 from .jobgw import JobBudgetExceeded, JobCancelled, JobGateway
 from .overlay import render_overlay
 from .store import SEQ, Project, read_json, write_json
@@ -60,6 +63,16 @@ class Ctx:
     warnings: list[str] = field(default_factory=list)
 
 
+OVERLAP_MIN_S = 0.25      # shorter shared windows are clock jitter between back-to-back stages, not overlap
+
+
+def overlap_s(a, b) -> float:
+    """Seconds two stages were running at the same time (0 if either has no window)."""
+    if a.start_s is None or a.end_s is None or b.start_s is None or b.end_s is None:
+        return 0.0
+    return max(0.0, min(a.end_s, b.end_s) - max(a.start_s, b.start_s))
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -78,6 +91,8 @@ class Backend:
 
     def __init__(self, cfg: AppConfig):
         self.cfg = cfg
+        self.detector_cache = DetectorCache(cfg.root, cfg.detector_cache_dir)
+        tuning.install(cfg)      # tier-1 concurrency and chunk lookup for app jobs (module attributes only)
 
     # ---- analysis job -----------------------------------------------------------------------
     def prepare(self, ctx: Ctx) -> None:
@@ -97,7 +112,7 @@ class Backend:
             prev = int(ctx.job.params.get("base_version", ctx.version - 1))
             ctx.state["base_version"] = prev
             spec, dets = _load_detectors(p.version_dir(prev) / "detectors.json")
-            ctx.state.update(dets=dets, detector_meta=spec,
+            ctx.state.update(dets=dets, detector_meta=spec, provenance=spec.get("provenance", {}),
                              prev_labels=np.load(p.version_dir(prev) / "labels.npz")["labels"],
                              prev_rules=np.load(p.version_dir(prev) / "labels_rules.npz")["labels"],
                              prev_record=res["versions"][0] if prev == 0 else p.revision(prev))
@@ -121,20 +136,55 @@ class Backend:
 
     def stage_plan(self, ctx: Ctx) -> None:
         video = ctx.project.video_path()
+        # The chunk cut needs only the video, so it runs while the planner (model calls) runs. track_video later
+        # asks for the same chunks with identical arguments and finds them cached.
+        chunk_s = tuning.choose_chunk_s(count_frames(video) / FPS, self.cfg)
+        ctx.state["chunk_s"] = chunk_s
+        tuning.register_chunk_s(video, chunk_s)
+        ctx.state["prep"] = self._start_prepare(ctx, video, chunk_s)
         p = run_planner(video, gw=ctx.gw, public_data=ctx.public_data, tag=self.cfg.tag)
         write_json(ctx.project.base / "plan.json", asdict(p))
         ctx.state["plan"] = asdict(p)
         ctx.say(f'SAM phrase "{p.phrase}", expecting {p.expected_count} animals ({p.identity_method} identity)')
 
+    def _since(self, ctx: Ctx) -> float:
+        t0 = ctx.job.started_mono
+        return round(time.monotonic() - t0, 2) if t0 is not None else 0.0
+
+    def _start_prepare(self, ctx: Ctx, video: Path, chunk_s: int) -> Future:
+        """Cut the video into SAM chunks in a thread (recorded as a sub-step of the plan stage)."""
+        def work():
+            t0 = self._since(ctx)
+            try:
+                return prepare_chunks(video, CHUNK_DIR, stride=None, fps=int(FPS), chunk_s=chunk_s)
+            finally:
+                ctx.state.setdefault("substeps", {}).setdefault("plan", []).append(
+                    {"name": "cut chunks", "start_s": t0, "end_s": self._since(ctx)})
+        ex = ThreadPoolExecutor(1, thread_name_prefix="etho-prep")
+        fut = ex.submit(work)
+        ex.shutdown(wait=False)
+        return fut
+
     def stage_track(self, ctx: Ctx) -> None:
         video = ctx.project.video_path()
         ph = ctx.state["plan"]["phrase"]
         n_in = count_frames(video)             # bound the chunk count (and so SAM cost) before anything is sent
-        if -(-n_in // 600) > -(-int((self.cfg.max_duration_s + 2) * FPS) // 600):
+        chunk_s = ctx.state.get("chunk_s") or tuning.choose_chunk_s(n_in / FPS, self.cfg)
+        n_chunks = -(-n_in // int(chunk_s * FPS))
+        if n_chunks > -(-int(self.cfg.max_duration_s + 2) // self.cfg.chunk_min_s):
             raise ValidationError(f"{n_in} samples would need too many SAM chunks", 413, "too_long")
-        ctx.say(f'tracking "{ph}" with SAM 3.1 (10 fps, 60 s chunks in parallel)')
+        prep = ctx.state.pop("prep", None)
+        if prep is not None:
+            try:
+                prep.result()                  # normally finished long ago; a failure resurfaces in track_video
+            except Exception:
+                pass
+        ctx.say(f'tracking "{ph}" with SAM 3.1 (10 fps, {n_chunks} chunk{"s" if n_chunks != 1 else ""} of '
+                f'{chunk_s} s in parallel)')
         r = track_video(video, ctx.project.seq_dir, gw=ctx.gw, phrase=ph, public_data=ctx.public_data,
-                        stride=None, fps=int(FPS), tag=self.cfg.tag, chunk_dir=CHUNK_DIR)
+                        stride=None, fps=int(FPS), chunk_s=chunk_s, tag=self.cfg.tag, chunk_dir=CHUNK_DIR)
+        info_path = ctx.project.seq_dir / "tracking.json"          # later stages need the chunk length
+        write_json(info_path, {**read_json(info_path, {}), "app_chunk_s": chunk_s})
         ctx.state["table"] = r.table
         both = float(np.mean((r.table["r_present"] > 0) & (r.table["i_present"] > 0)))
         ctx.state["both_present"] = both
@@ -149,11 +199,32 @@ class Backend:
         inp = ctx.state["input"]
         table = ctx.state["table"]
         model = meta_model(ctx.public_data)
-        ctx.say(f"{model} (effort high) writes one detector per behavior: {', '.join(names)}")
+        subject, partner = inp["subject"], inp["partner"]
 
+        # 1. reuse: the benchmark seed, then the cache. A reused detector must still run on this video's features.
+        found: dict[str, Detector] = {}
+        prov: dict[str, Provenance] = {}
+        retry_note: dict[str, str] = {}
+        todo: list[str] = []
+        for name in names:
+            for det, pv in self.detector_cache.candidates(name, defs[name], subject, partner):
+                try:
+                    run_detector(det.code, table, FPS)
+                except SandboxError as e:
+                    retry_note[name] = (f"reused {pv.source} detector failed on this video "
+                                        f"({str(e)[:160]}); rewritten")
+                    continue
+                found[name], prov[name] = det, pv
+                retry_note.pop(name, None)
+                break
+            else:
+                todo.append(name)
+        n_reused = len(found)
+
+        # 2. write the rest in parallel, one call per behavior (the slowest sets the stage time)
         def one(name: str):
             try:
-                return synthesize(name, defs[name], subject=inp["subject"], partner=inp["partner"], tables=[table],
+                return synthesize(name, defs[name], subject=subject, partner=partner, tables=[table],
                                   fps=FPS, frame_wh=(v["width"], v["height"]), gw=ctx.gw, model=model,
                                   public_data=ctx.public_data, tag=self.cfg.tag, effort="high"), None
             except (JobCancelled, JobBudgetExceeded):
@@ -161,19 +232,33 @@ class Backend:
             except Exception as e:  # SandboxError after repairs, provider error, ...
                 return None, f"{name}: {type(e).__name__}: {e}"[:400]
 
-        with ThreadPoolExecutor(min(4, len(names))) as ex:
-            res = list(ex.map(one, names))
-        dets = [d for d, _ in res if d is not None]
-        for _, err in res:
-            if err:
-                ctx.warnings.append(f"No detector for {err}")
+        if todo:
+            ctx.say(f"{model} (effort high) writes {len(todo)} detector{'s' if len(todo) != 1 else ''} in parallel: "
+                    f"{', '.join(todo)}" + (f"; {n_reused} reused without a model call" if n_reused else ""))
+            with ThreadPoolExecutor(max(1, min(self.cfg.synth_workers, len(todo)))) as ex:
+                res = list(ex.map(one, todo))
+            for name, (det, err) in zip(todo, res, strict=True):
+                if err:
+                    ctx.warnings.append(f"No detector for {err}")
+                    continue
+                found[name] = det
+                prov[name] = self.detector_cache.put(det, defs[name], subject, partner, job=ctx.job.id)
+                prov[name].note = retry_note.get(name, "")
+        else:
+            ctx.say(f"all {n_reused} detectors reused, no model call: "
+                    + ", ".join(f"{n} ({prov[n].source})" for n in names))
+        dets = [found[n] for n in names if n in found]
         if not dets:
             raise RuntimeError("could not write a working detector for any behavior: " + "; ".join(ctx.warnings))
         ctx.state["dets"] = dets
+        ctx.state["provenance"] = {n: prov[n].as_dict() for n in names if n in prov}
         ctx.state["detector_meta"] = {"definitions": defs, "model": model, "effort": "high",
-                                      "stats_from": "this video only"}
+                                      "stats_from": "this video only (written now); the video it was first written "
+                                                    "for (reused)",
+                                      "provenance": ctx.state["provenance"]}
         _save_detectors(ctx.outdir / "detectors.json", dets, ctx.state["detector_meta"])
-        ctx.say(f"{len(dets)}/{len(names)} detectors passed the sandbox")
+        ctx.say(f"{len(dets)}/{len(names)} detectors passed the sandbox ({n_reused} reused, "
+                f"{len(dets) - n_reused} written now)")
 
     def stage_revise(self, ctx: Ctx) -> None:
         defs = ctx.state["defs"]
@@ -203,9 +288,17 @@ class Backend:
             status = "rejected" if rejected else ("revised" if n.code != o.code else "unchanged")
             notes.append({"behavior": o.behavior, "status": status, "check": chk,
                           "cost_usd": round(sum(c.get("cost_usd", 0.0) for c in n.calls), 6)})
+        prov = dict(ctx.state.get("provenance") or {})
+        for n in notes:
+            if n["status"] == "revised":
+                before = prov.get(n["behavior"], {}).get("source", "unknown")
+                prov[n["behavior"]] = Provenance(
+                    n["behavior"], "revised", f"revised by {model} from {len(corr)} researcher corrections "
+                    f"(the detector before was: {before})", prov.get(n["behavior"], {}).get("key", ""), model).as_dict()
         ctx.state["dets"] = new
+        ctx.state["provenance"] = prov
         ctx.state["revise_notes"] = notes
-        _save_detectors(ctx.outdir / "detectors.json", new, {**ctx.state["detector_meta"],
+        _save_detectors(ctx.outdir / "detectors.json", new, {**ctx.state["detector_meta"], "provenance": prov,
                                                               "revised_from": ctx.state["base_version"],
                                                               "n_corrections": len(corr)})
         ctx.say("; ".join(f"{n['behavior']}: {n['status']}" for n in notes))
@@ -234,8 +327,12 @@ class Backend:
         try:
             ws = make_windows(SEQ, rules, table, codes, FPS)
             ctx.say(f"{len(ws)} candidate windows; Muse Spark Open (Fireworks, low effort) judges tiled frame strips")
+            info = read_json(ctx.project.seq_dir / "tracking.json", {})
+            if info.get("src"):    # tier 1 asks for the default 60 s chunks; make it find the ones the app cut
+                tuning.register_chunk_s(Path(info["src"]), info.get("app_chunk_s", 60))
             v = adjudicate(ctx.project.base / "run", SEQ, ws, {"behaviors": ctx.state["defs"]}, gw=ctx.gw,
-                           effort="low", tag=self.cfg.tag, out_dir=ctx.project.strips_dir)
+                           effort="low", tag=self.cfg.tag, out_dir=ctx.project.strips_dir,
+                           concurrency=self.cfg.tier1_concurrency)
         except (JobCancelled, JobBudgetExceeded):
             raise
         except Exception as e:
@@ -261,13 +358,18 @@ class Backend:
         meta = {"video": v.get("name", "upload"), "phrase": (ctx.state.get("plan") or {}).get("phrase"),
                 "pipeline": ["Muse Spark plans the SAM concept phrase", "SAM 3.1 tracks both animals",
                              f"{meta_model(ctx.public_data)} writes one Python detector per behavior from the "
-                             "English definition (sandboxed)", "Muse Spark Open (Fireworks) judges borderline "
+                             "English definition (sandboxed); a detector already written for the same definition "
+                             "is reused (see each detector's source)", "Muse Spark Open (Fireworks) judges borderline "
                              "bouts from frame strips"] + (["Detectors revised from researcher corrections"]
                                                           if ctx.version else []),
                 "behavior_definitions": ctx.state["defs"], "version": ctx.version,
                 "costs_usd": {k: round(x, 4) for k, x in ctx.gw.stage_cost.items()},
                 "timings_s": {s.name: round(s.elapsed_s, 1) for s in job.stages if s.status == "done"},
+                "stage_timeline_s": {s.name: [s.start_s, s.end_s] for s in job.stages
+                                     if s.status in ("done", "skipped") and s.end_s is not None},
                 "detectors": [{"behavior": d.behavior, "model": d.model, "prompt_hash": d.prompt_hash,
+                               "source": (ctx.state.get("provenance") or {}).get(d.behavior, {}).get("source"),
+                               "origin": (ctx.state.get("provenance") or {}).get(d.behavior, {}).get("origin"),
                                "code": d.code} for d in ctx.state["dets"]],
                 "warnings": ctx.warnings}
         inp = ReportInput(f"Etho report: {v.get('name', 'upload')}", final, FPS, meta)
@@ -283,7 +385,8 @@ class Backend:
     def stage_overlay(self, ctx: Ctx) -> None:
         info = read_json(ctx.project.seq_dir / "tracking.json")
         chunks = prepare_chunks(Path(info["src"]), CHUNK_DIR, stride=info.get("src_stride"),
-                                fps=int(info.get("sample_fps", FPS)))
+                                fps=int(info.get("sample_fps", FPS)),
+                                chunk_s=int(info.get("app_chunk_s", 60)))   # runs tracked before this change: 60
         r = render_overlay([c.path for c in chunks], ctx.project.seq_dir, ctx.state["final"], ctx.state["names"],
                            FPS, ctx.outdir / "overlay.mp4",
                            progress=lambda i, n: ctx.say(f"rendering overlay video: {i}/{n} frames"))
@@ -299,14 +402,26 @@ class Backend:
                 "has_report": (ctx.outdir / "report.html").exists(), "created": _now()}
 
     def _stage_rows(self, ctx: Ctx) -> list[dict]:
-        return [{"name": s.name, "status": s.status, "elapsed_s": round(s.elapsed_s, 2),
-                 "cost_usd": round(ctx.gw.stage_cost.get(s.name, 0.0), 6), "message": s.message}
-                for s in ctx.job.stages]
+        """One row per stage with its wall-clock window (seconds after the job started) and the stages it
+        overlapped, so the page can draw a timeline instead of pretending the stages ran back to back."""
+        st = ctx.job.stages
+        subs = ctx.state.get("substeps", {})
+        rows = []
+        for s in st:
+            over = [o.name for o in st if o is not s and overlap_s(s, o) > OVERLAP_MIN_S]
+            rows.append({"name": s.name, "status": s.status, "elapsed_s": round(s.elapsed_s, 2),
+                         "start_s": s.start_s, "end_s": s.end_s, "overlaps": over,
+                         "substeps": subs.get(s.name, []),
+                         "cost_usd": round(ctx.gw.stage_cost.get(s.name, 0.0), 6), "message": s.message})
+        return rows
 
     def _timing(self, ctx: Ctx) -> dict:
-        wall = sum(s.elapsed_s for s in ctx.job.stages)
+        """Total = job end minus job start (queue wait excluded). Stage times are not summed: stages overlap."""
+        job = ctx.job
+        stage_sum = sum(s.elapsed_s for s in job.stages)
+        wall = (time.monotonic() - job.started_mono) if job.started_mono is not None else stage_sum
         video_s = ctx.state["video"]["duration_s"]
-        return {"wall_s": round(wall, 2), "video_s": round(video_s, 2),
+        return {"wall_s": round(wall, 2), "video_s": round(video_s, 2), "stage_sum_s": round(stage_sum, 2),
                 "x_realtime": round(wall / video_s, 3) if video_s else None, "complete": True}
 
     def finalize(self, ctx: Ctx, ledger_cost: float | None = None) -> None:
@@ -315,6 +430,7 @@ class Backend:
         common = {"stages": self._stage_rows(ctx), "timing": self._timing(ctx),
                   "cost": {"total_usd": round(ctx.gw.total_cost, 6), "ledger_usd": ledger_cost,
                            "by_stage": {k: round(x, 6) for k, x in ctx.gw.stage_cost.items()}},
+                  "detector_sources": list((ctx.state.get("provenance") or {}).values()),
                   "warnings": ctx.warnings}
         rec = self._version_record(ctx)
         if ctx.job.kind == "analyze":
