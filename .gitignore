@@ -11,3 +11,6 @@ cache/
 ops/sessions/
 ops/codex/*.log
 ops/codex/*.patch
+ops/lead.started
+ops/lead.disabled
+ops/watchdog.log
