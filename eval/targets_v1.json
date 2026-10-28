@@ -1,0 +1,19 @@
+{
+ "version": "v1-final",
+ "source": "docs/EVAL_PLAN.md section 10 (this file is the machine-readable copy; the plan is authoritative)",
+ "applies_to": "CalMS21 official test split (all 19 sequences), arm zs_t1 = frozen zero-shot arm (configs/frozen_test_v1.json zero_shot_arm)",
+ "rule": "A target is MET if the point estimate reaches the threshold, and MET ROBUSTLY if the 95% sequence-bootstrap CI lower bound also does. Anything else is NOT MET. No rounding: compared at full precision.",
+ "primary_arm": "zs_t1",
+ "f1": {
+  "minimum_credible": {"macro": 0.40, "attack": 0.25, "investigation": 0.40, "mount": 0.40},
+  "good": {"macro": 0.50, "attack": 0.40, "investigation": 0.50, "mount": 0.55}
+ },
+ "tier1_lift_macro": {
+  "baseline_arm": "zs_rules",
+  "arm": "zs_t1",
+  "minimum_credible": 0.03,
+  "good": 0.10,
+  "statistic": "paired difference of pooled macro F1 (arm minus baseline_arm); CI from the same sequence resamples"
+ },
+ "not_checked_here": "identity error, coverage, speed, and cost targets are read from the identity run and the pipeline manifests (EVAL_PLAN section 10); the supervised .793 is a reference, not a target"
+}

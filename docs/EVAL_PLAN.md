@@ -1,11 +1,11 @@
-# Etho evaluation plan (DRAFT, not committed, targets not frozen)
+# Etho evaluation plan, v1-final
 
-Owner: evaluator subagent. Status: **DRAFT v1, 2026-10-28** (v1 adds the claim wording, disclosures,
-reporting rules, baseline confirmation, and the scorer and identity definitions as implemented in
-`eval/score.py` and `eval/identity.py`). Nothing here is binding until this file is committed. Targets are
-marked **TBD, proposed: ...** and must be frozen in a commit **before the first test-split run** (CLAUDE.md,
-"Evaluation integrity"). Changing this file after a test run requires a dated amendment section at the bottom,
-never an in-place edit of a frozen item.
+Owner: evaluator subagent. Status: **v1-final, 2026-10-28** (written ~08:20 UTC). Targets (section 10) and the
+test-run protocol (section 7) become binding when this file is committed, which must happen **before test
+run 1** (CLAUDE.md, "Evaluation integrity"). Gate before the run: Codex eval-plan review of this exact text
+(Aniket's condition 2); its findings are reconciled in a dated amendment, never by silently editing a frozen
+item. After the commit, any change needs a dated amendment section at the bottom (section 13). Changes
+since the draft: section 12.
 
 ## 1. What we are claiming and what must be measured
 
@@ -23,7 +23,16 @@ model is trained or fine-tuned on CalMS21 labels, and no labeled frame is shown 
   counts per behavior, bout counts, and the short-bout histogram in section 3. These aggregates shaped dev
   selection (the "long attack sequence" constraint exists because all test attack is in 5 sequences of 17-20k
   frames at ~5% prevalence), the option-B subset, and the 10 fps decision. No test aggregate was used to tune
-  any prompt, rule, threshold, or model setting.
+  any prompt, rule, threshold, or model setting. On 2026-10-28 the evaluator re-read the same per-sequence
+  aggregates (`data/calms21/seq/index_calms21_task1_test.json`, `counts` and `frames`) to project the expected
+  test F1 in section 10. That projection informed the targets, not any pipeline setting.
+- *Dev-holdout was not a pristine holdout.* It was scored 7 times before the freeze (section 10.1 lists the
+  runs). For the **zero-shot arm** the config was chosen on dev before its first holdout look, and the variants
+  rejected afterwards (joint classifier, 5-synthesis ensemble) were worse on dev as well as on holdout, so
+  holdout did not flip a zero-shot decision. For the **few-shot arm** it did inform the design: the self-check
+  in the revision loop was added after the unchecked revision was seen on both dev-minus-windows (rules-only
+  macro 0.3764 to 0.2747) and dev-holdout (0.3375 to 0.3349). Dev alone would have motivated the change, but
+  holdout was seen, so the few-shot holdout number (0.5631) is optimistically biased.
 - *Etho Local* (if built) is distilled from Muse Spark judgments on unused-train sequences, never human labels.
 
 "Push the Frontier" (docs/PROBLEM_STATEMENTS.md) also requires measured **time and
@@ -45,7 +54,13 @@ License: CalMS21 is **CC BY 4.0** (Caltech data record API, https://data.caltech
 Mouse Dyadic Social Interactions", arXiv:2104.02710 (NeurIPS 2021 Datasets & Benchmarks).
 
 Split file: `eval/splits/calms21_v1.json` (generator `eval/make_splits.py`, seed `20261028`; tests in
-`eval/tests/test_splits.py`). Draft sha256: `59bfcd47f5801757efe73cbe7276d1990b15fa2f945cf96e5bf4f001ede2880b`.
+`eval/tests/test_splits.py`). **Frozen sha256: `59bfcd47f5801757efe73cbe7276d1990b15fa2f945cf96e5bf4f001ede2880b`**
+(the same file every dev and dev-holdout run logged). Its internal `"status": "DRAFT ..."` string is stale and is
+deliberately left unedited, because editing it would change the hash all prior runs recorded. This plan
+supersedes it.
+
+Sequence lengths differ a lot between splits. The median length is about 3,100 frames on dev (1.7 min), 5,133
+on dev-holdout (2.9 min), and 17,483 on test (9.7 min). Test runs from 4,881 to 23,810 frames.
 
 | Split | Source | Seqs | Frames @30fps | Minutes | Attack fr (seqs, bouts) | Investigation fr (seqs, bouts) | Mount fr (seqs, bouts) |
 |---|---|---|---|---|---|---|---|
@@ -83,12 +98,13 @@ is noisy (one bout can move attack F1 by several points). Dev prevalences (attac
 from test (attack 4.8%, mount 12.2%); test has proportionally twice as much mount. All test attack comes from
 5 consecutive sequences (mouse075-079), so attack test F1 rests on 5 videos.
 
-### Test option A vs B (recommendation: A)
+### Test option A vs B (decided: A, all 19 sequences)
 
 Option A (all 19) is the only option directly comparable to published CalMS21 numbers. Option B (all 5
 attack sequences + mount-richest others until >= 40% of test mount frames) halves SAM cost but isn't
 comparable to the published baseline and keeps only 4 of 14 mount sequences. With the 1-phrase SAM
-configuration chosen in the spike (section 8), A fits the budget, so B is not expected to be needed.
+configuration chosen in the spike (section 8), A fits the budget. **v1-final: test runs use option A only.** B
+would need an amendment committed before any test run, and none is planned.
 
 ## 3. Prediction format and frame mapping
 
@@ -150,10 +166,11 @@ configuration chosen in the spike (section 8), A fits the budget, so B is not ex
 ### 4.2 Bout-level and ethogram metrics (cheap; computed from the same predictions)
 - Bout matching per behavior: one-to-one greedy match by temporal IoU, threshold 0.3 (proposed; 0.5 also
   reported). Bout precision, recall, F1.
-- Per-video summary statistics researchers actually report: total duration, bout count, and latency to first
-  bout per behavior. Agreement with ground truth: mean absolute error and Pearson r across test videos,
-  plus ICC(2,1) (proposed). These measure whether the *scientific readout* is right, which can hold even
-  when frame F1 is moderate.
+- Per-video summary statistics researchers actually report. **Implemented (v1-final, `eval/score_arms.py`):**
+  total scored duration per behavior per video against ground truth, as MAE (s), mean signed error (s), and
+  Pearson r across the test videos. **Not implemented, so not reported in test run 1:** bout count, latency to
+  first bout, and ICC(2,1). These measure whether the *scientific readout* is right, which can hold even when
+  frame F1 is moderate.
 
 ### 4.3 Tracking quality and identity (SAM 3.1 vs CalMS21 keypoints), `eval/identity.py`
 CalMS21 keypoints are MARS pose-estimator outputs, not human ground truth (mean keypoint confidence on test
@@ -171,6 +188,8 @@ with no row counts as zero detections, so missing output lowers coverage instead
   resident's implant and cable pull its mask toward the head, which could favor `no_tail` for the resident. So
   every dev identity run logs the median track-to-keypoint distance for `all7`, `no_tail`, and `torso` (neck,
   hips, tail base). The definition is fixed on dev from that evidence and frozen with the test config.
+  **Frozen for test (v1-final):** `--centroid all7 --gate-px 60 --margin-px 10 --min-kp-score 0.5 --step 3`,
+  which are the parameters of the dev identity run `identity-dev-20261028T060822Z-2ef506`.
 - **Eligibility**: a keypoint mouse is eligible on a frame if its mean keypoint score is >= 0.5. Measured on dev
   (`sanity:keypoint-tracks` run): both mice are eligible on 0.800 of samples; the resident (implant) is
   ineligible on ~16% of frames, the intruder on ~5%.
@@ -203,14 +222,40 @@ with no row counts as zero detections, so missing output lowers coverage instead
   best lag, the median at the best lag and at 0, and the margin to the runner-up. Sign: best L > 0 means label
   index = video index + L. On perfect synthetic and keypoint-derived tracks the check recovers the planted lag,
   with a 1-frame margin of 3-13 px on dev geometry.
+  - **Dev result** (`identity-dev-20261028T060822Z-2ef506`): the best lag is negative on 15 of 16 (video, animal)
+    pairs and 0 on one. The values range from -4 to 0, with a median of -2. The margin to the runner-up is
+    0.09-3.78 px. On the 15 pairs with a negative best lag, the median distance at lag 0 is 1.99-8.97 px
+    worse than at the best lag. The cause is not resolved: it could be a true
+    label/video offset, or SAM mask centroids lagging the MARS keypoints. **Frozen for test: no shift (lag 0)**,
+    which is the mapping every dev and holdout number used. Test alignment is reported as a diagnostic only. A
+    nonzero lag on test does not change test-1 scoring.
 
 ### 4.4 Cost and time per video (required by docs/PROBLEM_STATEMENTS.md)
 - Dollars per video and per minute of video, split by stage (SAM, planner, rule synthesis, tier-1, tier-2,
   report) and by provider, summed from `ops/spend.jsonl` entries tagged with the run id.
 - Report **uncached** cost: for cache hits, count the cost of the original call and label the number. Also
   report the marginal cost of the run as executed.
-- Wall-clock per video, end to end (video fetch excluded and reported separately), with concurrency stated,
-  plus per-stage latency. Machine: this VM (spec to be recorded).
+- **Cost per video-minute (v1-final definition):** the uncached dollars of every stage the zero-shot arm runs per
+  video (SAM 3.1, plus perception planner if run, plus tier-1), summed over the 19 test videos and divided by
+  145.6 test video-minutes. One-time costs that don't scale with video (rule synthesis: 3 calls, done once on
+  dev and reused) are reported on a separate line, never folded in or left out silently. If the test pipeline
+  doesn't run the planner (the frozen config fixes the phrase `"mouse"`), the measured number is labeled
+  "without planner", and a "new-user" figure adds the dev-measured planner cost explicitly.
+- **Speed (v1-final definition; Aniket's headline, target <= 1x real time):** for each test video of the
+  zero-shot arm, the wall-clock time from the video file on local disk to its bouts written. That covers
+  chunking, SAM upload and inference, mask decode, features, identity, rules, and tier-1. Video download is
+  excluded and reported separately. **Real-time ratio** = wall-clock / video duration. We report it per video
+  (all 19 values, plus the median and max) and pooled (sum of wall-clock / 145.6 min). Requirements:
+  - SAM and tier-1 must be uncached for these timings. On test they are first-time calls by construction, but
+    the few-shot arm reuses zero-shot verdicts from the cache, so its timing is reported as marginal and isn't
+    used for the speed claim.
+  - The concurrency is stated: videos in flight, SAM chunk parallelism, and Fireworks slots (`FW_CONCURRENCY`
+    = 6 at the frozen commit). The preferred protocol is **one video at a time**, which is the case a single
+    researcher sees. If videos run concurrently, the per-video ratios are reported as measured, with no
+    correction for contention, and labeled with the concurrency. Batch throughput (total wall-clock / total
+    video-minutes) is then reported as a separate number, never in place of the per-video ratio.
+  - Rate-limit retries (HTTP 429) and failures count toward wall-clock.
+  - Machine: this VM, with CPU count and RAM recorded in the manifest.
 - Manual-scoring baseline: **3-4 minutes of annotator time per minute of video**. Source: Segalin et al.,
   "The Mouse Action Recognition System (MARS)...", eLife 2021 (https://elifesciences.org/articles/63720),
   Introduction, verbatim: "Scoring for social behaviors often takes human annotators 3–4× the video's
@@ -234,6 +279,12 @@ with no row counts as zero detections, so missing output lowers coverage instead
 Every chart or sentence that puts Etho next to the supervised baseline must say "zero-shot" (with the
 section 1 disclosure) and "supervised" on the respective numbers.
 
+**The supervised .793 is a reference, not a target.** It comes from a model trained on 70 labeled videos, and no
+Etho target is defined relative to it (section 10). It is shown so readers can see the gap, and the gap is
+reported as measured. Its metric and split are confirmed only from the paper text as quoted by a scout. The
+evaluator has not read the PDF, so the README and demo should cite Table 1 of arXiv:2104.02710 directly, and
+someone should re-read it before publishing (section 11).
+
 **Comparison rules.**
 - Never claim Etho "beats", "matches", or "outperforms" a supervised result unless the test-split number does so
   with the **whole 95% CI** above (or, for "matches", overlapping) the supervised point estimate, on the same
@@ -245,7 +296,13 @@ section 1 disclosure) and "supervised" on the respective numbers.
 
 ## 6. Ablations
 
-All ablations on test use the run(s) in section 7; no extra test runs.
+All ablations on test use the run(s) in section 7; no extra test runs. **On test (v1-final), the ablations are
+exactly the four arms of test run 1** (section 7.1):
+- the cascade: rules only vs. rules + tier-1, in both the zero-shot and the few-shot arm;
+- zero-shot vs. few-shot.
+
+Every other row below is dev only, or isn't run on test. Tier-2 isn't in the frozen config (it added +0.005 dev
+macro F1 for $2.30), so cascade arm (c) isn't run on test and is reported as "not run (dev result only)".
 
 1. **Adjudication cascade** (headline ablation): (a) rules only, (b) rules + tier-1 frame strips (Fireworks
    Muse Spark Open, low effort), (c) rules + tier-1 + tier-2 video (Baseten Muse Spark Open or Muse Spark 1.3,
@@ -340,24 +397,171 @@ It makes no model calls and imports no product code; product code receives only 
   corrections file. The run record logs the file, its sha256, the corrections run id, and frames excluded per
   sequence. Refused on dev-holdout and test.
 
-## 7. Test-run protocol
+## 7. Test-run protocol (v1-final)
 
-- **At most two test runs**, both reported. A "test run" is any execution that loads test behavior labels or
-  computes any metric (including tracking metrics) on test outputs. A run that crashes before loading labels
-  may be restarted; it is still logged as `status: failed`.
-- **Pre-conditions for run 1**: this plan committed with frozen targets; test config frozen and committed
-  (commit hash, English definitions, synthesized rule code hashes, thresholds, priority order, models and
-  efforts per stage, SAM phrases, fps); dev-holdout scored on that exact config; cost estimate written and,
-  because it exceeds $5, escalated via `ops/spend-plan.md` (lead's file).
-- **No peeking**: no one inspects test videos, overlays, or outputs before run 1. Automated failure checks
-  (API errors, empty masks) are allowed and logged.
-- **Integrity**: predictions are written to disk and their sha256 recorded in the run log *before* the scorer
-  opens the labels. Product code (`etho/`) never reads labels.
-- **Run 2** is reserved for a fixed bug or a final config. Its changes vs run 1 are listed in the log.
-  Pre-declared: the headline number is the **last** run, always shown with run 1 beside it. We never pick the
-  better of the two.
-- SAM tracking of test videos is cached by input hash; run 2 reuses run 1's tracks unless the tracking config
-  changed (which would cost another full SAM pass, see section 8, and needs a fresh estimate).
+General rules (unchanged from the draft):
+- **At most two test runs**, both reported. A "test run" is any execution that loads test behavior labels or test
+  keypoints, or computes any metric (including tracking metrics) on test outputs. A run that crashes before
+  loading labels may be restarted; it is still logged as `status: failed`.
+- **No peeking.** No one inspects test videos, overlays, frame strips, tier-1 verdict text, tracks, or predictions
+  before test run 1 is scored. That includes Etho's own report HTML for a test video. Automated, label-free
+  failure checks are allowed and logged: API errors, empty masks, a frame count that differs from the expected
+  length, missing files. Product code (`etho/`) never reads labels or keypoints.
+- SAM tracks of test videos are cached by input hash; run 2 reuses run 1's tracks. A tracking change would cost
+  a second full SAM pass (about $17.5, section 8). Aniket's approval covers one pass, so it would need a new
+  estimate and a new approval.
+
+### 7.1 Test run 1: what runs
+
+The frozen config `configs/frozen_test_v1.json` (committed in 7391fca; sha256 is recorded by the scorer) runs
+once over all 19 official test sequences (option A). It produces **four prediction arms from one pipeline
+execution on one set of SAM tracks**:
+
+| Arm id | What | Role |
+|---|---|---|
+| `zs_t1` | zero-shot: R1 detectors (`R1_zero_shot.json`) + tier-1 restricted (investigation/none), low effort | **Primary, the headline** |
+| `zs_rules` | the same detectors with no tier-1, i.e. the rule decisions logged before adjudication | Cascade ablation |
+| `fs_t1` | few-shot: detectors revised from 18 simulated **dev** corrections (`R1_revised_18corrections.json`) + the same tier-1 | Few-shot arm |
+| `fs_rules` | the few-shot detectors with no tier-1 | Cascade ablation (few-shot) |
+
+- All four arms share the SAM tracks, features, identity, definitions, overlap priority (mount > attack >
+  investigation), tier-1 model, prompt, and thresholds. They differ only in the detector file and in whether
+  tier-1 is applied.
+- Tier-1 windows that are identical across arms are served from the cache. The zero-shot arm runs first, so its
+  cost and timing are uncached.
+- Tier-2 isn't used (frozen config: `"tier2": "not used"`). The perception planner runs only if the pipeline
+  as frozen runs it; either way, the manifest says which.
+- Product code is run from a commit whose `etho/` tree equals the frozen commit's (`git diff 4ada51c -- etho/`
+  is empty; it is at the time of writing). The manifest records the commit.
+
+### 7.2 Test run 1: order of operations
+
+1. **Pre-flight (label-free, $0).** Regenerate the dev-holdout predictions of all four arms with the frozen
+   config at the run commit, from cached tracks. The new prediction hashes must equal the logged ones:
+   - `zs_t1` d77eadc88c75... (run `c674ac`);
+   - `zs_rules` ab3c0c2ac38d... (`07acb5`);
+   - `fs_t1` d40ec583c780... (`7ef9fa`);
+   - `fs_rules` bcb40445e174... (`362649`).
+
+   Tier-1 calls should all be cache hits. If a hash differs, test run 1 doesn't start until the cause is found
+   and logged. The evaluator has already re-scored the *existing* holdout predictions through the test code
+   path (`score-dev_holdout-20261028T081858Z-325a87`, purpose `sanity:score-arms-repro`): all four
+   reproduce exactly. That checks the scorer, not the regeneration.
+2. **Produce everything, read nothing.** Run SAM, features, rules, and tier-1 on the 19 test videos, and write
+   the four prediction directories and the tracks directory. Every directory needs:
+   - a file for **every** sequence. If tracking failed for a sequence after retries, the file is still written
+     (empty or all "other"), and the failure is noted in `manifest.json`. That sequence is scored as "other",
+     never dropped;
+   - a `manifest.json` with `sample_fps`, `config` (including the frozen config's sha256 and the product git
+     commit), `cost` (by stage and provider, uncached and marginal), `wall_clock_s` (per video and per stage,
+     with concurrency), `calls` (count, cache hits), and the machine spec.
+3. **Score all arms in one execution** (hashes are logged before any label is read):
+   ```
+   uv run python -m eval.score_arms --split test --purpose test-1 --confirm-test-run \
+     --frozen-config configs/frozen_test_v1.json --targets eval/targets_v1.json --primary zs_t1 \
+     --arm zs_t1=<dir> --arm zs_rules=<dir> --arm fs_t1=<dir> --arm fs_rules=<dir> \
+     --compare zs_rules:zs_t1 --compare zs_t1:fs_t1 --compare fs_rules:fs_t1 --compare zs_rules:fs_rules
+   ```
+   The scorer refuses to start, and logs nothing as a test run, if any frozen file's sha256 differs. It also
+   refuses if `eval/` or this plan has uncommitted changes, or if a `score` execution under `test-1` already
+   loaded labels. It writes one `started` record holding every arm's per-file sha256 and manifest, **then**
+   opens labels. `eval.score` (single-arm) refuses the test split, so the arms can't be scored one at a time.
+   - **Per-sequence results are sealed.** They go only to
+     `eval/results/<run_id>.per_sequence.sealed.json`, whose sha256 is logged. They are not printed and not
+     written to `runs.jsonl` or the result JSON.
+   - The seal is lifted only after the test-2 decision (section 7.4) is committed, as a dated amendment saying
+     "no test-2" or describing it. Until then, no one opens that file or inspects any per-video output.
+4. **Identity check (same test run), on the shared tracks:**
+   ```
+   uv run python -m eval.identity --split test --tracks-dir <tracks> --purpose test-1 --confirm-test-run \
+     --centroid all7 --gate-px 60 --margin-px 10 --min-kp-score 0.5 --step 3
+   ```
+   - It runs after step 3. Its `started` record hashes the tracks before keypoints are read.
+   - It reports identity error (all matches and unambiguous only; overall, per behavior, and per video), swap
+     events per minute, coverage, unknown rate, detections, localization, and the alignment lag diagnostic
+     (section 4.3).
+   - Per-video identity output is not sealed: it needs no behavior predictions, and no test-2 option depends
+     on tracking.
+5. **Report** (section 7.3). Aniket gets a PushNotification when the SAM pass starts (his condition), and the
+   lead reports the numbers once the scorer has finished.
+
+Ordering rules: step 3 comes before step 4; steps 3 and 4 each run at most once under `test-1` (the guard
+enforces this); nothing in step 2 is re-run after step 3 starts.
+
+### 7.3 What is reported (every number, including the ones that lose)
+
+For **each of the four arms**:
+- precision, recall, and F1 per behavior, each with its 95% sequence-bootstrap CI;
+- macro F1 with its CI;
+- bout-level F1 at IoU 0.3 and 0.5;
+- the confusion matrix;
+- one-vs-rest F1 without the exclusivity rule (labeled as such);
+- per-sequence mean and median F1;
+- duration agreement (MAE, signed error, Pearson r);
+- the frequency-matched random floor on test (expected macro .1345; attack .0482, investigation .2338,
+  mount .1215).
+
+**Paired differences** with CIs from the same sequence resamples:
+- `zs_t1 - zs_rules`, the tier-1 lift and a target;
+- `fs_t1 - zs_t1`, the few-shot effect;
+- `fs_t1 - fs_rules`;
+- `fs_rules - zs_rules`.
+
+Also reported:
+- **Targets** (section 10), each verdict printed by the scorer: MET, MET ROBUSTLY, or NOT MET, at full precision.
+  Speed, cost, and identity verdicts are computed by hand from the logs, with the arithmetic shown.
+- **Cost and time** per section 4.4: per stage, per video, pooled, uncached and marginal, plus the actual spend
+  from `ops/spend.jsonl`.
+- **Identity**: the full output of step 4.
+- **Failures**: any sequence with failed tracking or tier-1, how many windows tier-1 left unresolved, and every
+  warning.
+
+**The few-shot arm is reported even if it loses**, labeled "few-shot (18 simulated corrections from dev
+labels)". It is never called zero-shot. Wording:
+- if the paired `fs_t1 - zs_t1` macro CI lies entirely above 0: "with 18 corrections, macro F1 rose by X [CI]";
+- if the CI contains 0: "no measurable change (X [CI])";
+- if the CI lies entirely below 0: "the corrections lowered macro F1 by X [CI]".
+
+The same rule applies per behavior. Dev evidence on this arm is mixed: holdout +0.0605 [-0.0179, +0.0828], and
+dev minus the corrected windows 0.4995 to 0.4461, which is -0.0534. The holdout number is also biased upward
+(section 1). So no direction is predicted.
+
+**Headline:** the `zs_t1` macro F1 of the headline run, always shown with its three per-behavior F1s and CIs.
+- Shown next to: the supervised .793 (labeled "supervised, 70 labeled videos"; a reference, not a target), the
+  random floor, and time and cost vs the cited 3-4x manual figure, showing both 3x and 4x.
+- The comparison wording rules of section 5 apply.
+
+### 7.4 Test run 2: when it is justified
+
+A test-2 counts as **qualifying** only if it is one of the following.
+- **(a) A bug fix.** The defect can be shown **without test labels**, the fix is verified on dev, and the
+  defect would have affected dev the same way. Examples: a crash, truncated or missing outputs, a wrong
+  config or prompt actually loaded (hash mismatch against the frozen config), a frame-mapping error, a cache
+  key collision. "Attack F1 was low on test" is not a bug.
+- **(b) A dev-justified change** that meets all of these:
+  - motivated and measured on dev only, then checked once on dev-holdout;
+  - written as a dated amendment (the change, its dev and holdout evidence, and the expected effect) and
+    committed **before** anyone opens the sealed per-sequence file or inspects any per-video test output;
+  - not a change whose motivation cites any test-1 number. Test-1 aggregates will be known when the decision
+    is made, so a qualifying test-2 is still disclosed as "decided after seeing test-1 aggregate results".
+
+Anything else, and any test-2 decided after the seal is lifted, is **exploratory**. It is reported and labeled
+exploratory everywhere. It is never the headline, never shown in the demo as "the result", and never
+described as held-out.
+
+**Headline rule, pre-declared:**
+- If test-2 qualifies, the headline is test-2, shown with test-1 beside it, **regardless of which is higher**.
+- If there is no test-2, or it is exploratory, the headline is test-1.
+- We never pick the better of the two.
+
+Test-2 reuses test-1's cached tracks ($0 SAM). It runs under `--purpose test-2` with the same four arms. Any
+arm it drops is listed with the reason.
+
+### 7.5 Abort rules
+- If the projected Fireworks spend for test-1 passes the `ops/spend-plan.md` estimate by more than 50%, the
+  lead pauses tier-1 and escalates. The test run hasn't started yet, because no labels have been read.
+- If SAM fails for a sequence after the pipeline's retries, its file is written empty (section 7.2, step 2).
+  The sequence is never left out, and never re-tracked after labels are loaded.
 
 ## 8. Budget and cost estimates (no money spent by this plan)
 
@@ -385,11 +589,28 @@ Fit against the `eval-sam` tag ($40), assuming dev is tracked twice (one phrase 
 - Any single test SAM pass is over $5, so it needs `ops/spend-plan.md` and escalation in every option.
 - If SAM requires chunking long videos with overlap, cost rises by the overlap fraction (to be measured).
 
-LLM costs (to be measured on dev before any test estimate is final): rule synthesis is 3 calls per config
-(Meta `eval-llm`). Tier-1 volume scales with candidate bouts; test has 1,521 ground-truth bouts. **Rough,
-unmeasured** assumption of ~3k input / ~400 output tokens per frame-strip call gives ~$0.0055 per call, so
-3,000 candidates fully adjudicated would cost ~$16 per test run on Fireworks (cap $90). Tier-2 video token
-cost is unknown; measure on dev.
+LLM costs. The draft's guess (about $0.0055 per call, unmeasured) is replaced by figures from the tier-1 run
+manifests. The evaluator has not checked whether any of these runs had cache hits.
+- Per window: dev, low effort, unrestricted: 481 windows, $1.498, so $0.00311. Holdout few-shot: 451 windows,
+  $1.121, so $0.00248. Holdout zero-shot: 335 windows, $0.341, so $0.00102, which is probably partly cached and
+  not used below. Dev, medium effort: $0.0050.
+- Windows per video-minute: dev 23.4; holdout zero-shot 20.9; holdout few-shot 28.1.
+
+**Test run 1 estimate** (the lead's `ops/spend-plan.md` gives about $18 Meta and about $15 Fireworks):
+
+| Item | Provider / tag | Basis | Estimate |
+|---|---|---|---|
+| SAM 3.1, 19 videos, 10 fps, 60 s chunks | Meta / `eval-sam` | 87,374 billed samples at $0.20/1k, plus per-chunk 50-frame minimums | $17.47-18.0 |
+| Tier-1, zero-shot arm | Fireworks | 145.6 min x 20.9-23.4 windows/min x $0.00248-0.00311 | $7.5-10.6 |
+| Tier-1, few-shot arm | Fireworks | up to 145.6 x 28.1 windows/min x the same per-window cost, minus windows shared with zero-shot (cache) | $0-12.7; the upper bound assumes no sharing |
+| Perception planner (if run) | Meta / `eval-llm` | ADR-001: about $0.05-0.07 per video | about $1.3 |
+| Scoring and identity (`eval/`) | none | local | $0 |
+| **Total** | | | **Meta about $17.5-19.3. Fireworks about $7.5-23.3, central about $15** |
+
+Both provider totals are over the $5 single-job threshold. Aniket's pre-approval (2026-10-28) names **only the
+SAM pass (<= $20)**, so the Fireworks share needs its own escalation (section 11). Test run 2 reuses the
+cached SAM tracks. Its tier-1 cost is $0 if nothing upstream of tier-1 changed, and otherwise depends on the
+change.
 
 ## 9. Run logging: `eval/results/runs.jsonl`
 
@@ -411,6 +632,15 @@ uncached), `wall_clock_s` (total and per stage, concurrency), `calls` (count, ca
 prediction directory's `manifest.json` (written by the pipeline); the scorer doesn't compute them. A full
 result JSON is also written to `eval/results/<run_id>.json`.
 
+**Multi-arm executions (v1-final, `eval/score_arms.py`, required on test).** One `score` execution covers all
+arms of a test run.
+- The `started` record has an `arms` map: per arm, `pred_dir`, `predictions_sha256`, per-file hashes, the full
+  `manifest`, and missing files. It also has `frozen_config` (path, sha256, and every file hash it checked)
+  and `targets` (path and sha256).
+- The final record holds `metrics.arms.<arm>`, `metrics.paired_differences`, `targets_check`, and, on test,
+  `per_sequence_sealed` (path and sha256 of the sealed file).
+- `eval.score` refuses the test split.
+
 ## 9a. Milestones (approved direction, Aniket, 2026-10-28)
 - Full dev-sequence scoring before any UI work.
 - **Checkpoint by end of Oct 30 ET**: per-behavior F1 (attack, investigation, mount) with macro F1, on dev and on
@@ -418,39 +648,223 @@ result JSON is also written to `eval/results/<run_id>.json`.
 - Identity validation of the brightness rule against keypoints on dev (section 4.3), with the identity error
   rate, as part of the same checkpoint.
 
-## 10. Targets (TBD, not frozen)
+## 10. Targets (v1-final, frozen at commit; written before any test run)
 
-Proposed, to be revisited after the first dev run and frozen before test run 1. The rationale is that a
-zero-shot system shouldn't be expected to match a supervised one, so we set a floor well above trivial
-baselines and a stretch near the supervised number.
+Targets apply to the **zero-shot arm `zs_t1` on the official test split (all 19 sequences)**, in the headline
+run (section 7.4). The machine-readable copy is `eval/targets_v1.json`; if the two disagree, this section wins.
 
-| Metric (test, option A) | Target |
-|---|---|
-| Macro F1 (attack, investigation, mount) | TBD, proposed: >= 0.55 (minimum credible), stretch >= 0.70 |
-| Attack F1 | TBD, proposed: >= 0.45 |
-| Investigation F1 | TBD, proposed: >= 0.55 |
-| Mount F1 | TBD, proposed: >= 0.65 |
-| Identity error rate vs keypoints (section 4.3, all matches) | TBD, proposed: <= 0.05 overall; mount reported separately |
-| Two-animal detection coverage | TBD, proposed: >= 0.95 of samples |
-| Cost per video-minute, full cascade, uncached | TBD, proposed: <= $0.25 |
-| Wall-clock per video-minute | TBD, proposed: <= 0.3 min per video-minute, i.e. >= 10x faster than the cited 3x manual figure (the low end, which is less favorable to us) |
-| Tier-1 adds F1 over rules only | TBD, proposed: >= +0.03 macro F1 to justify its cost |
+**The supervised .793 is a reference, not a target.** No target is set relative to it, and missing it isn't a
+failure. A zero-shot system with no labeled training frames isn't expected to reach a model trained on 70
+labeled videos.
 
-These are guesses informed only by the trivial baselines and the supervised number, not by any Etho run.
+### 10.1 Evidence the targets are based on (dev and dev-holdout, frozen arms)
 
-## 11. Open questions
+| Run | Split | Arm | Attack F1 | Investigation F1 | Mount F1 | Macro F1 [95% CI] |
+|---|---|---|---|---|---|---|
+| `score-dev-...061615Z-04822e` | dev | zs_rules | .3991 | .2587 | .4417 | .3665 [.2218, .5161] |
+| `score-dev-...063139Z-e705b8` | dev | zs_t1 | .4651 | .4716 | .5092 | .4820 [.3262, .6156] |
+| `score-dev_holdout-...063741Z-07acb5` | holdout | zs_rules | .4718 | .2048 | .3358 | .3375 [.1723, .4810] |
+| `score-dev_holdout-...063741Z-c674ac` | holdout | **zs_t1** | **.5630** | **.5155** | **.4294** | **.5026 [.3330, .6110]** |
+| `score-dev_holdout-...071819Z-362649` | holdout | fs_rules | .4328 | .3932 | .4326 | .4195 [.3071, .4914] |
+| `score-dev_holdout-...072835Z-7ef9fa` | holdout | fs_t1 | .5427 | .6338 | .5129 | .5631 [.3849, .6084] |
+| `score-dev-...070155Z-a17fdc` | dev minus 18 corrected windows | zs_t1 | .4797 | .4846 | .5344 | .4995 |
+| `score-dev-...074131Z-0200ed` | dev minus 18 corrected windows | fs_t1 | .5266 | .5156 | .2961 | .4461 |
 
-1. ~~Official CalMS21 F1 convention~~: resolved from the paper text (pooled; section 4.1). Official code not
-   retrieved; zero-division handling is ours.
-2. Per-class F1 of the supervised baseline: still unconfirmed (CalMS21 appendix not retrieved). MARS inter-annotator
-   F1 values are in MARS Figure 5, figure supplements 3-4 (not yet retrieved; the main text has none).
-3. Frame alignment (video frame 0 vs label 0): frame counts match on 2 of 89 videos, and alignment has only
-   been checked approximately (best box-center match at a lag of -1 to -2 source frames, biased by tails).
-   **Planned check on the first dev run:** for each dev video, cross-correlate SAM mask centroids with
-   CalMS21 keypoint centroids (body keypoints, tail excluded) over lags -10..+10 source frames, per
-   animal; report the best lag and its margin. If a consistent nonzero offset is found, fix it in the
-   eval harness's frame mapping (section 3), record it in this plan, and recheck on dev-holdout.
-4. Whether SAM needs long videos split into overlapping chunks (overlap adds cost).
-5. Manual-scoring baseline: the cited 3-4x figure has no primary source in MARS; a second source would
-   strengthen it.
-6. Exclusivity priority order and bout-IoU threshold: fix on dev.
+Paired holdout differences come from `score-dev_holdout-20261028T081858Z-325a87`. That run re-scores the existing
+predictions with the same sequence resamples; it makes no new predictions.
+- Tier-1 lift `zs_t1 - zs_rules`: +0.1652 [+0.0521, +0.2613].
+- Few-shot `fs_t1 - zs_t1`: +0.0605 [-0.0179, +0.0828].
+
+Precision and recall of `zs_t1` on holdout:
+
+| Behavior | Precision | Recall |
+|---|---|---|
+| Attack | .421 | .848 |
+| Investigation | .671 | .419 |
+| Mount | .390 | .478 |
+
+The cascade over-predicts attack and mount, and under-predicts investigation.
+
+Dev-holdout looks before the freeze, 7 executions:
+- `07acb5` and `c674ac` (zero-shot);
+- `5ce4e4`, `362649`, and `7ef9fa` (few-shot iterations);
+- `439dac` (joint classifier);
+- `03ecc8` (ensemble).
+
+`325a87` above is a re-score of existing predictions, not a new look. Section 1 says what these looks did and
+did not influence.
+
+### 10.2 How test differs, and the projected effect
+
+Test differs from dev and dev-holdout in three ways that matter. To project their effect, we applied each
+behavior's pooled per-frame recall and false-positive rate (FP per frame not of that behavior) from dev or
+dev-holdout `zs_t1` to the test totals disclosed in section 1. This assumes the per-frame rates transfer to
+test. It ignores sequence-to-sequence variance and any recording shift between the train and test sessions,
+so it is an expectation, not a bound.
+
+1. **Videos are much longer** (median 9.7 min vs 1.7 and 2.9 min) and spend most of their time in "other".
+   Precision then depends mostly on the false-positive rate per background frame, not on how well short,
+   dense clips are scored.
+2. **Attack is sparse and concentrated.**
+   - All 12,630 attack frames are in 5 sequences of 17,483-19,710 frames, where attack is 3.9-23.7% of
+     frames. The other 14 sequences (168,519 frames) have none, so every attack frame predicted there is a
+     false positive.
+   - The `zs_t1` attack FP rate per non-attack frame is 8.6% on dev and 8.5% on holdout. Inside the no-attack
+     sequences alone it is 9.0% on dev and 5.7% on holdout.
+   - Carried to test, this gives attack precision of about 0.27-0.34, against .421 on holdout.
+   - Recall is the larger unknown. On the long dev attack sequence (mouse008, 11,407 frames) recall is 0.21,
+     and on the long holdout one (mouse070, 12,537 frames) it is 0.94.
+   - **We expect attack F1 to fall from holdout's .563**, to about 0.38-0.48 if recall transfers and to about
+     0.21 if long-video recall looks like mouse008.
+3. **Mount is twice as prevalent** (12.2% of test frames vs 7.0% dev and 6.4% holdout). At the same FP rate,
+   precision rises with prevalence, so **we expect mount F1 to rise** from holdout's .429.
+   Investigation prevalence on test (23.4%) lies between dev (27.1%) and holdout (18.1%), so it should change
+   little.
+
+Projected test F1 for `zs_t1` (method above; the evaluator's calculation, not a measurement):
+
+| Rates taken from | Attack | Investigation | Mount | Macro |
+|---|---|---|---|---|
+| dev | .375 | .459 | .632 | .489 |
+| dev-holdout | .481 | .534 | .517 | .511 |
+| dev + holdout pooled | .420 | .488 | .596 | .501 |
+| attack, long sequences only: dev / holdout / pooled | .211 / .434 / .420 | | | |
+| *zs_rules*, holdout rates (for the tier-1 lift) | .388 | .208 | .444 | .347 |
+
+The point projections cluster around macro 0.49-0.51. The holdout sequence-bootstrap CI is [.333, .611], and
+attack rests on 5 test videos, so a realistic range for test macro F1 is about **0.38-0.58**.
+
+### 10.3 Targets
+
+A target is **MET** if the point estimate reaches the threshold. It is **MET ROBUSTLY** if the 95%
+sequence-bootstrap CI lower bound reaches it too. Otherwise it is **NOT MET**. Comparisons use full precision,
+with no rounding. All verdicts are reported, including NOT MET.
+
+| Metric (test, `zs_t1`) | Minimum credible | Good | Dev/holdout basis |
+|---|---|---|---|
+| **Macro F1** (attack, investigation, mount) | >= 0.40 | >= 0.50 | holdout .5026; projected .49-.51 |
+| Attack F1 | >= 0.25 | >= 0.40 | holdout .5630; projected .21-.48 (expected to fall) |
+| Investigation F1 | >= 0.40 | >= 0.50 | holdout .5155; projected .46-.53 |
+| Mount F1 | >= 0.40 | >= 0.55 | holdout .4294; projected .52-.63 (expected to rise) |
+| Tier-1 lift, `zs_t1 - zs_rules` macro (paired) | >= +0.03 | >= +0.10 | holdout +0.1652 [+0.0521, +0.2613] |
+| Identity error rate, all matches, overall (section 4.3) | <= 0.05 | <= 0.01 | dev 0.0019 |
+| Identity error rate, mount frames | reported; > 0.10 is flagged as a limitation | | dev 0.0098 |
+| Two-animal coverage (both labeled) | >= 0.95 | >= 0.98 | dev 0.992 |
+| **Speed**, real-time ratio, end to end (section 4.4) | pooled <= 1.0x, and median per video <= 1.0x | every video <= 1.0x, and pooled <= 0.5x | 5-min dev video, without tier-1: 0.22x (STATE.md; the evaluator has not seen the raw timing log); tier-1 took 97 s on a 7-min video with 6 slots, which is 0.23x; expected about 0.45x |
+| **Cost per video-minute**, uncached (section 4.4) | <= $0.25 | <= $0.20 | SAM $0.120-0.124 (chunk minimums); tier-1 about $0.052-0.073 (section 8); planner, if run, about $0.007-0.009; expected about $0.17-0.21 |
+
+How the thresholds were chosen:
+- **Minimum credible:** about 3x the random floor for macro (.1345). It sits below the low end of the
+  projections except for attack, where a long-video recall failure like mouse008 would miss it. Below it, the
+  zero-shot claim isn't demo-worthy as an accuracy result, and that is stated plainly.
+- **Good:** what the holdout result would look like if it transferred to test, adjusted for the attack and
+  mount prevalence effects in section 10.2.
+- **Speed:** the minimum credible threshold is Aniket's headline (<= 1x real time). Even at 1x, Etho is 3-4x
+  faster than the cited manual figure. The good threshold of 0.5x is close to the dev-based expectation.
+
+The draft's targets (macro >= 0.55 minimum and 0.70 stretch; attack .45, investigation .55, mount .65;
+wall-clock <= 0.3x) were set before any Etho run. They are **lowered here because of the dev and holdout
+evidence**. That is a disclosed change, made before any test run (section 12).
+
+Not targets, but reported (section 7.3): the few-shot arm and its paired difference. No direction is
+predicted, and the wording rules are in section 7.3. Also reported: bout-level F1, duration agreement, and
+cost and time vs manual scoring.
+
+## 11. Open questions and unresolved items before test run 1
+
+**Blocking test run 1 (preconditions):**
+1. **Codex eval-plan gate** on this exact text (Aniket's condition 2). Its findings are reconciled in section 13.
+2. **Fireworks spend for test-1 isn't covered by the pre-approval.** Aniket approved the SAM pass (<= $20, Meta).
+   Tier-1 on test is a separate job estimated at $7.5-23.3, central about $15 (section 8). It is over the $5
+   single-job line and needs its own escalation (CLAUDE.md, escalation 1).
+3. **Pre-flight regeneration (section 7.2, step 1) has not been run.** The holdout predictions were made at
+   2f3c448 with a dirty tree. `etho/rules/sandbox.py` and `etho/adjudication/tier1.py` changed between that run
+   and the frozen commit 4ada51c.
+   - Tier-1 prompt template: sha256 `ada77a63...` at 2f3c448 and `bb53933f...` (frozen) at 4ada51c. By diff, the
+     only change is an empty `{features}` slot (`features_in_prompt: false`), so the rendered prompts should
+     match. The evaluator has not checked this by re-rendering.
+   - The zero-shot holdout tier-1 manifest doesn't record the `allow` set. The few-shot one does
+     (`["investigation", "none"]`).
+4. **Pipeline outputs needed by the protocol (product code; the lead's call):**
+   - (a) the rules-only arms `zs_rules` and `fs_rules`, written from the same execution;
+   - (b) a file for every sequence, even when tracking fails;
+   - (c) a `manifest.json` with `config` (frozen-config sha256 and git commit), `cost` (by stage, uncached and
+     marginal), `wall_clock_s` (per video and per stage, with concurrency), `calls`, and the machine spec.
+
+   The current manifests use ad-hoc keys (`cost_usd`, `wall_s`, `predict_wall_s`), so those fields show up as
+   null in `runs.jsonl`. Without (c), the speed and cost targets can't be checked from the log.
+5. Whether the test pipeline runs the perception planner (section 4.4 says how each case is reported).
+
+**Not blocking; reported as limitations:**
+6. **Frame alignment.** Dev shows a consistent best lag of -2 frames (range -4 to 0; section 4.3). The draft
+   said to fix a consistent offset in the harness. v1-final does **not**: it is unclear whether this is a
+   label offset or a lag between SAM centroids and the keypoints, and all dev numbers use lag 0. It is a
+   deviation from the draft and is disclosed. A label-free dev check (F1 sensitivity to a +/-2 frame shift)
+   could settle it, but adopting a shift for test would need an amendment before test-1.
+7. **The supervised .793** has its metric and split confirmed only through a scout's quotes of the paper. Its
+   per-class F1 is unconfirmed. Inter-annotator agreement (MARS Fig. 5 supplements 3-4) hasn't been retrieved,
+   so it is reported as "not retrieved", never estimated.
+8. The 3-4x manual-scoring figure has no primary source in MARS (section 4.4).
+9. The official CalMS21 scorer code wasn't retrieved, so the zero-division convention is ours (section 4.1).
+10. Tier-1 accuracy on the windows it judged (section 6, item 1) isn't computed by `eval/` on test, and is
+    reported as "not computed" unless a label-free verdict log and scorer exist before test-1.
+11. Not implemented: bout count, latency, and ICC agreement (section 4.2); MAP (no per-frame confidence).
+
+**Resolved since the draft:**
+- the pooled F1 convention (section 4.1);
+- overlap priority mount > attack > investigation, frozen in the config;
+- bout IoU: 0.3 and 0.5 are both reported, with 0.3 primary;
+- SAM chunking: 60 s chunks, which is ADR-001 option C, recorded in the frozen config.
+
+**Still open, not blocking:** video frame count vs annotation length has been verified on only 2 dev videos
+(section 3). The scorer pads or clips predictions to the label length, so it would **not** catch a mismatch. The
+pipeline should log each test video's decoded frame count next to the expected length, which is label-free
+(index `frames`). A mismatch would be a label-free defect under section 7.4(a).
+
+## 12. Changelog: draft v1 to v1-final (2026-10-28)
+
+The draft v1 is commit fcd187c (sha256 of the file then:
+`4820cab1ccdf32b68b780251ded6fc1c630df2a386619c813a451b011576a712`).
+
+- **Targets frozen (section 10).** The draft's guesses were lowered on dev and holdout evidence:
+  - macro >= 0.55 / 0.70 became >= 0.40 (minimum credible) / 0.50 (good);
+  - attack .45 became .25 / .40; investigation .55 became .40 / .50; mount .65 became .40 / .55;
+  - speed <= 0.3x became <= 1.0x (Aniket's headline) / 0.5x;
+  - added: tier-1 lift, identity, and coverage targets.
+
+  A projection of the test effect (longer videos, sparse attack, more mount) was added, and the
+  supervised .793 is stated as a reference, not a target.
+- **Test-run protocol rewritten (section 7):**
+  - four arms from one pipeline execution, all hashed in a single `started` record before labels load
+    (`eval/score_arms.py`);
+  - `eval.score` now refuses the test split;
+  - frozen-config hashes are verified at start;
+  - per-sequence results are sealed until the test-2 decision is committed;
+  - the identity check on test uses frozen parameters;
+  - a pre-flight regeneration check, reporting rules for every arm (including a losing few-shot arm), and
+    a qualifying vs exploratory test-2 rule. The headline is test-1 unless test-2 qualifies.
+- **Disclosure (section 1):**
+  - how dev-holdout was actually used (7 looks; it informed the few-shot self-check);
+  - the evaluator re-read the test aggregates for the projection.
+- **Definitions:**
+  - speed and cost per video-minute (section 4.4);
+  - frozen identity parameters and the dev alignment result (section 4.3);
+  - option A only (section 2);
+  - duration agreement implemented and other summary statistics marked not implemented (section 4.2);
+  - test ablations are exactly the four arms (section 6).
+- **Costs (section 8):** the unmeasured per-call guess was replaced with measured per-window figures and a test-1
+  estimate. Fireworks spend was flagged as not covered by the SAM pre-approval.
+- **Code (eval/ only):**
+  - `eval/score_arms.py`, a multi-arm scorer with paired bootstrap differences, sealing, the frozen-config
+    check, and target verdicts;
+  - `eval/targets_v1.json`;
+  - `eval/tests/test_score_arms.py`;
+  - the test-split refusal in `eval/score.py`.
+
+  The full eval suite passes (`uv run pytest -q eval/tests`). Dry run on existing holdout predictions:
+  `score-dev_holdout-20261028T081858Z-325a87`. It reproduced all four logged holdout runs exactly, with the same
+  prediction hashes.
+
+## 13. Amendments (dated; append only after this plan is committed)
+
+None yet.

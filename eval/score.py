@@ -487,6 +487,8 @@ def run(split: str, pred_dir: Path, purpose: str | None = None, priority=DEFAULT
     purpose = purpose or {"dev": "tune", "dev_holdout": "holdout-check"}.get(split)
     if exclude_corrections and split != "dev":  # checked before the test guard: never a test "run"
         raise SystemExit(f"--exclude-corrections: only dev corrections on the dev split (scoring {split})")
+    if split == "test":  # EVAL_PLAN v1-final section 7: all arms of a test run are hashed and scored together
+        raise SystemExit("test split: use `python -m eval.score_arms` (all arms in one logged execution)")
     common.guard_test_run(split, confirm_test_run, purpose or "", "score", log_path)
     if split == "test" and (seqs or allow_missing):
         raise SystemExit("test split: --seqs and --allow-missing are not allowed (all 19 sequences)")
