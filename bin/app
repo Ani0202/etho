@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Etho web app. Localhost only unless you pass --host. Usage: bin/app [--host 127.0.0.1] [--port 8000]
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root" || exit 1
+exec uv run --quiet --project "$root" python -m etho.app.server "$@"
