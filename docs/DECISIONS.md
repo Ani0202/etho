@@ -251,3 +251,35 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
   - **Final.** wing_threat: `simple2`, 6 candidates, vote >= 3 of 6, drop runs under 2 s. lunge: `physics`, 5 candidates, vote >= 2 of 5, bridge gaps and drop runs under 0.1 s. Each behavior's prompt variant, vote threshold and post-processing were chosen on dev movies 1-2 (6 wing bouts in one movie, 77 lunge bouts), so the dev numbers are optimistic. Medoid selection (label-free) is implemented and was logged, but votes did better on dev for both behaviors.
   - **Tracking overlap_s = 1.0**, not the 2.0 the tracking implementer suggested: the dev tracks Etho was tuned and gated on were made at 1.0, re-tracking dev at 2.0 would cost about $3.65 of the fly budget left for the gates and test, and 1.0 gave localized coverage 0.999 / 0.994 on dev. The weak spot is the first second of a chunk (movie 2 chunk 4: both flies in 87% of it). Reverse: set `overlap_s` in `configs/flies_tracking.json` before freezing.
   - `configs/frozen_flies_v1.json` is written by `scripts/freeze_flies.py freeze` at the commit that holds every asset; nothing under `etho/` or `configs/` may change after it.
+
+## ADR-004 (2026-10-28): Fly vs. Fly claim bar (Aniket's decision; supersedes the evaluator's "clearly above" bar). Recorded before any fly gate or test labels are opened.
+**Context.** EVAL_PLAN §14 (amendment F1, frozen) defined "clearly above the random floor" as F1 ≥ max(2r, r+0.15)
+with the CI lower bound > r. That is about F1 ≥ 0.19 for wing threat. Aniket: "not what I meant."
+
+**Decision (Aniket, 2026-10-28 ~14:35 ET).** An on-screen F1 claim for any fly behavior requires all three:
+- (a) the movie-bootstrap CI lower bound is strictly above the random reference r;
+- (b) point F1 ≥ **0.40**;
+- (c) the number is shown next to the frozen simple baseline's score (`eval/flies_baselines_v1.json`) on the
+  same frames.
+
+Otherwise the fly segment is labeled **"qualitative"**, with no F1 on screen.
+
+**How it applies to the frozen tree.**
+- **Wing-threat train gate (by Oct 31 ET):** "clearly above" now means (a) and (b) on the train gate run.
+  The relative bar is replaced by this stricter absolute one.
+- **Test:** runs only if the train gate passes. The on-screen claim then needs (a), (b) and (c) on test.
+- **Lunge:** the lunge gate still only selects the branch (window and fps). Any lunge F1 claim must meet the
+  same three conditions, on test.
+- **Not changed:** evidence guards, the CI-informative rule, the deadline and the one-execution limits.
+
+**README regardless of outcome:**
+- report the simple baselines, stating that the 0.989 mask-width F1 is in-sample on dev movie 2 (6 bouts,
+  picked from 540 grid points);
+- if Etho's synthesized rule resembles the width threshold, say it was written by Muse Spark from the
+  plain-English definition, with no hand-written threshold.
+
+**Next.** The evaluator writes this as amendment F2 to EVAL_PLAN §14 and updates `eval/flies_criteria_v1.json`
+before any gate run.
+
+**Reverse:** only by Aniket.
+- 2026-10-28: (Aniket, Official Rules excerpt) The submission deadline is **Nov 4 12:00 PM ET**, with no late submissions. This replaces the 9:00 PM ET in CLAUDE.md. Hosting is required and must stay up through Nov 9. The video is hard-limited to 3:00 and must show code built during the event. The checklist is docs/SUBMISSION.md and the demo plan is v3.

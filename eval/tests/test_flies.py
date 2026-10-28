@@ -437,15 +437,38 @@ def test_decision_tree_end_to_end(tmp_path):
     tkw = {**kw, "confirm_test_run": True}
     with pytest.raises(SystemExit, match="branch GO"):
         fs.run("test", "mid5", p_test, behaviors=("wing_threat",), purpose="test-1", **tkw)
-    rec_t = fs.run("test", "mid5", p_test, purpose="test-1", baselines={"same": p_test}, **tkw)
-    assert rec_t["baselines"]["same"]["files_sha256"]["movie6.npz"]
-    assert rec_t["metrics"]["baselines"]["same"]["lunge"]["frame"]["f1"] == 1.0
-    assert rec_t["metrics"]["baselines"]["same"]["lunge"]["paired_diff_frame_f1_main_minus_baseline"]["point"] == 0
+    with pytest.raises(SystemExit, match="frozen baseline"):  # F2: the claim needs the baseline next to it
+        fs.run("test", "mid5", p_test, purpose="test-1", **tkw)
+    bls = {}
+    for name in ("wing_proxy", "lunge_speed"):
+        bd = tmp_path / f"bl_{name}"
+        bd.mkdir()
+        for m in fx.TEST_MOVIES:
+            d = dict(np.load(p_test / f"movie{m}.npz"))
+            if name == "lunge_speed":  # a weaker baseline: half of the lunge samples
+                d["lunge"][::2] = 0
+                d["lunge_by_track"][:, ::2] = 0
+            np.savez(bd / f"movie{m}.npz", **d)
+        (bd / "manifest.json").write_text(json.dumps({"config": {"baseline": "wrong", "params_sha256": "x"}}))
+        bls[name] = bd
+    with pytest.raises(SystemExit, match="not produced with the frozen"):
+        fs.run("test", "mid5", p_test, purpose="test-1", baselines=bls, **tkw)
+    for name, bd in bls.items():
+        (bd / "manifest.json").write_text(json.dumps({"config": {
+            "baseline": name, "params_sha256": fx.common.sha256_file(fs.BASELINE_PARAMS)}}))
+    assert not [x for x in log.read_text().splitlines() if '"flies-test"' in x]  # refusals logged nothing
+    rec_t = fs.run("test", "mid5", p_test, purpose="test-1", baselines=bls, **tkw)
+    assert rec_t["baselines"]["wing_proxy"]["files_sha256"]["movie6.npz"]
+    assert rec_t["metrics"]["baselines"]["wing_proxy"]["lunge"]["paired_diff_frame_f1_main_minus_baseline"][
+        "point"] == 0
+    assert "CLAIM lunge: CLAIMABLE" in fs.format_report(rec_t)
     assert crit["status"] == "FROZEN"
     assert "per_movie" not in rec_t["metrics"] and Path(rec_t["sealed_per_movie"]["path"]).exists()
     assert "leave_one_movie_out_f1" not in rec_t["metrics"]["behaviors"]["lunge"]
-    assert rec_t["verdicts"]["lunge"]["bout_any_f1"]["verdict"] == "GOOD MET"
-    assert rec_t["verdicts"]["wing_threat"]["frame_f1"]["verdict"] == "GOOD MET"
+    v = rec_t["verdicts"]
+    assert v["lunge"]["verdict"] == "CLAIMABLE" and v["wing_threat"]["verdict"] == "CLAIMABLE", v
+    assert v["lunge"]["baseline"]["name"] == "lunge_speed" and v["lunge"]["baseline"]["frame_f1"] < 1.0
+    assert v["wing_threat"]["baseline"]["frame_f1"] == 1.0
     with pytest.raises(SystemExit, match="already executed"):
         fs.run("test", "mid5", p_test, purpose="test-1", **tkw)
     (root / "movie7" / "movie7_track.mat").write_bytes(b"tampered")
@@ -499,12 +522,13 @@ def test_wing_gate_bars():
 
     def dec(*a, ctx=ctx, branch="GO", **k):
         return fs.evaluate_wing_gate(metrics(*a, **k), crit, ctx, branch, early)
-    go = dec(0.20, 0.05, 0.043)
-    assert go["frame_f1"]["point_bar"] == pytest.approx(0.193) and go["decision"] == "GO"
-    assert dec(0.19, 0.05, 0.043)["decision"] == "NO-GO"
-    assert dec(0.30, 0.043, 0.043)["decision"] == "NO-GO"  # CI lower bound must be strictly above r
-    assert dec(0.30, 0.05, 0.043, und=0.06)["decision"] == "NO-GO"  # uninformative CI
-    assert dec(0.50, 0.30, 0.10)["frame_f1"]["point_bar"] == pytest.approx(0.25)
+    go = dec(0.40, 0.05, 0.043)  # amendment F2 (ADR-004): F1 >= 0.40 AND CI lower > r
+    assert go["frame_f1"]["point_bar"] == pytest.approx(0.40) and go["decision"] == "GO"
+    assert dec(0.399, 0.05, 0.043)["decision"] == "NO-GO"
+    assert dec(0.20, 0.05, 0.043)["decision"] == "NO-GO"  # passed the superseded max(2r, r + 0.15) bar
+    assert dec(0.60, 0.043, 0.043)["decision"] == "NO-GO"  # CI lower bound must be strictly above r
+    assert dec(0.60, 0.05, 0.043, und=0.06)["decision"] == "NO-GO"  # uninformative CI
+    assert dec(0.50, 0.30, 0.30)["frame_f1"]["point_bar"] == pytest.approx(0.40)  # absolute, not relative
     assert dec(0.5, 0.3, 0.04, movies=(2, 3))["decision"] == "NO-GO"
     assert dec(0.5, 0.3, 0.04, ctx={**ctx, "partial": True})["decision"] == "NO-GO"
     assert dec(0.5, 0.3, 0.04, ctx={**ctx, "window": "mid10"})["decision"] == "NO-GO"  # Codex: mid10@30 got GO
@@ -620,3 +644,24 @@ def test_real_manifest_matches_if_committed():
     if not fx.MANIFEST.exists():
         pytest.skip("no manifest")
     assert fx.verify_manifest(fx.MANIFEST) == []
+
+
+def test_claim_verdict_rules():
+    crit = json.loads(Path("eval/flies_criteria_v1.json").read_text())
+
+    def m(f1, lo, ref=0.05, und=0.0, n_b=40, movies=(6, 7, 8), baseline=True):
+        blk = {"frame": {"f1": f1}, "frame_ci95": {"f1": [lo, 1.0], "f1_undefined_frac": und,
+                                                    "informative": und <= fs.CI_UNDEFINED_MAX},
+               "random_reference": {"iid_expected_f1": ref}, "bouts": {"any": {"n_gt": n_b, "f1": 0.5}},
+               "movies_with_behavior": list(movies), "circular_shift_test": {"p_value": 0.01}}
+        out = {"behaviors": {"wing_threat": blk}}
+        if baseline:
+            out["baselines"] = {"wing_proxy": {"wing_threat": {"frame": {"f1": 0.7}, "frame_ci95": {"f1": [0.5, 0.9]}}}}
+        return fs.evaluate_test_targets(out, crit)["wing_threat"]
+    assert m(0.40, 0.06)["verdict"] == "CLAIMABLE"
+    assert m(0.40, 0.06)["baseline"]["frame_f1"] == 0.7
+    assert m(0.39, 0.06)["verdict"] == "QUALITATIVE"
+    assert m(0.60, 0.05)["verdict"] == "QUALITATIVE"  # CI lower bound must be strictly above r
+    assert m(0.60, 0.30, und=0.10)["verdict"] == "QUALITATIVE"
+    assert m(0.60, 0.30, n_b=9)["verdict"] == "QUALITATIVE"
+    assert m(0.60, 0.30, baseline=False)["reasons"] == ["frozen baseline wing_proxy not scored on the same frames"]

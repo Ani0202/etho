@@ -66,7 +66,53 @@ Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
   contributor models.
 UI wording is configurable: `ETHO_APP_TAGLINE`, `ETHO_APP_TILE_TITLE`, `ETHO_APP_TILE_VALUE`, `ETHO_APP_TILE_SUB`.
 
+## What we learned about Meta's models
+
+Measured during the event. Each claim links to the committed evidence.
+
+- **SAM 3.1 needs a generic noun, not a description, on lab video.**
+  - On grayscale CalMS21 video, "black mouse" and "white mouse" returned no objects in all 200 frames of a
+    test clip.
+  - The plain phrase "mouse" tracked both animals with stable IDs, and the image endpoint did find "black mouse"
+    on frame 0, so video concept detection is much stricter than image detection
+    ([docs/SPIKE.md](docs/SPIKE.md)).
+  - For flies, "fly" returned 0 objects and "fruit fly" works ([docs/DECISIONS.md](docs/DECISIONS.md), ADR-002
+    tracking line).
+  - Etho tells the two mice apart by mask brightness rather than by phrase (ADR-001).
+- **Once SAM 3.1 has a track, it keeps it through a mount.**
+  - With 60 s chunks, both mice stay labeled on 100% of mount frames.
+  - A chunk that starts while one mouse is hidden under the other never picks it up again: 10 s chunks
+    dropped to 15.6% ([docs/DECISIONS.md](docs/DECISIONS.md), chunk-length table).
+  - Identity error against the dataset's keypoints is 0.29% on the 19 test videos
+    ([eval/results/test1_report.md](eval/results/test1_report.md)).
+- **Muse Spark turns a published English definition into a short, readable, executable rule.**
+  - The detectors it wrote for attack, investigation and mount ([configs/detectors/R1_zero_shot.json](configs/detectors/R1_zero_shot.json))
+    reach 0.375 macro F1 on test on their own. The frequency-matched random reference is 0.134.
+  - They run in an OS-isolated sandbox, and the sandbox's repair loop fixes the code when it fails.
+- **Muse Spark Open, shown 6 frames at its lowest effort, adds 0.205 F1, but only as a checker.**
+  - The frame-strip check lifts test macro F1 from 0.375 to 0.580, a gain whose CI excludes zero; investigation
+    gains +0.395 ([test1_report](eval/results/test1_report.md)).
+  - On dev, its attack and mount verdicts at low effort were only 21-26% right, so Etho lets it confirm
+    investigation or reject a label and never relabel. That restriction is also what set aside a correct
+    "attack" in the demo clip.
+  - Medium effort didn't help on dev (0.471 vs 0.482).
+- **Video input added little over frame strips here.** Sending disagreements to Muse Spark Open with video
+  (Baseten, high effort) added +0.005 dev F1 for $2.30, so it isn't used.
+- **Hosted latency is the bottleneck, and it parallelizes.**
+  - Fireworks frame-strip calls took a median of 8-12 s.
+  - Throughput grew almost linearly from 6 to 16 concurrent calls with no rate limiting, taking a fresh
+    5-min clip from 1.12x to 0.60x real time end to end ([docs/DECISIONS.md](docs/DECISIONS.md), concurrency
+    line; `scripts/speed_sweep.py`).
+- **What didn't work:**
+  - 18 simulated corrections did not measurably improve the full pipeline on test (inconclusive);
+  - one joint classifier and a 5-way ensemble both did worse than independent rules on dev
+    ([docs/DECISIONS.md](docs/DECISIONS.md)).
+
 ## Data and licenses
+
+Etho is licensed under Apache-2.0 (`LICENSE`), except the SAM-derived decoder files noted below,
+which stay under the SAM License. Third-party licenses and dataset credits are listed in `NOTICE`.
+
 
 - **CalMS21** (Caltech Mouse Social Interactions), CC BY 4.0. Sun et al., "The Multi-Agent Behavior
   Dataset: Mouse Dyadic Social Interactions", arXiv:2104.02710 (2021).

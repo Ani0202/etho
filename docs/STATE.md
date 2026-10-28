@@ -1,6 +1,6 @@
 # Etho state
 
-_Updated 2026-10-28 17:35 UTC (13:35 ET). Test run 1 is scored; Phase 2 continues._
+_Updated 2026-10-28 19:00 UTC (15:00 ET)._
 
 ## Status (updated 2026-10-28 17:35 UTC / 13:35 ET)
 
@@ -27,21 +27,31 @@ _Updated 2026-10-28 17:35 UTC (13:35 ET). Test run 1 is scored; Phase 2 continue
 - **Codex test-results gate (Astra):** done, `ops/codex/ask-20261028-165452-293961.md`. The accuracy result stands.
   The corrections are applied in report section 11. The headline wording is escalated.
 
-### Also done today
-- Rule sandbox OS isolation (bwrap) merged; 441 tests pass. Codex review queued (daily cap).
-- Live app: a fresh 4-min clip ran at 0.80x real time for $0.75. App chunks are fixed at 60 s.
-- Proposed: `docs/DEMO_PLAN.md`, and ADR-003 (public hosting) in DECISIONS.
+### Also done today (to 19:00 UTC)
+- **Sandbox:** the rule sandbox is isolated with bwrap and merged.
+- **Live app:** a fresh 4-min clip ran at 0.80x. With tier-1 concurrency 16 (now the app default) the fresh-clip sweep gave 0.60x end to end.
+- **Headline wording:** approved and applied in the README and the report header. The evidence card and accuracy/speed lines are approved (ESCALATIONS ~13:50 and ~14:35 ET).
+- **License:** Apache-2.0 LICENSE and NOTICE. The SAM-derived decoder files stay under the SAM License.
+- **Demo plan:** v2 approved, script ~431 words with sources, clip mouse075 0-300 s. CalMS21: no test-2 (A3); per-video results unsealed.
+- **Fly vs. Fly:**
+  - tracking merged (dev movies 1-2, $3.71);
+  - definitions from Chen 2002;
+  - eval plan frozen (F1), and Aniket's claim bar added (ADR-004 / F2: CI lower > r, F1 >= 0.40, shown next to the simple baseline).
+- **Hosting (ADR-003, approved):** guards built on a branch, and Meta file delete is live-verified. The Claude review says merge after fixes and NO-GO for go-live as written; the fixes are in progress.
+
+### In progress
+- Fly rule synthesis and tuning on dev movies 1-2, then `configs/frozen_flies_v1.json` (implementer, worktree).
+- Hosting review fixes (implementer, worktree), then merge. Codex review queued for tomorrow.
 
 ### Next
-1. Fly vs. Fly (ADR-002 approved). Its conditions are now met. If wing threat isn't clearly above the random
-   floor on train by end of Oct 31 ET, it becomes a qualitative clip.
-2. Report wording in `etho/report` (still says "zero labeled training frames"). Apply once Aniket decides on the headline.
-3. Oct 30 ET checkpoint report: dev and holdout per-behavior F1, speed, spend, and the Codex usage line.
-4. README: pair-level disclosure, dataset citations, "How this was built", and bwrap.
+1. Fly: lunge gate (dev 1-2), then decide, then track train 3-5 for the branch, then the wing gate by Oct 31 23:59 ET; test only if GO.
+2. App: an optional fix for discarded tier-1 verdicts (dev-tested only, never claimed in the test numbers).
+3. Oct 30 ET checkpoint report.
+4. README: results, baselines with the in-sample caveat, fly pair-level disclosure, "How this was built".
 
 ### Waiting on Aniket
-- Headline wording after the gate (ESCALATIONS 17:20 UTC). Fallback at ~19:20 UTC: the recommended version.
-- DEMO_PLAN questions, and ADR-003 hosting approval.
+- Official Rules: max video length, hosting/format, required content, form fields.
+- Sudo commands in docs/HOSTING.md, after the hosting merge. Go live only after Nov 3.
 
 ## Day-by-day plan (ET)
 

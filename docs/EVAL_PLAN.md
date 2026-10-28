@@ -1099,6 +1099,9 @@ Under section 7.4, this is the committed test-2 decision for CalMS21. **There wi
   - is never reported as a test result.
 - This amendment changes no metric, target, split, frozen config, or reported test number.
 
+### A5 (2026-10-28, ~18:50 UTC): fly claim bar changed by the owner (section 14.13, amendment F2, ADR-004)
+Made before any fly gate run, and before any fly test label was opened. It changes no CalMS21 item.
+
 ### A4 (2026-10-28, ~18:20 UTC): fly protocol amended and frozen (section 14.12, amendment F1)
 Reconciles the Codex critique of section 14 and freezes the fly decision tree, criteria and baselines, before
 any Etho fly prediction exists. It changes no CalMS21 item.
@@ -1431,7 +1434,7 @@ Code: `eval/flies_score.py`, `eval/flies_extract.py`, `eval/flies_baselines.py`,
      (hash-checked against the decision record);
    - **one execution, with no second check.** The window is fixed by the lunge gate alone and is never chosen
      after seeing wing-threat scores.
-   - GO needs all of the following:
+   - GO needs all of the following ([F2] bar replaced, see 14.13):
      - pooled frame F1 at or above max(2r, r + 0.15), with the CI's lower bound strictly above r and the CI
        informative;
      - at least 15 observable GT bouts in at least 3 movies;
@@ -1489,7 +1492,7 @@ made, for wing threat or lunge. The flies are a qualitative demo clip, and the s
   - frame F1 >= 0.167, CI lower bound > 0.0173;
   - bout F1 >= 0.207, CI lower bound > 0.0569; at recall 0.5 that needs bout precision of at least 0.130.
 - "Clearly above" = max(2r, r + 0.15) is **the evaluator's operationalization**. Aniket gave the rule, not this
-  bar; the lead may show it to him.
+  bar; the lead may show it to him. [F2] Aniket rejected it ("not what I meant"); replaced in 14.13.
 
 **4. Bars, CIs and evidence.**
 - A check passes if the point estimate is at or above its bar, the CI's lower bound is **strictly** above its
@@ -1657,3 +1660,57 @@ made, for wing threat or lunge. The flies are a qualitative demo clip, and the s
 - censoring;
 - the one-positive-movie uninformative CI;
 - localization with duplicate tracks.
+
+### 14.13 Amendment F2 (2026-10-28, ~18:50 UTC): owner's fly claim bar (ADR-004). Status stays FROZEN
+**Source.** Aniket, 2026-10-28 ~14:35 ET (`docs/ESCALATIONS.md`, answers item 4), recorded as ADR-004 in
+`docs/DECISIONS.md`. He rejected the evaluator's "clearly above" bar of max(2r, r + 0.15), about F1 0.19, as
+"not what I meant".
+- **Made before any gate run.** `runs.jsonl` holds no `gate-lunge` or `gate-wing` execution, and no fly test
+  label has been opened.
+- **The status stays FROZEN.** This is a dated owner amendment, not a re-opening.
+- The implementer's `tune` runs in progress are unaffected: free runs have no bar.
+
+**Changes (mechanical, in `eval/flies_criteria_v1.json` and `eval/flies_score.py`):**
+1. **Wing-threat train gate.** GO = the movie-bootstrap CI lower bound is strictly above r, the CI is
+   informative, AND pooled pair-level frame **F1 >= 0.40** (absolute). This replaces F1 >= max(2r, r + 0.15),
+   which is kept in the criteria file as `point_min_v1_superseded`. Unchanged: the evidence guard (>= 15
+   observable bouts in >= 3 movies), full train split, branch window and fps, same frozen config, one
+   execution, deadline 2026-10-31 23:59:59 EDT.
+2. **Test claim, per behavior: a `CLAIMABLE` / `QUALITATIVE` verdict.** This replaces the credible/good targets
+   of 14.7. An on-screen F1 claim for a behavior is CLAIMABLE only if all of these hold on test:
+   - (a) the frame-F1 CI lower bound is strictly above r, and the CI is informative;
+   - (b) point F1 >= 0.40;
+   - (c) the frozen simple baseline was scored on the same frames in the same execution: `wing_proxy` for wing
+     threat, `lunge_speed` for lunge. Its F1, and the paired Etho-minus-baseline difference, are printed on
+     the claim line;
+   - the evidence guard of 14.7/14.12 passes.
+
+   Anything else is QUALITATIVE: no F1 on screen for that behavior. The reasons are listed. Enforced on test:
+   - the scorer refuses the test split unless both frozen baseline arms are given (`--baseline name=dir`);
+   - each arm's manifest must name the baseline and carry the sha256 of `eval/flies_baselines_v1.json`;
+   - these are label-free checks that run before the `started` record.
+3. **Lunge.** The lunge gate is unchanged and still only selects the branch. A lunge F1 claim needs the same
+   conditions (a), (b) and (c) on test; lunge is scored on test only in the GO branch. Lunge bout F1 is
+   report-only.
+4. **Unchanged:** the decision tree (14.12 item 1); the rule that wing NO-GO means no fly test and no fly F1
+   claim (item 2); the CI-informative rule; the "above chance" wording rule (circular shift p < 0.05); and every
+   disclosure.
+
+**What the 0.40 bar implies on train (for scale).** The train references are r = 0.043 (mid5) and 0.049 (mid10)
+for wing threat, so 0.40 is about 8-9 times r. Always-positive scores 0.083 and 0.093. The frozen `wing_proxy`
+scored 0.989 in-sample on dev (movie2, 6 bouts, the best of 540 grid points), so passing the bar does not, by
+itself, show more than that baseline does. That is why (c) puts the two numbers side by side.
+
+**README regardless of outcome** (ADR-004; this is the lead's text, recorded here so the evaluator can check it):
+- report the simple baselines;
+- state that the 0.989 mask-width F1 is in-sample on dev movie2 (6 bouts, chosen from 540 grid points);
+- if Etho's synthesized wing-threat rule resembles the width threshold, say it was written by Muse Spark from
+  the plain-English definition, with no hand-written threshold.
+
+**Verification.** `uv run pytest eval/tests`: 118 passed. `make check` (ruff, then the full pytest suite): 512
+passed. The new tests cover:
+- the 0.40 gate bar: 0.399 fails, 0.20 fails although it passed v1, and the bar is absolute rather than
+  relative;
+- the claim verdict rules;
+- the test refusal without frozen baseline arms or with unfrozen parameters;
+- the CLAIMABLE line in the printed report.

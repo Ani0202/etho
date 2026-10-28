@@ -204,3 +204,40 @@ chosen on dev (0.482 vs 0.406).
 exported arrays stay uncommitted in gitignored `data/demo/` unless you want them in the public repo.
 
 *Blocking:* no, the rough cut is Nov 2. *Fallback in 2 h:* option 1.
+
+### Answers from Aniket (2026-10-28, ~14:35 ET)
+1. **Demo clip APPROVED:** mouse075, 0-300 s. Frame the error as "the trace shows exactly which step overrode the
+   right answer". The discarded-verdict issue may be fixed in the app going forward, but never claimed in the
+   test numbers.
+2. **Video rules:** Aniket is checking the participants page and will send the max length, hosting and format,
+   required content, and form fields.
+3. **LICENSE APPROVED:** Apache-2.0. The SAM License stays with the decoder code it covers. Add a NOTICE file
+   with third-party licenses and dataset credits.
+4. **Fly bar:** not what Aniket meant. Record it as an ADR before any fly test-run labels are opened.
+   - An on-screen fly F1 claim requires all three: (a) the CI lower bound above the random reference; (b) point
+     F1 ≥ 0.40; (c) shown next to the frozen simple baseline's score. Otherwise the fly segment is labeled
+     "qualitative".
+   - The README reports the simple baselines regardless, and says the 0.989 mask-width figure is in-sample on
+     6 bouts.
+   - If Etho's rule resembles the width threshold, note that it was derived from the plain-English definition
+     with no hand-written threshold.
+5. **Evidence card:** "Supervised methods trained on labeled data and given pose keypoints reach 0.79-0.86;
+   Etho works from raw video with no training." Keep 0.88x (test) as the speed claim on the card. The live
+   run's clock shows whatever the app actually does.
+6. **Hosting:** Aniket runs the sudo commands after the merge. Go live only after Nov 3.
+
+### Answers from Aniket (2026-10-28, ~15:05 ET): Official Rules excerpt
+1. The live product is a primary judging artifact, so hosting is required.
+   - When a cap is hit, the app falls back gracefully to the read-only showcase with a message, never an error.
+   - Add a web-app watchdog, and an external uptime check every 15 min that logs to ops/.
+   - The app stays up from submission through Nov 9 (finals); live mode still turns off on Nov 10.
+2. The video must show "features, code, and functionality built during the Hackathon". Add a 10-15 s code beat
+   (architecture plus our cascade and gateway code). Hard limit: 3:00.
+3. README section "What we learned about Meta's models", with evidence; the strongest finding gets a line in the
+   voice-over.
+4. Finals are shown live on a shared screen: large fonts, burned-in captions, even audio.
+5. docs/SUBMISSION.md checklist:
+   - the repo is public;
+   - the video is Unlisted on YouTube, checked logged out;
+   - only Aniket is listed;
+   - **submit by Nov 4 12:00 PM ET; late submissions are not considered.**
