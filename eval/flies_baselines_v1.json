@@ -1,0 +1,109 @@
+{
+ "doc": "Simple feature-threshold baselines for Fly vs. Fly (EVAL_PLAN 14.12, report-only, never gates).",
+ "tuned_on": {
+  "split": "dev",
+  "movies": [
+   1,
+   2
+  ],
+  "window": "mid5",
+  "sample_fps": 30.0,
+  "objective": "pooled pair frame F1"
+ },
+ "features": {
+  "movie1": {
+   "path": "data/runs/F1/movie1/features.npz",
+   "sha256": "f0a46de5a6c31e5a09827cda6fde68979f0b8e2432b06bcfb17e0ac8e2891583"
+  },
+  "movie2": {
+   "path": "data/runs/F1/movie2/features.npz",
+   "sha256": "686ace6beb37ae18360dda37df261fbc79734e3032a3ccd2a217032dde81b009"
+  }
+ },
+ "grid": {
+  "lunge_speed": {
+   "T": [
+    10,
+    15,
+    20,
+    25,
+    30,
+    40,
+    50,
+    60,
+    80
+   ],
+   "D": [
+    1.0,
+    1.25,
+    1.5,
+    2.0
+   ],
+   "L_s": [
+    0.13333333333333333
+   ],
+   "R_s": [
+    0.3
+   ]
+  },
+  "wing_proxy": {
+   "T": [
+    1.15,
+    1.2,
+    1.25,
+    1.3,
+    1.35,
+    1.4
+   ],
+   "S": [
+    5,
+    10,
+    20,
+    40,
+    Infinity
+   ],
+   "Dlo": [
+    0.0,
+    1.0,
+    1.5
+   ],
+   "Dhi": [
+    3.0,
+    Infinity
+   ],
+   "M_s": [
+    0.2,
+    0.5,
+    1.0
+   ]
+  }
+ },
+ "baselines": {
+  "lunge_speed": {
+   "behavior": "lunge",
+   "params": {
+    "T": 25,
+    "D": 1.0,
+    "L_s": 0.13333333333333333,
+    "R_s": 0.3
+   },
+   "dev_pooled_frame_f1": 0.14317673378076062,
+   "n_grid_points": 36
+  },
+  "wing_proxy": {
+   "behavior": "wing_threat",
+   "params": {
+    "T": 1.25,
+    "S": Infinity,
+    "Dlo": 0.0,
+    "Dhi": 3.0,
+    "M_s": 0.5
+   },
+   "dev_pooled_frame_f1": 0.9890756302521009,
+   "n_grid_points": 540
+  }
+ },
+ "tuned_utc": "2026-10-28T18:06:27+00:00",
+ "git_commit": "60a6735413e06a517d70fc0b73ac0b5e3106abb1",
+ "git_dirty": true
+}

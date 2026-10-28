@@ -253,14 +253,42 @@ def bout_stats(mask: np.ndarray, fps: int = NATIVE_FPS) -> dict:
             "n_bouts_le_3_frames": int((L <= 3).sum())}
 
 
-def random_reference(gt_by_movie: dict, keep_by_movie: dict, reps: int = 200, seed: int = common.SEED) -> dict:
-    """Prevalence-matched random references for one behavior over a set of movie windows.
+def place_bouts(durations: np.ndarray, W: int, rng) -> np.ndarray:
+    """Place bouts of the given durations at random, non-overlapping positions in [0, W), with gaps >= 1 frame
+    so that they never merge (gaps 0 only if the window is too full). Preserves count, durations, prevalence."""
+    d = rng.permutation(np.asarray(durations, dtype=np.int64))
+    n = len(d)
+    out = np.zeros(W, bool)
+    if n == 0:
+        return out
+    min_gap = 1 if d.sum() + (n - 1) <= W else 0
+    free = W - int(d.sum()) - min_gap * (n - 1)
+    if free < 0:
+        raise ValueError("bouts do not fit in the window")
+    cuts = np.sort(rng.integers(0, free + 1, size=n))
+    gaps = np.diff(np.concatenate([[0], cuts]))  # n leading gaps; the remainder is the tail
+    pos = 0
+    for k in range(n):
+        pos += int(gaps[k]) + (min_gap if k else 0)
+        out[pos:pos + d[k]] = True
+        pos += int(d[k])
+    return out
 
-    - iid: each kept frame is positive with probability p = pooled prevalence of the kept frames. Expected
-      precision = recall = F1 = p (analytic); `iid_sim_mean_f1` checks it by simulation.
-    - bout_shuffle: each movie's GT bouts (same count and durations) are placed at uniform random starts in
-      its window; mean pooled frame F1 and mean one-to-one any-overlap bout F1 over `reps` draws. This is the
-      reference for bout-level metrics (an iid predictor fragments into 1-frame bouts and is not one)."""
+
+def random_reference(gt_by_movie: dict, keep_by_movie: dict, reps: int = 200, seed: int = common.SEED,
+                     dev_prior: float | None = None) -> dict:
+    """References for one behavior over a set of movie windows (EVAL_PLAN 14.4, amended in 14.12).
+
+    - iid (the "random floor" r): each kept frame is positive with probability p = pooled prevalence of the
+      kept frames; expected precision = recall = F1 = p (analytic), checked by simulation.
+    - always_positive: every kept frame positive. Frame F1 = 2p / (1 + p) exactly (the iid optimum).
+    - dev_prior: iid at rate q = the dev-movie prevalence of the same window (given by the caller);
+      expected F1 = 2pq / (p + q).
+    - oracle_bout_placement (the bout-level reference r_b): each movie's GT bouts, with their original count
+      and durations (from the unexcluded pair mask), placed at random non-overlapping positions in its window,
+      scored like a prediction. Oracle-informed (it knows each movie's bout count, including that negative
+      movies have none), so it is a reference, not a deployable detector. Its realized properties after the
+      `unknown` exclusion are reported."""
     from eval import flies_score  # metrics live with the scorer
 
     rng = np.random.default_rng(seed)
@@ -271,30 +299,48 @@ def random_reference(gt_by_movie: dict, keep_by_movie: dict, reps: int = 200, se
     for _ in range(reps):
         pr = rng.random(len(kept)) < p
         sim.append(flies_score.prf(int((kept & pr).sum()), int((~kept & pr).sum()), int((kept & ~pr).sum()))[2])
-    fr, bt = [], []
+    fr, bt, n_obs, prev = [], [], [], []
     for _ in range(reps):
         c = np.zeros(3, np.int64)
         b = np.zeros(3, np.int64)
+        nb, kp, kn = 0, 0, 0
         for m in movies:
             g, keep = gt_by_movie[m], keep_by_movie[m]
-            W = len(g)
-            pr = np.zeros(W, bool)
-            for s, e in runs(g):
-                d = e - s
-                st = int(rng.integers(0, W - d + 1))
-                pr[st:st + d] = True
+            r = runs(g)
+            pr = place_bouts(r[:, 1] - r[:, 0], len(g), rng)
             gk, pk = g[keep], pr[keep]
             c += (np.sum(gk & pk), np.sum(~gk & pk), np.sum(gk & ~pk))
-            gb, pb = g & keep, pr & keep
-            b += flies_score.bout_counts_any_overlap(gb, pb)
+            bc = flies_score.fly_bout_counts(g, pr, keep, "any")
+            b += bc
+            nb += int(bc[1])
+            kp += int(pk.sum())
+            kn += int(keep.sum())
         fr.append(flies_score.prf(*c)[2])
         n_gt, n_pr, mt = b
         bp, br = (mt / n_pr if n_pr else 0.0), (mt / n_gt if n_gt else 0.0)
         bt.append(2 * bp * br / (bp + br) if bp + br else 0.0)
-    return {"n_frames_kept": int(len(kept)), "prevalence": p, "iid_expected_f1": p,
-            "iid_sim_mean_f1": float(np.mean(sim)) if sim else None,
-            "bout_shuffle_mean_frame_f1": float(np.mean(fr)), "bout_shuffle_mean_bout_f1": float(np.mean(bt)),
-            "bout_shuffle_bout_f1_p95": float(np.percentile(bt, 95)), "reps": reps, "seed": seed}
+        n_obs.append(nb)
+        prev.append(kp / kn if kn else float("nan"))
+    out = {"n_frames_kept": int(len(kept)), "prevalence": p, "iid_expected_f1": p,
+           "iid_sim_mean_f1": float(np.mean(sim)) if sim else None,
+           "always_positive_f1": (2 * p / (1 + p)) if p == p else None,
+           "oracle_bout_placement_mean_frame_f1": float(np.mean(fr)),
+           "oracle_bout_placement_mean_bout_f1": float(np.mean(bt)),
+           "oracle_bout_placement_bout_f1_p95": float(np.percentile(bt, 95)),
+           "oracle_bout_placement_realized": {"mean_observable_bouts": float(np.mean(n_obs)),
+                                              "mean_kept_prevalence": float(np.nanmean(prev))},
+           "reps": reps, "seed": seed}
+    if dev_prior is not None:
+        q = float(dev_prior)
+        out["dev_prior_rate"] = q
+        out["dev_prior_expected_f1"] = (2 * p * q / (p + q)) if (p + q) > 0 else 0.0
+    return out
+
+
+def dev_prevalence(labels_by_movie: dict, behavior: str) -> float:
+    """Pooled pair-level prevalence of `behavior` over the kept frames of the dev movies (1-2)."""
+    g = np.concatenate([labels_by_movie[m]["pair"][behavior][~labels_by_movie[m]["excluded"]] for m in SPLITS["dev"]])
+    return float(g.mean())
 
 
 def train_summary(root: Path = DATA_ROOT, reps: int = 200) -> dict:
@@ -326,8 +372,9 @@ def train_summary(root: Path = DATA_ROOT, reps: int = 200) -> dict:
         for split in ("dev", "spare", "train"):
             ms = SPLITS[split]
             for b in SCORED:
+                q = dev_prevalence(labs, b)
                 wd["random_reference"][split][b] = random_reference(
-                    {m: labs[m]["pair"][b] for m in ms}, {m: ~labs[m]["excluded"] for m in ms}, reps)
+                    {m: labs[m]["pair"][b] for m in ms}, {m: ~labs[m]["excluded"] for m in ms}, reps, dev_prior=q)
         out["windows"][wname] = wd
     return out
 
