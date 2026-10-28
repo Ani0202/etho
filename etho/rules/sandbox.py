@@ -86,7 +86,12 @@ src = open(sys.argv[2]).read()
 ns = {}
 exec(compile(src, "<detector>", "exec"), ns)
 out = ns["detect"](data, fps)
-out = np.asarray(out)
+try:
+    out = np.asarray(out, dtype=float) if np.asarray(out).dtype == object else np.asarray(out)
+except (TypeError, ValueError) as e:
+    raise TypeError(f"detect() must return a 1-D numpy bool array, got {type(out).__name__}: {e}")
+if out.dtype == object or out.ndim != 1:
+    raise TypeError(f"detect() must return a 1-D numpy bool array, got dtype {out.dtype} shape {out.shape}")
 np.save(sys.argv[4], out)
 '''
 
@@ -139,7 +144,10 @@ def run_detector(code: str, table: dict[str, np.ndarray], fps: float, cpu_s: int
             raise SandboxError(f"detector timed out after {timeout_s}s") from e
         if p.returncode != 0:
             raise SandboxError("detector failed:\n" + p.stderr[-2000:])
-        out = np.load(d / "out.npy", allow_pickle=False)
+        try:
+            out = np.load(d / "out.npy", allow_pickle=False)
+        except (OSError, ValueError) as e:
+            raise SandboxError(f"detect() output unreadable: {e}") from e
     if out.shape != (n,):
         raise SandboxError(f"detect() must return one value per sample: got shape {out.shape}, need ({n},)")
     if out.dtype != bool:

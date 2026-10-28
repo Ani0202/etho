@@ -71,3 +71,8 @@ def test_synthesize_gives_up_after_max_repairs():
     with pytest.raises(SandboxError, match="still failing"):
         S.synthesize("attack", "x", subject="r", partner="i", tables=[T], fps=10.0, frame_wh=(1, 1),
                      gw=FakeGW([bad] * 3), public_data=True)
+
+
+def test_object_or_ragged_output_is_a_sandbox_error():
+    with pytest.raises(SandboxError, match="bool array"):
+        run_detector("def detect(t, fps):\n    return [np.zeros(2), 1]\n", T, 10.0)

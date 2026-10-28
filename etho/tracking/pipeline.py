@@ -246,7 +246,7 @@ def track_video(src: Path, out_dir: Path, *, gw: Gateway | None = None, phrase: 
             pres = table[f"{r}_present"] > 0
             for k in np.nonzero(pres)[0]:
                 rows["frame"].append(int(k) * stride)
-                rows["track_id"].append(lab)
+                rows["track_id"].append(0 if lab == "resident" else 1)
                 rows["label"].append(lab)
                 rows["cx"].append(table[f"{r}_cx"][k])
                 rows["cy"].append(table[f"{r}_cy"][k])
