@@ -4,7 +4,9 @@ No network and no model calls anywhere."""
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
+import shutil
 import subprocess
 import threading
 import time
@@ -64,17 +66,33 @@ def write_tracking(seq_dir: Path, src: Path, n: int, stride=None) -> dict[str, n
 class FakeGateway:
     """Quacks like Gateway for JobGateway: records calls and appends ledger rows like the real one."""
 
-    def __init__(self, ledger_path: Path, cost: float = 0.01, delay: float = 0.0):
+    def __init__(self, ledger_path: Path, cost: float = 0.01, delay: float = 0.0, cache_root: Path | None = None):
         self.ledger_path, self.cost, self.delay = ledger_path, cost, delay
+        self.cache_root = cache_root          # when set, every row also leaves a cache entry like the real gateway
         self.calls: list[dict] = []
         self.lock = threading.Lock()
+        self._n = 0
 
-    def _row(self, caller: str, tag: str, model: str, cost: float) -> None:
+    def _row(self, caller: str, tag: str, model: str, cost: float, endpoint: str = "/chat/completions") -> None:
         self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
-        row = {"provider": "meta", "model": model, "tag": tag, "caller": caller, "cost_usd": cost,
-               "time": datetime.now(timezone.utc).isoformat(timespec="milliseconds"), "cache_hit": False}
+        with self.lock:
+            self._n += 1
+            key = hashlib.sha256(f"{caller}|{self._n}|{endpoint}".encode()).hexdigest()
+        row = {"provider": "meta", "model": model, "tag": tag, "caller": caller, "cost_usd": cost, "endpoint": endpoint,
+               "request_key": key, "time": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+               "cache_hit": False}
         with self.lock, self.ledger_path.open("a") as f:
             f.write(json.dumps(row) + "\n")
+        if self.cache_root is not None:
+            d = self.cache_root / key[:2]
+            d.mkdir(parents=True, exist_ok=True)
+            with gzip.open(d / f"{key}.json.gz", "wt") as f:
+                json.dump({"id": f"file-{key[:8]}"} if endpoint == "/files" else {"text": "cached"}, f)
+            if model == "sam-3.1":
+                with gzip.open(d / f"{key}.txt.gz", "wt") as f:
+                    f.write("sam output\n")
+            (self.cache_root / "locks").mkdir(exist_ok=True)
+            (self.cache_root / "locks" / f"{key}.lock").write_text("")
 
     def chat(self, provider, model, messages, *, effort, tag, caller=None, **kw):
         time.sleep(self.delay)
@@ -86,7 +104,9 @@ class FakeGateway:
 
     def sam(self, phrase, *, tag, caller=None, **kw):
         self.calls.append({"sam": phrase, "tag": tag, "caller": caller})
-        self._row(caller, tag, "sam-3.1", self.cost)
+        if self.cache_root is not None:
+            self._row(caller, tag, "files", 0.0, endpoint="/files")  # the real gateway uploads the clip first
+        self._row(caller, tag, "sam-3.1", self.cost, endpoint="/responses")
         return SimpleNamespace(cost_usd=self.cost, cache_hit=False, latency_s=0.01, frames_billed=50)
 
     def upload_file(self, *a, **k):
@@ -154,7 +174,11 @@ def patch_pipeline(monkeypatch, video: Path, n: int, *, revise_ok: bool = True, 
                                                                     "change": -0.1}}], prompt_hash=det.prompt_hash)
 
     def fake_chunks(src, chunk_dir, **kw):
-        return [Chunk(0, video, 0, n)]
+        d = Path(chunk_dir) / hashlib.sha256(str(Path(src).resolve()).encode()).hexdigest()[:16]
+        d.mkdir(parents=True, exist_ok=True)
+        if not (d / "c000.mp4").exists():
+            shutil.copy(video, d / "c000.mp4")
+        return [Chunk(0, d / "c000.mp4", 0, n)]
 
     monkeypatch.setattr(BK, "run_planner", fake_plan)
     monkeypatch.setattr(BK, "track_video", fake_track)

@@ -17,6 +17,32 @@
       h("a", { class: "btn primary", href: `/p/${sc.id}` }, "Open results"))));
   }).catch(() => { $("showcases").replaceChildren(h("div", { class: "err" }, "Could not load showcases.")); });
 
+  // ---- what this visitor may do: read-only, needs the code, or live ----
+  function applyMode() {
+    const lv = (cfg && cfg.live) || { mode: "live", can_submit: true, access_required: false };
+    const note = $("mode-note");
+    const text = lv.mode === "killed" ? "Live use has been switched off. The precomputed showcase runs below are still open."
+      : lv.mode === "expired" ? "The live window for this demo has ended. The precomputed showcase runs below are still open."
+      : lv.mode === "read-only" ? "Read-only showcase: the precomputed runs below are open to browse. Uploads and revisions are switched off on this site."
+      : "";
+    note.textContent = text; note.hidden = !text;
+    $("access-card").hidden = !(lv.mode === "live" && lv.access_required && !lv.access_granted);
+    $("form").hidden = !lv.can_submit;
+    if (!lv.can_submit) $("recent-card").hidden = true;
+  }
+  $("access-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("access-err"); err.textContent = ""; $("unlock").disabled = true;
+    try {
+      await api("/api/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: $("code").value }) });
+      $("code").value = "";
+      const c = await loadHeader();
+      if (c) { cfg.live = c.live; cfg.cap = c.cap; }
+      applyMode();
+    } catch (ex) { err.textContent = ex.message; } finally { $("unlock").disabled = false; }
+  });
+  $("ret-h").textContent = cfg ? cfg.retention_hours : "24";
+
   // ---- form ----
   if (cfg) {
     $("limits").textContent = `mp4, mov or avi; up to ${cfg.limits.max_upload_mb} MB and ${Math.round(cfg.limits.max_duration_s / 60)} minutes. ` +
@@ -26,6 +52,7 @@
     for (const [name, text] of Object.entries(cfg.defaults.behaviors)) addBehavior(name, text);
   }
   if (!document.querySelector(".beh")) addBehavior("", "");
+  applyMode();
 
   function addBehavior(name, text) {
     const n = h("input", { type: "text", value: name, maxlength: 32, placeholder: "behavior name", "aria-label": "Behavior name" });
@@ -100,7 +127,7 @@
   // ---- recent jobs (kept in this browser only) ----
   const recent = JSON.parse(localStorage.getItem("etho.recent") || "[]");
   if (recent.length) {
-    $("recent-card").hidden = false;
+    $("recent-card").hidden = !(cfg && cfg.live ? cfg.live.can_submit : true);
     $("recent").replaceChildren(h("table", {}, h("tbody", {}, ...recent.map(r => h("tr", {},
       h("td", { class: "l" }, h("a", { href: `/p/${r.id}` }, r.name)), h("td", {}, new Date(r.at).toLocaleString()))))));
   }

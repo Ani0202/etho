@@ -14,7 +14,8 @@ DEFS = {"investigation": "The resident is close to the partner and sniffing it."
 
 
 def make_app(tmp_path, monkeypatch, *, seconds: float = 6.0, cfg_kw: dict | None = None,
-             backend_kw: dict | None = None, now=None, clock=None, gw_kw: dict | None = None):
+             backend_kw: dict | None = None, now=None, clock=None, gw_kw: dict | None = None,
+             app_kw: dict | None = None, base_url: str = "http://testserver"):
     """Returns (TestClient, namespace with cfg, video, n, gw, app, manager)."""
     from fastapi.testclient import TestClient
 
@@ -31,8 +32,9 @@ def make_app(tmp_path, monkeypatch, *, seconds: float = 6.0, cfg_kw: dict | None
     n = int(seconds * FPS)
     gw = FakeGateway(cfg.ledger_path, **(gw_kw or {}))
     patch_pipeline(monkeypatch, video, n, **(backend_kw or {}))
-    app = create_app(cfg, gateway_factory=lambda: gw, now=now, clock=clock)
-    return TestClient(app), SimpleNamespace(cfg=cfg, video=video, n=n, gw=gw, app=app, manager=app.state.manager)
+    app = create_app(cfg, gateway_factory=lambda: gw, now=now, clock=clock, **(app_kw or {}))
+    return TestClient(app, base_url=base_url), SimpleNamespace(cfg=cfg, video=video, n=n, gw=gw, app=app,
+                                                              manager=app.state.manager)
 
 
 def post_job(client, video: Path, defs: dict | None = None, filename: str | None = None, headers: dict | None = None,

@@ -34,6 +34,7 @@ from .config import AppConfig
 from .detcache import DetectorCache, Provenance
 from .jobgw import JobBudgetExceeded, JobCancelled, JobGateway
 from .overlay import render_overlay
+from .retention import note_chunk_dirs
 from .store import SEQ, Project, read_json, write_json
 from .validate import ValidationError, remux_clean
 
@@ -156,7 +157,9 @@ class Backend:
         def work():
             t0 = self._since(ctx)
             try:
-                return prepare_chunks(video, CHUNK_DIR, stride=None, fps=int(FPS), chunk_s=chunk_s)
+                chunks = prepare_chunks(video, CHUNK_DIR, stride=None, fps=int(FPS), chunk_s=chunk_s)
+                note_chunk_dirs(self.cfg, ctx.project.base, [c.path for c in chunks])   # retention deletes them
+                return chunks
             finally:
                 ctx.state.setdefault("substeps", {}).setdefault("plan", []).append(
                     {"name": "cut chunks", "start_s": t0, "end_s": self._since(ctx)})
@@ -402,6 +405,7 @@ class Backend:
         chunks = prepare_chunks(Path(info["src"]), CHUNK_DIR, stride=info.get("src_stride"),
                                 fps=int(info.get("sample_fps", FPS)),
                                 chunk_s=int(info.get("app_chunk_s", 60)))   # runs tracked before this change: 60
+        note_chunk_dirs(self.cfg, ctx.project.base, [c.path for c in chunks])
         r = render_overlay([c.path for c in chunks], ctx.project.seq_dir, ctx.state["final"], ctx.state["names"],
                            FPS, ctx.outdir / "overlay.mp4",
                            progress=lambda i, n: ctx.say(f"rendering overlay video: {i}/{n} frames"))

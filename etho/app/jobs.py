@@ -14,7 +14,6 @@ the job started), and a job's total time is job end minus job start, never the s
 from __future__ import annotations
 
 import json
-import shutil
 import threading
 import time
 import uuid
@@ -25,10 +24,12 @@ from pathlib import Path
 
 from etho.gateway import Gateway
 
+from . import tuning
 from .backend import Backend, Ctx, StageSkipped
 from .config import AppConfig
 from .guards import Refused, SpendGuard
 from .jobgw import AppLedger, JobBudgetExceeded, JobCancelled, JobGateway
+from .retention import project_created, purge_project
 from .store import read_json, resolve_project, write_json
 
 ANALYZE_STAGES = ("validate", "plan", "track", "synthesize", "predict", "tier1", "report", "overlay")
@@ -67,6 +68,7 @@ class Job:
     est_cost_usd: float = 0.0
     params: dict = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
+    ceiling_usd: float = 0.0       # reserved against the spend caps when the job was admitted
     started_mono: float | None = None
     finished_mono: float | None = None
     run_s: float = 0.0           # wall-clock from start to end (queue wait excluded)
@@ -122,8 +124,9 @@ def sse(event: str, data: dict, event_id: int | None = None) -> str:
 
 class JobManager:
     def __init__(self, cfg: AppConfig, backend: Backend, ledger: AppLedger, guard: SpendGuard,
-                 gateway_factory=Gateway):
+                 gateway_factory=Gateway, live=None):
         self.cfg, self.backend, self.ledger, self.guard = cfg, backend, ledger, guard
+        self.live = live                       # LiveState or None; its kill switch / expiry stops work
         self._gateway_factory = gateway_factory
         self._gw: Gateway | None = None
         self.jobs: dict[str, Job] = {}
@@ -169,10 +172,10 @@ class JobManager:
             return len(self._queue)
 
     def cleanup(self, now: float | None = None) -> list[str]:
-        """Delete project dirs (uploads, tracks, overlays, revisions) untouched for `retention_hours`, unless a
-        job for them is queued or running. Returns the removed ids."""
-        import time as _t
-        now = now or _t.time()
+        """Delete projects (uploads, tracks, overlays, revisions, their chunk videos and gateway-cache entries)
+        older than `retention_hours` counted from the upload, unless a job for them is queued or running. Returns
+        the removed ids. Called at startup and by the retention timer (retention.py)."""
+        now = now or time.time()
         limit = self.cfg.retention_hours * 3600
         removed = []
         if not self.cfg.jobs_dir.exists():
@@ -182,10 +185,16 @@ class JobManager:
         for d in self.cfg.jobs_dir.iterdir():
             if not d.is_dir() or d.name in busy:
                 continue
-            newest = max((p.stat().st_mtime for p in d.rglob("*") if not p.is_symlink()), default=0.0)
-            newest = max(newest, d.stat().st_mtime)
-            if now - newest > limit:
-                shutil.rmtree(d, ignore_errors=True)
+            born = project_created(d)
+            if born is None:                    # no job record (a crash before the first one): go by file times
+                born = max((p.stat().st_mtime for p in d.rglob("*") if not p.is_symlink()), default=0.0)
+                born = max(born, d.stat().st_mtime)
+            if now - born > limit:
+                with self._cv:
+                    ids = {j.id for j in self.jobs.values() if j.project_id == d.name} | {d.name}
+                ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
+                purge_project(self.cfg, self.ledger, d, sorted(ids))
+                tuning.forget_under(d)
                 removed.append(d.name)
         with self._cv:
             for jid in [k for k, j in self.jobs.items() if j.project_id in removed]:
@@ -194,10 +203,8 @@ class JobManager:
 
     # ---- submission -----------------------------------------------------------------------
     def outstanding_usd(self) -> float:
-        """What accepted-but-unfinished jobs may still spend (their estimate minus what they've spent)."""
-        with self._cv:
-            live = [j for j in self.jobs.values() if j.status in ("queued", "running")]
-        return sum(max(0.0, j.est_cost_usd - self.job_cost(j)) for j in live)
+        """What accepted-but-unfinished jobs may still spend: their reserved ceiling minus what they have spent."""
+        return self.guard.outstanding()
 
     def active_for(self, project_id: str) -> Job | None:
         with self._cv:
@@ -207,9 +214,12 @@ class JobManager:
         return None
 
     def submit(self, job: Job) -> Job:
+        """Queue a job and reserve its spend ceiling against the caps in the same step. Raises QueueFull, or Refused
+        when the daily or total cap leaves no room."""
         with self._cv:
             if len(self._queue) >= self.cfg.max_queue:
                 raise QueueFull(f"{len(self._queue)} jobs are already waiting; try again later")
+            job.ceiling_usd = self.guard.reserve(job.id, job.est_cost_usd)
             job.stages = [Stage(n) for n in (ANALYZE_STAGES if job.kind == "analyze" else REVISE_STAGES)]
             self.jobs[job.id] = job
             self._queue.append(job.id)
@@ -225,6 +235,7 @@ class JobManager:
             if j.status == "queued":
                 self._queue = deque(x for x in self._queue if x != job_id)
                 j.status, j.message = "cancelled", "cancelled before it started"
+                self.guard.release(job_id)
             else:
                 j.cancel_requested = True
                 j.message = "cancelling after the current stage"
@@ -287,12 +298,30 @@ class JobManager:
             pass
 
     # ---- worker ---------------------------------------------------------------------------
+    def stopped_by_operator(self) -> bool:
+        return self.live is not None and self.live.stop_work()
+
+    def _cancel_queued_for_stop(self) -> None:
+        """Kill switch or expiry: nothing queued may start."""
+        with self._cv:
+            for jid in list(self._queue):
+                j = self.jobs.get(jid)
+                if j is not None and j.status == "queued":
+                    self._queue = deque(x for x in self._queue if x != jid)
+                    self.guard.release(jid)
+                    j.status, j.message = "cancelled", "stopped: live use was switched off before this job started"
+                    self._persist(j)
+                    self._touch_locked(j)
+
     def _worker(self) -> None:
         while True:
             with self._cv:
                 self._cv.wait_for(lambda: self._queue or self._stop, 1.0)
                 if self._stop:
                     return
+            if self.stopped_by_operator():
+                self._cancel_queued_for_stop()
+            with self._cv:
                 if not self._queue:
                     continue
                 job = self.jobs[self._queue.popleft()]
@@ -310,6 +339,7 @@ class JobManager:
                 job.finished_mono = time.monotonic()
                 job.run_s = round(job.finished_mono - job.started_mono, 2)
                 job.cost_usd = round(job.gw.total_cost if job.gw else job.cost_usd, 6)
+                self.guard.release(job.id)        # the reservation goes before the terminal status becomes visible
                 job.status = job.outcome or "failed"
                 self._persist(job)
                 self.touch(job)
@@ -322,12 +352,20 @@ class JobManager:
             self._gw = self._gateway_factory()
         outdir = project.base if job.kind == "analyze" else job.dir
         outdir.mkdir(parents=True, exist_ok=True)
-        # Per-job ceiling: twice the estimate (at least +$0.50), and never more than today's headroom.
-        others = self.outstanding_usd() - max(0.0, job.est_cost_usd - self.job_cost(job))
-        ceiling = min(max(2 * job.est_cost_usd, job.est_cost_usd + 0.5), self.guard.remaining(others))
+        # The caps were checked and the job's ceiling reserved at submission; check again now that it actually starts
+        # (jobs queue, and other spending may have used the room). The ceiling is what was reserved, or less.
+        if self.stopped_by_operator():
+            job.outcome, job.message = "cancelled", "stopped: live use was switched off"
+            return
+        try:
+            ceiling = self.guard.recheck_at_start(job.id, job.est_cost_usd)
+        except Refused as e:
+            job.outcome, job.error = "failed", e.message
+            return
         gw = JobGateway(self._gw, job_id=job.id, tag=self.cfg.tag, calls_path=outdir / "calls.jsonl",
                         on_cost=lambda _c: self.touch(job), max_cost_usd=ceiling,
-                        cancelled=lambda: job.cancel_requested)
+                        cancelled=lambda: job.cancel_requested or self.stopped_by_operator(),
+                        spent=lambda: self.ledger.job_cost(job.id))
         job.gw = gw
         version = 0 if job.kind == "analyze" else int(job.rev)
         ctx = Ctx(self.cfg, project, job, gw, outdir, version, public_data=project.public_data,
@@ -343,14 +381,8 @@ class JobManager:
 
         ctx.say = say
         self.backend.prepare(ctx)
-        # The cap was checked at submission; check again now that the job actually starts (jobs queue).
-        try:
-            self.guard.check(job.est_cost_usd, others)
-        except Refused as e:
-            job.outcome, job.error = "failed", e.message
-            return
         for group in stage_groups(job.stages):
-            if job.cancel_requested:
+            if job.cancel_requested or self.stopped_by_operator():
                 job.outcome, job.message = "cancelled", "cancelled"
                 return
             gw.stage = group[0].name

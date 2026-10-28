@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_EXT = (".mp4", ".mov", ".avi")
+ET = ZoneInfo("America/New_York")
+# Hosted live mode switches itself off after this moment (Aniket, 2026-10-28); read-only browsing stays up.
+DEFAULT_LIVE_UNTIL = datetime(2026, 11, 10, 23, 59, 59, tzinfo=ET)
+MIN_ACCESS_CODE_LEN = 12
+_UNSET = "unset"      # "not given": __post_init__ picks the default for the deployment kind
 
 
 def _env(name: str, default, cast=str):
@@ -15,15 +22,63 @@ def _env(name: str, default, cast=str):
     return default if v is None or v == "" else cast(v)
 
 
+def _flag(v: str) -> bool:
+    return v.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _path(v: str) -> Path:
+    return Path(v).expanduser()
+
+
+def parse_live_until(v: str) -> datetime | None:
+    """ISO timestamp; a naive one is read as US Eastern. "none" / "off" disables the auto-off."""
+    if v.strip().lower() in ("none", "off", "never"):
+        return None
+    d = datetime.fromisoformat(v.strip())
+    return d if d.tzinfo else d.replace(tzinfo=ET)
+
+
 @dataclass
 class AppConfig:
-    root: Path = REPO_ROOT
-    # Gateway tag for every model call the app makes. The live demo will switch to "demo-reserve"
-    # (the gateway refuses it before Nov 3).
-    tag: str = field(default_factory=lambda: _env("ETHO_APP_TAG", "dev"))
-    # Upload limits (checked before anything is spent).
-    max_upload_mb: float = field(default_factory=lambda: _env("ETHO_APP_MAX_UPLOAD_MB", 200.0, float))
-    max_duration_s: float = field(default_factory=lambda: _env("ETHO_APP_MAX_DURATION_S", 300.0, float))
+    root: Path = field(default_factory=lambda: _env("ETHO_ROOT", REPO_ROOT, _path))
+    # ---- hosting (ADR-003). `public` marks a deployment that faces the internet: it needs an access code for live
+    # use, runs only under bwrap, keeps its own gateway cache (purged with the job) and takes the defaults marked
+    # "(public)" below unless the env says otherwise. Plain localhost runs keep the old behaviour.
+    public: bool = field(default_factory=lambda: _env("ETHO_APP_PUBLIC", False, _flag))
+    read_only: bool = field(default_factory=lambda: _env("ETHO_APP_READ_ONLY", False, _flag))
+    # Operator switches checked on every request, so they work without a restart. KILL stops live work at once
+    # (running job cancelled, queue cleared); READ_ONLY only refuses new work. The showcase stays up in both.
+    kill_file: Path | None = field(default_factory=lambda: _env("ETHO_APP_KILL_FILE", None, _path))
+    readonly_file: Path | None = field(default_factory=lambda: _env("ETHO_APP_READONLY_FILE", None, _path))
+    # Live use needs this code. It is read from a file (never from the page, the env or the log) and re-read when
+    # the file changes, so it can be rotated without a restart; a rotated code invalidates every cookie.
+    access_code_file: Path | None = field(default_factory=lambda: _env("ETHO_APP_ACCESS_CODE_FILE", None, _path))
+    cookie_ttl_s: float = field(default_factory=lambda: _env("ETHO_APP_COOKIE_TTL_S", 7200.0, float))
+    access_max_failures: int = field(default_factory=lambda: _env("ETHO_APP_ACCESS_FAILURES", 5, int))
+    access_window_s: float = field(default_factory=lambda: _env("ETHO_APP_ACCESS_WINDOW_S", 900.0, float))
+    access_global_failures: int = field(default_factory=lambda: _env("ETHO_APP_ACCESS_GLOBAL_FAILURES", 60, int))
+    access_global_window_s: float = 3600.0
+    # Live mode ends at this moment (public: Nov 10 2026 23:59:59 ET). None = no auto-off.
+    live_until: datetime | str | None = field(default_factory=lambda: _env("ETHO_APP_LIVE_UNTIL", _UNSET,
+                                                                          lambda v: parse_live_until(v)))
+    # Gateway tag for every model call the app makes (public: "demo-reserve"; the gateway refuses it before Nov 3).
+    tag: str | None = field(default_factory=lambda: _env("ETHO_APP_TAG", None))
+    # Cumulative cap over the app's own ledger rows (None = no cumulative cap; public: $20).
+    total_cap_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_TOTAL_CAP_USD", None, float))
+    # Paths. Defaults live under the repo; a deployment under another Unix user points these elsewhere.
+    data_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_DATA_DIR", None, _path))
+    showcase_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_SHOWCASE_DIR", None, _path))
+    # Working directory of the process. Tier 1 and the chunk cache use `cache/chunks` relative to it (public: a
+    # directory of its own under the data dir, so no other cache is mixed with uploads and it can be swept).
+    work_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_WORK_DIR", None, _path))
+    # Gateway response cache. None = the gateway's own (shared) cache. A private dir (public default) holds only this
+    # app's entries, so retention can delete them with the job.
+    gateway_cache_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_GATEWAY_CACHE", None, _path))
+    # How often the retention timer runs (also at startup).
+    maintenance_interval_s: float = field(default_factory=lambda: _env("ETHO_APP_MAINTENANCE_S", 300.0, float))
+    # Upload limits (checked before anything is spent). (public: 50 MB and 120 s)
+    max_upload_mb: float | None = field(default_factory=lambda: _env("ETHO_APP_MAX_UPLOAD_MB", None, float))
+    max_duration_s: float | None = field(default_factory=lambda: _env("ETHO_APP_MAX_DURATION_S", None, float))
     max_behaviors: int = 8
     # Speed. SAM bills at least 50 frames per request, so at 10 fps a chunk is never shorter than 10 s; the target is
     # about `chunk_target` chunks per video so that they track in parallel (chunk_s = clamp(duration / 8, 10, 60)).
@@ -35,7 +90,11 @@ class AppConfig:
     synth_workers: int = 8                     # detector-writing calls in flight (at most one per behavior)
     # Per-day app spend cap (UTC day) and the pre-estimate used to refuse a job that would cross it. Rates are
     # measured costs with margin: SAM $0.002/s of video at 10 fps, tier-1 $0.0012/s (docs/STATE.md).
-    daily_cap_usd: float = field(default_factory=lambda: _env("ETHO_APP_DAILY_CAP_USD", 5.0, float))
+    # The "day" is a rolling 24 hours, not a calendar day, so spend cannot be doubled around midnight. (public: $3)
+    daily_cap_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_DAILY_CAP_USD", None, float))
+    # Per-job ceiling = min(max(mult x estimate, estimate + extra), headroom); reserved when the job is admitted.
+    job_ceiling_mult: float = 2.0
+    job_ceiling_extra_usd: float = 0.5
     est_sam_usd_per_s: float = 0.003
     est_tier1_usd_per_s: float = 0.003
     est_fixed_usd: float = 0.05
@@ -51,7 +110,8 @@ class AppConfig:
     max_concurrent_uploads: int = 2
     max_concurrent_probes: int = 2
     max_sse_per_client: int = 4
-    retention_hours: float = field(default_factory=lambda: _env("ETHO_APP_RETENTION_H", 48.0, float))
+    # Uploads, results and the cache entries made for them are deleted this long after the upload.
+    retention_hours: float = field(default_factory=lambda: _env("ETHO_APP_RETENTION_H", 24.0, float))
     # Showcase runs are CalMS21 (public data) unless their result.json says otherwise.
     # Wording shown in the UI (Aniket is deciding the final text).
     tagline: str = field(default_factory=lambda: _env(
@@ -62,13 +122,57 @@ class AppConfig:
     tile_sub: str = field(default_factory=lambda: _env(
         "ETHO_APP_TILE_SUB", "Definitions in English only; corrections below are optional"))
 
+    def __post_init__(self) -> None:
+        pub = self.public
+        if self.tag is None:
+            self.tag = "demo-reserve" if pub else "dev"
+        if self.daily_cap_usd is None:
+            self.daily_cap_usd = 3.0 if pub else 5.0
+        if self.total_cap_usd is None and pub:
+            self.total_cap_usd = 20.0
+        if self.max_upload_mb is None:
+            self.max_upload_mb = 50.0 if pub else 200.0
+        if self.max_duration_s is None:
+            self.max_duration_s = 120.0 if pub else 300.0
+        if self.live_until == _UNSET:
+            self.live_until = DEFAULT_LIVE_UNTIL if pub else None
+        if self.gateway_cache_root is None and pub:
+            self.gateway_cache_root = self.data_dir / "gateway_cache"
+        if self.work_root is None and pub:
+            self.work_root = self.data_dir / "work"
+
     @property
     def detector_cache_dir(self) -> Path:
         return self.data_dir / "detector_cache"
 
     @property
     def data_dir(self) -> Path:
-        return self.root / "data" / "app"
+        return self.data_root or self.root / "data" / "app"
+
+    @property
+    def work_dir(self) -> Path:
+        return self.work_root or self.root
+
+    @property
+    def tmp_dir(self) -> Path:
+        """Where the process keeps temp files (the planner's sampled frames, upload spools); swept by retention."""
+        return self.data_dir / "tmp"
+
+    @property
+    def chunk_cache_dir(self) -> Path:
+        return self.work_dir / "cache" / "chunks"
+
+    @property
+    def private_gateway_cache(self) -> bool:
+        return self.gateway_cache_root is not None
+
+    @property
+    def kill_path(self) -> Path:
+        return self.kill_file or self.data_dir / "KILL"
+
+    @property
+    def readonly_path(self) -> Path:
+        return self.readonly_file or self.data_dir / "READ_ONLY"
 
     @property
     def jobs_dir(self) -> Path:
@@ -76,7 +180,7 @@ class AppConfig:
 
     @property
     def showcase_dir(self) -> Path:
-        return self.root / "data" / "showcase"
+        return self.showcase_root or self.root / "data" / "showcase"
 
     @property
     def ledger_path(self) -> Path:

@@ -93,7 +93,7 @@ async function loadHeader() {
   try {
     const c = await api("/api/config");
     const el = document.getElementById("spend");
-    if (el) el.textContent = `app spend today ${fmt.usd(c.cap.spent_today_usd)} of ${fmt.usd(c.cap.cap_usd)}`;
+    if (el) el.textContent = c.live && c.live.mode !== "live" ? "" : `live budget left today ${fmt.usd(c.cap.remaining_usd)}`;
     const t = document.getElementById("tag");
     if (t) t.textContent = c.text.tagline;
     const t2 = document.getElementById("tagline");

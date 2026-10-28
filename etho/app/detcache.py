@@ -103,8 +103,9 @@ class DetectorCache:
             rec = read_json(self._path(key), None)
         if isinstance(rec, dict) and rec.get("code"):
             det = Detector(name, rec["code"], rec.get("model", ""), [], rec.get("prompt_hash", ""))
+            # No job id here: it is the capability link to another visitor's project.
             origin = (f"detector cache: written {rec.get('created', '?')} by {rec.get('model', '?')} "
-                      f"for an earlier upload ({rec.get('job', '?')}); no model call made for it now")
+                      "for an earlier upload; no model call made for it now")
             out.append((det, Provenance(name, "cache", origin, key[:16], det.model)))
         return out
 

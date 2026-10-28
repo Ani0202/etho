@@ -19,6 +19,7 @@ def test_estimate_uses_measured_rates_with_margin():
     assert cfg.estimate_job_usd(60, 3) == round(60 * 0.006 + 0.05 + 3 * 0.06, 4)
     assert cfg.estimate_job_usd(10, 0) == round(10 * 0.006 + 0.05, 4)
     assert cfg.daily_cap_usd == 5.0 and cfg.tag == "dev" and cfg.rate_limit_jobs == 3 and cfg.max_duration_s == 300
+    assert cfg.total_cap_usd is None and cfg.retention_hours == 24.0 and not cfg.public and cfg.live_until is None
 
 
 def test_tag_is_a_config_value(monkeypatch):
@@ -48,9 +49,11 @@ def test_spend_guard_refuses_when_today_plus_estimate_exceeds_cap(tmp_path):
     with pytest.raises(Refused):                       # money already promised to queued jobs counts too
         g.check(0.5, outstanding_usd=0.6)
     assert g.remaining(0.2) == pytest.approx(0.8)
-    # next UTC day the counter starts from zero
-    g2 = SpendGuard(AppConfig(daily_cap_usd=5.0), led, now=lambda: datetime(2026, 10, 29, tzinfo=timezone.utc))
-    assert g2.check(4.9)["spent_today_usd"] == 0.0
+    # the window is a rolling 24 h, not a calendar day: 15 h later the $4 still counts, 25 h later it has aged out
+    g2 = SpendGuard(AppConfig(daily_cap_usd=5.0), led, now=lambda: datetime(2026, 10, 29, 0, tzinfo=timezone.utc))
+    assert g2.check(0.9)["spent_today_usd"] == 4.0
+    g3 = SpendGuard(AppConfig(daily_cap_usd=5.0), led, now=lambda: datetime(2026, 10, 29, 10, tzinfo=timezone.utc))
+    assert g3.check(4.9)["spent_today_usd"] == 0.0
 
 
 def test_job_refused_by_api_when_cap_would_be_crossed_and_nothing_is_spent(tmp_path, monkeypatch):
@@ -86,10 +89,12 @@ def test_default_cap_admits_a_five_minute_upload(tmp_path):
 
 
 def test_queued_jobs_count_against_the_cap(tmp_path, monkeypatch):
-    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.3}, cfg_kw={"daily_cap_usd": 0.5, "rate_limit_jobs": 9})
-    assert post_job(client, c.video).status_code == 200           # estimate ~ $0.21
-    assert post_job(client, c.video).status_code == 200            # 0.41 < 0.5
-    r = post_job(client, c.video)                                   # third would reach 0.62 > 0.5
+    # estimate ~ $0.21 and ceiling $0.71 (reserved at admission): the first reserves $0.71 of the $1.00 cap, the
+    # second fits in the remaining $0.29, the third has nothing left to reserve
+    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.3}, cfg_kw={"daily_cap_usd": 1.0, "rate_limit_jobs": 9})
+    assert post_job(client, c.video).status_code == 200
+    assert post_job(client, c.video).status_code == 200
+    r = post_job(client, c.video)
     assert r.status_code == 429 and r.json()["error"] == "daily_cap"
 
 

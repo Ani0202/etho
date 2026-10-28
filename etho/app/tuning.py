@@ -34,6 +34,14 @@ def register_chunk_s(src: Path, chunk_s: int) -> None:
         _REGISTRY[str(Path(src).resolve())] = int(chunk_s)
 
 
+def forget_under(directory: Path) -> None:
+    """Drop registrations for sources inside a deleted project directory."""
+    prefix = str(Path(directory).resolve()) + "/"
+    with _REG_LOCK:
+        for k in [k for k in _REGISTRY if k.startswith(prefix)]:
+            del _REGISTRY[k]
+
+
 def registered_chunk_s(src: Path) -> int | None:
     with _REG_LOCK:
         return _REGISTRY.get(str(Path(src).resolve()))
