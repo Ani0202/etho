@@ -413,3 +413,11 @@ def test_clock_text_rounds_before_splitting():
             "console.log(JSON.stringify([59.96,0,59.94,61.25,3599.99,-1].map(x=>vm.runInContext('clockText('+x+')',c))))")
     out = subprocess.run(["node", "-e", code, str(STATIC / "common.js")], capture_output=True, text=True, check=True)
     assert json.loads(out.stdout) == ["1:00.0", "0:00.0", "0:59.9", "1:01.3", "60:00.0", "0:00.0"]
+
+
+def test_a_confident_verdict_matching_the_rule_is_agreed_not_set_aside():
+    allow = frozenset({"investigation", "none"})
+    d, text = PG.decide({"label": "mount", "rule_label": "mount", "confidence": 0.92}, allow)
+    assert d == "agreed" and "agreeing with the rule" in text
+    assert PG.decide({"label": "attack", "rule_label": "mount", "confidence": 0.88}, allow)[0] == "restriction"
+    assert PG.decide({"label": "mount", "rule_label": "mount", "confidence": 0.3}, allow)[0] == "set_aside"

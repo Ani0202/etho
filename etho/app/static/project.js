@@ -126,7 +126,7 @@
     const t1 = t.tier1.length ? t.tier1.map(v => {
       const img = h("img", { class: "thumb", alt: "frame strip shown to the tier-1 model", loading: "lazy", src: `/api/projects/${encodeURIComponent(pid)}/strip/${v.strip}` });
       img.onerror = () => img.replaceWith(h("div", { class: "hint" }, "Strip image not stored for this window."));
-      const tag = v.decision === "applied" ? "APPLIED" : v.decision === "restriction" ? "SET ASIDE BY THE RESTRICTION" : "SET ASIDE";
+      const tag = v.decision === "applied" ? "APPLIED" : v.decision === "agreed" ? "AGREED WITH THE RULE" : v.decision === "restriction" ? "SET ASIDE BY THE RESTRICTION" : "SET ASIDE";
       return h("div", { class: "verdict " + v.decision },
         h("div", {}, h("span", { class: "chip" }, tag), ` window ${(v.s0 / fps()).toFixed(1)}-${(v.s1 / fps()).toFixed(1)} s: rules said "${v.rule_label}", tier 1 said "${v.label}" (confidence ${v.confidence})`),
         v.reason ? h("div", { class: "sub" }, `Tier-1 reason: ${v.reason}`) : null, h("div", {}, v.decision_text), img);

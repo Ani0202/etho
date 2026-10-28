@@ -144,6 +144,9 @@ def decide(v: dict, allow: frozenset[str]) -> tuple[str, str]:
     if conf < CONFIDENT:
         return "set_aside", (f"Tier 1 confidence {conf:.2f} is below the {CONFIDENT:g} threshold, so the rule "
                              "result stands.")
+    if lab not in allow and lab == v.get("rule_label"):
+        return "agreed", (f"Tier 1 also said \"{lab}\" (confidence {conf:.2f}), agreeing with the rule; the rule "
+                          "result stands.")
     if lab not in allow:
         return "restriction", (f"Tier 1 said \"{lab}\", but this app lets tier 1 change a window only to "
                                f"{' or '.join(sorted(allow))}. The verdict was set aside by that restriction and "
@@ -200,6 +203,9 @@ def bout_trace(record: dict, verdicts: list[dict], behavior: str, s0: int, s1: i
     elif any(v["decision"] == "restriction" for v in touching):
         decided = "rules"
         why = "The rules decided: a tier-1 verdict was set aside by the restriction"
+    elif any(v["decision"] == "agreed" for v in touching):
+        decided = "rules"
+        why = "The rules decided, and a confident tier-1 verdict agreed with them"
     elif touching:
         decided = "rules"
         why = "The rules decided: the tier-1 verdicts were set aside (unsure or low confidence)"
