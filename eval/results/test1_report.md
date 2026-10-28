@@ -22,8 +22,8 @@ Full-precision values are in the result JSON. All target verdicts were computed 
 
 ## 1. Supervision statement (attach to every number below)
 
-> **[2026-10-28, after the gate] Headline wording: pending Aniket's decision.** Both versions are in section
-> 11.2. "No setting was tuned on test" below is replaced by "No test prediction scores were used to select
+> **[2026-10-28, after the gate] The headline wording below is superseded by the version Aniket approved
+> (section 11.2).** "No setting was tuned on test" below is replaced by "No test prediction scores were used to select
 > this configuration."
 
 The primary arm `zs_t1` is described as follows (Aniket's approved wording, DECISIONS.md 2026-10-28):
@@ -346,7 +346,7 @@ not demonstrated.
 
 > **[2026-10-28, after the gate]** The figures below omit 10 fps preprocessing (chunks were precomputed). The
 > corrected figures, including the separately measured preprocessing, are in section 11.3: pooled 0.8777x,
-> median 0.8602x, max 1.5421x; the manual time is 3.41x-4.55x Etho's.
+> median 0.8602x, max 1.5421x. Manual-time ratios are analysis only, never a claim (11.1).
 
 **Definition** (EVAL_PLAN 4.4 [A1]): per-video processing time = tracking wall + rules wall + **first-pass**
 tier-1 wall, divided by the video's duration (`src_frames / 30`). It is a sum of stage times, not one
@@ -600,39 +600,53 @@ public claims."
   test-2 headline or a rerun of accuracy.
 - Its two High findings are the speed omission (11.3) and the headline wording (11.2).
 
-### 11.1 Demo numbers (corrected; use these, with the wording as given)
+### 11.1 Demo and README numbers (approved wording; updated ~17:55 UTC after Aniket's approval)
 
-These three statements are approved by the evaluator for the demo, subject to Aniket's headline decision in
-11.2. Each must appear with its caveat.
+Aniket approved this wording in `docs/ESCALATIONS.md`, "Answers from Aniket (2026-10-28, ~13:50 ET)" (17:50 UTC).
+The evaluator's earlier draft of this subsection is in commit 21055bc. Each line below must carry its
+conditions.
 
-1. **Accuracy relative to the published baseline.**
-   > Etho achieved **73.1%** of the published raw-pose 1D ConvNet baseline's macro F1: **0.580 versus 0.793,
-   > a 0.213 gap** (CalMS21 Task 1 test set, frame-level F1).
+1. **Accuracy line** (use everywhere):
+   > **0.58 F1 with no training; supervised methods reach 0.79–0.86** (CalMS21 Task 1 test set, frame-level
+   > macro F1; supervised references: Sun et al. 2021, Tables 1 and 2: .793, .829, .864).
 
-   - Show the per-behavior F1s beside it: attack 0.449 (baseline 0.664), investigation 0.635 (0.814), mount
-     0.656 (0.900). The baseline per-class values are from Sun et al. Table 8, verified (11.4).
-   - Interval: 62.1%-78.4% (the macro CI divided by 0.793, rounded outward; section 4's 62.1%-78.3% was
-     truncated). This treats 0.793 as fixed, so it is not a full uncertainty interval for the
-     comparison.
-   - 0.793 is *not* the best published result. On the same test set, the paper's Table 2 lists 0.829
-     (baseline plus task-programming features) and 0.864 (MABe 2021 Task 1 top-1 entry). Etho's macro is
-     67.1% of 0.864.
-   - Attach the supervision statement (11.2).
-2. **Speed, including preprocessing.**
-   > Summed processing time (10 fps chunking, tracking, rules, and adjudication, one video at a time) was
-   > **0.88x the video's duration** pooled over the 19 test videos (median 0.86x per video; 5 of 19 videos
-   > took longer than real time, max 1.54x). Published estimates put manual scoring of social behavior at
-   > 3-4x video duration (Segalin et al., eLife 2021).
+   **Verified by the evaluator from arXiv:2104.02710v4** (11.4 and 11.9). All three references are trained on
+   the 70 labeled Task 1 videos and scored with the same metric on the same Task 1 test set, so the range
+   0.79–0.86 is supported. It is conventional rounding of .793–.864. "0.58" is 0.580027.
 
-   - Caveat (mandatory): *this is a runtime comparison, not demonstrated labor savings.* Human review and
-     correction time were not measured, and Etho's accuracy is below supervised models.
-   - Preprocessing was measured separately, after the run (11.3). Video download is excluded.
-   - The cited manual time is 3.41x-4.55x Etho's summed processing time (3 / 0.8777 to 4 / 0.8777).
-3. **Cost.**
+   Conditions:
+   - **Per-behavior F1s must appear on the same slide or README line** (EVAL_PLAN 4.1 reporting rule: a macro F1
+     is never shown alone). Etho's are attack 0.449, investigation 0.635, mount 0.656. The baseline per-class
+     values from Table 8 are optional context: 1D ConvNet .664/.814/.900; MABe top-1 .827/.852/.913.
+   - **"No training" must be read with the headline and footnote** in 11.2: no task-specific model training,
+     with settings tuned on 13 labeled dev videos.
+   - The 95% CI (0.493–0.621) belongs in the README and report.
+2. **Speed line:**
+   > **Scores a video unattended in about its own length (0.88× real time on test; worst 1.54×); manual
+   > scoring takes 3–4×.**
+
+   Supporting figures:
+   - Pooled 0.8777×, median 0.8602×, max 1.5421× (mouse073); 5 of 19 test videos ran slower than real time.
+   - The figures include the separately measured, non-contemporaneous preprocessing (11.3) and exclude the
+     video download.
+   - The manual figure is the MARS 3–4× estimate (Segalin et al., eLife 2021), which has no primary source in
+     that paper.
+
+   Conditions:
+   - In the README and report, add: "a runtime comparison, not demonstrated labor savings: human review and
+     correction time were not measured."
+   - **No "N× faster" wording anywhere** (Aniket). The 3.41–4.55× and 3.64–4.85× ratios in sections 6.1 and
+     11.3 are analysis only, not claims.
+3. **Cost:**
    > Model API cost for this fixed benchmark pipeline was **$11.25 per hour of video** ($11.54 without
    > input-cache discounts), excluding the planner, one-time detector synthesis, hosting, and human review.
 
-   - This is from the gateway ledger at logged rates. It is not an invoice.
+   This comes from the gateway ledger at logged rates; it is not an invoice.
+
+**Analysis only, not for claim-level text:**
+- Share of the raw-pose 1D ConvNet: 73.1% (62.1–78.4%, treating .793 as fixed).
+- Share of the MABe 2021 top-1 entry: 67.1%.
+- The manual-time / Etho-time ratios.
 
 Supporting measurement, not a test-set result: the live app on a fresh **4-minute dev clip** (mouse021, 60-300
 s, re-encoded so nothing was cached).
@@ -647,12 +661,39 @@ s, re-encoded so nothing was cached).
     pipeline (for example, app tier-1 concurrency is 8, per commit d3c3844).
   - Per the lead's note, a 60 s clip would stay above 1x, because tier-1 latency dominates.
 
-### 11.2 Headline and footnote: PENDING ANIKET'S DECISION
+### 11.2 Headline and footnote: APPROVED by Aniket (2026-10-28, ~13:50 ET / 17:50 UTC)
 
-The lead is escalating this. The evaluator does not adopt either version. Until Aniket decides, public
-material should not use the "untouched" footnote.
+**Full version** (README and report):
+> **Training-free: plain-English behavior definitions, no labeled examples given to the models, no model
+> training.**¹
+>
+> ¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
+> videos. Test-label summaries (behavior counts) informed dev-set selection and targets; no test predictions
+> were used to choose settings.
 
-| | Version A (Aniket's approved wording, used in section 1) | Version B (proposed by the Codex gate) |
+**Demo-slide version**, recorded for traceability:
+> **Training-free: plain-English behavior definitions, no labeled examples given to the models, no model
+> training.**¹
+>
+> ¹ Tuned on 13 labeled dev videos; scored once on the 19 official test videos. Full disclosure in README.
+
+The evaluator checked the approved wording against the record:
+- "13 labeled development videos" (8 dev + 5 dev-holdout), "19 official test videos", and "scored once" (one
+  `score` and one `identity` execution under test-1) are correct.
+- "No labeled examples given to the models" is correct for the primary arm.
+- "No test predictions were used to choose settings" is correct, and it matches the gate's narrowing ("No test
+  prediction scores were used to select this configuration").
+- **One omission, flagged for Aniket rather than changed:** EVAL_PLAN section 1 and the gate's version say the
+  test-label summaries also informed the **sampling rate**. The 10 fps decision used the test short-bout
+  histogram. The approved footnote names only "dev-set selection and targets". The evaluator recommends
+  "informed dev-set selection, the 10 fps sampling rate, and targets". The summaries also included bout counts
+  and the short-bout length histogram, not only behavior counts. This is Aniket's wording decision.
+
+The wording that preceded the approval is kept below for traceability.
+
+**Superseded wording, kept for the record:**
+
+| | Version A (the earlier wording, used in section 1) | Version B (proposed by the Codex gate) |
 |---|---|---|
 | Headline | "Training-free: plain-English behavior definitions, no labeled examples, no model training." | "Plain-English behavior definitions, no task-specific model training or fine-tuning, and no labeled examples supplied to models in the primary arm." |
 | Footnote | "Pipeline settings were tuned on 13 labeled development videos; test results are on 19 untouched videos." | "Pipeline settings were selected using 13 labeled development videos. Predictions were evaluated once on all 19 official test videos. Before evaluation, test-label summaries informed development-set selection, sampling rate, and targets." |
@@ -735,7 +776,7 @@ There is no CI, so no "robustly":
 - **Good** (max <= 1.0 and pooled <= 0.5): max 1.542032 > 1.0 and pooled 0.877626 > 0.5, so **NOT MET**.
 
 These replace the speed rows of section 3 and the ratios in sections 6.1 and 10. Against the cited manual
-figure, Etho's 7,667.7 s (127.8 min) for 145.6 min of video means the manual time is 3.41x-4.55x Etho's summed
+figure (analysis only, not claim-level text; see 11.1), Etho's 7,667.7 s (127.8 min) for 145.6 min of video means the manual time is 3.41x-4.55x Etho's summed
 processing time. The earlier 3.64x-4.85x is withdrawn. The section 6.1 caveat stands: this is a contextual
 runtime comparison, not labor savings. The gate's interim wording, recorded for completeness, was: "With
 video chunks precomputed, summed tracking, rules, and adjudication time was approximately 0.82 times video
@@ -860,3 +901,43 @@ Items the gate lists as unverified, and still unverified:
 | **Speed, minimum credible** | **MET**, *conditional on the separately measured preprocessing*: pooled 0.8777x, median 0.8602x |
 | **Speed, good** | **NOT MET**: max 1.5421x, pooled 0.8777x |
 | Cost per video-minute, minimum / good | MET / MET ($0.1923 most conservative; no CI; without planner). With the planner extrapolation it would be $0.1988-0.2014, straddling the $0.20 threshold |
+
+### 11.9 Verification of the three supervised references in the accuracy line (2026-10-28, ~17:55 UTC)
+
+Source: arXiv:2104.02710v4 HTML (https://arxiv.org/html/2104.02710v4), downloaded and read by the evaluator.
+The local copy is in the evaluator's scratchpad, sha256 `23545b53...d14efd`. The passages used are Tables 1, 2,
+and 8, section 4.2 ("Task 1 Classic Classification Results"), the Table 2 caption, and Appendix E.
+
+**Same metric and test set for all three.**
+- Table 2 is titled "Class-averaged results on Task 1 (attack, investigation, mount; mean ± standard deviation
+  over 5 runs)".
+- Appendix E fixes the metric: an unweighted F1 average over the three behaviors, omitting "other", computed on
+  the entire Task 1 test set concatenated. That is Etho's metric and test set.
+- Each figure is a mean over 5 training runs.
+
+| Value | Paper's name | Labels used (supervision) | Other training data | Inputs |
+|---|---|---|---|---|
+| **.793 ± .011** | "Baseline" / "1D Conv Net" (Tables 1, 2) | Task 1 train split (70 labeled videos) | none | **raw pose trajectories** (MARS keypoints) |
+| **.829 ± .004** | "Baseline w/ task prog" (Table 2) | Task 1 train split | features from a task-programming model (self-supervised) "trained on the unlabeled set only", concatenated with the keypoints | pose keypoints + learned trajectory features |
+| **.864 ± .011** | "MABe 2021 Task 1 Top-1" (Table 2; winning challenge entry) | Task 1 train split, **plus labeled data of all three tasks** ("jointly trained on all three tasks") | the unlabeled set; trained "in a semi-supervised fashion" (contrastive loss on all samples, cross-entropy on labeled samples) | pose-derived egocentric features (distances, velocities, angles) + PCA embedding of pairwise keypoint distances |
+
+**Verdict: all three are supervised methods on Task 1, with the same metric and test split.** Every one is
+trained with Task 1 expert labels. The .829 and .864 entries add self- or semi-supervised learning on
+unlabeled data, and the .864 entry also uses Task 2 and Task 3 labels. **None uses video. All use pose
+keypoints** from the MARS pose estimator, which was itself trained on labeled mouse poses. So "supervised
+methods reach 0.79–0.86" is accurate, and the evaluator adopts it.
+
+Notes that go with the line, for the README:
+1. **Use of test trajectories.** Table 2's "Unlabeled Set" column is headed "(all splits)". The caption says
+   "'all splits' indicates that both labeled train set and trajectory from unlabeled test set are used." On the
+   literal reading, the .829 and .864 entries used the test sequences' pose trajectories, without labels, in
+   their self- or semi-supervised training. That is transductive use of test inputs, not test labels. The
+   evaluator reports the caption as written and has not resolved it further.
+2. **Rounding.** "0.79–0.86" rounds .793 and .864 to two decimals (.864 to .86). This is conventional rounding,
+   as the gate asked. For the citation, give the exact values: .793, .829, .864.
+3. **What the comparison does not show.** It is not a like-for-like model comparison. Etho reads video through
+   SAM 3.1, and the references read pose keypoints. Development procedures also differ, so the gap is not
+   attributable to training alone (the gate's caution in 11.4).
+4. **Other Table 1 rows.** Table 1 also lists weaker supervised architectures (fully connected .659, LSTM .675,
+   self-attention .610). The line cites the 1D ConvNet and the two stronger Table 2 entries. That is the
+   paper's own benchmark set, and it does not cherry-pick a weak reference.
