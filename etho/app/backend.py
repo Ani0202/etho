@@ -171,8 +171,8 @@ class Backend:
         n_in = count_frames(video)             # bound the chunk count (and so SAM cost) before anything is sent
         chunk_s = ctx.state.get("chunk_s") or tuning.choose_chunk_s(n_in / FPS, self.cfg)
         n_chunks = -(-n_in // int(chunk_s * FPS))
-        if n_chunks > -(-int(self.cfg.max_duration_s + 2) // self.cfg.chunk_min_s):
-            raise ValidationError(f"{n_in} samples would need too many SAM chunks", 413, "too_long")
+        if n_in > (self.cfg.max_duration_s + 2) * FPS:   # bounds SAM frames directly, independent of chunk_s
+            raise ValidationError(f"{n_in} samples exceed the {self.cfg.max_duration_s:.0f} s limit", 413, "too_long")
         prep = ctx.state.pop("prep", None)
         if prep is not None:
             try:
@@ -236,14 +236,26 @@ class Backend:
             ctx.say(f"{model} (effort high) writes {len(todo)} detector{'s' if len(todo) != 1 else ''} in parallel: "
                     f"{', '.join(todo)}" + (f"; {n_reused} reused without a model call" if n_reused else ""))
             with ThreadPoolExecutor(max(1, min(self.cfg.synth_workers, len(todo)))) as ex:
-                res = list(ex.map(one, todo))
-            for name, (det, err) in zip(todo, res, strict=True):
+                futs = [ex.submit(one, n) for n in todo]
+            stop = None
+            # cache only detectors written from a reasonably tracked video; existing entries are never
+            # overwritten (first writer wins), so a degenerate upload cannot poison the cache
+            cacheable = ctx.state.get("both_present", 1.0) >= 0.5
+            for name, f in zip(todo, futs, strict=True):
+                try:
+                    det, err = f.result()
+                except (JobCancelled, JobBudgetExceeded) as e:
+                    stop = stop or e
+                    continue
                 if err:
                     ctx.warnings.append(f"No detector for {err}")
                     continue
                 found[name] = det
-                prov[name] = self.detector_cache.put(det, defs[name], subject, partner, job=ctx.job.id)
-                prov[name].note = retry_note.get(name, "")
+                prov[name] = self.detector_cache.put(det, defs[name], subject, partner, job=ctx.job.id,
+                                                     cacheable=cacheable)
+                prov[name].note = "; ".join(x for x in (retry_note.get(name, ""), prov[name].note) if x)
+            if stop is not None:
+                raise stop
         else:
             ctx.say(f"all {n_reused} detectors reused, no model call: "
                     + ", ".join(f"{n} ({prov[n].source})" for n in names))

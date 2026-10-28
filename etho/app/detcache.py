@@ -5,8 +5,10 @@ key because a detector is code over those feature names: change the features and
 
 Lookup order for one behavior:
   1. seed: the definition text and the subject/partner match one in `configs/calms21_definitions.json`
-     exactly, so the detector scored on the benchmark (`configs/detectors/R1_zero_shot.json`) is used. The app
-     then agrees with the reported benchmark numbers. The seed is matched on text, not on the name the user
+     exactly, so the detector scored on the benchmark (`configs/detectors/R1_zero_shot.json`) is used. It was
+     written from CalMS21 dev feature statistics and is not adapted to the uploaded video; the app also tracks
+     with shorter chunks than the benchmark, so app results are not guaranteed to match the reported numbers.
+     The seed is matched on text, not on the name the user
      gave the behavior (a detector is a function of the features and does not know its name).
   2. cache: a detector the app wrote for the same key on an earlier upload (also tried when the seed does not
      run on the video at hand: the replacement written for that case is cached).
@@ -80,7 +82,8 @@ class DetectorCache:
         _, _, bench_name, d = hit
         det = Detector(name, d["code"], d.get("model", ""), [], d.get("prompt_hash", ""))
         origin = (f"benchmark detector for '{bench_name}' ({SEED_DETECTORS.as_posix()}), the one scored on CalMS21; "
-                  "your definition matches the dataset authors' wording exactly")
+                  "your definition matches the dataset authors' wording exactly. It was written from CalMS21 "
+                  "feature statistics and is not adapted to this video")
         return det, Provenance(name, "seed", origin, cache_key(name, definition, subject, partner)[:16],
                                det.model)
 
@@ -98,7 +101,7 @@ class DetectorCache:
         key = cache_key(name, definition, subject, partner)
         with self._lock:
             rec = read_json(self._path(key), None)
-        if rec and rec.get("code"):
+        if isinstance(rec, dict) and rec.get("code"):
             det = Detector(name, rec["code"], rec.get("model", ""), [], rec.get("prompt_hash", ""))
             origin = (f"detector cache: written {rec.get('created', '?')} by {rec.get('model', '?')} "
                       f"for an earlier upload ({rec.get('job', '?')}); no model call made for it now")
@@ -109,12 +112,22 @@ class DetectorCache:
         c = self.candidates(name, definition, subject, partner)
         return c[0] if c else None
 
-    def put(self, det: Detector, definition: str, subject: str, partner: str, *, job: str) -> Provenance:
+    def put(self, det: Detector, definition: str, subject: str, partner: str, *, job: str,
+            cacheable: bool = True) -> Provenance:
+        """First writer wins: an existing entry is never overwritten (a degenerate upload can't poison it), and
+        callers pass cacheable=False when the detector was written from a poorly tracked video."""
         key = cache_key(det.behavior, definition, subject, partner)
+        fresh = Provenance(det.behavior, "fresh", f"written for this upload by {det.model} (effort high)",
+                           key[:16], det.model)
+        if not cacheable:
+            fresh.note = "not cached: written from a poorly tracked video"
+            return fresh
         rec = {"behavior": det.behavior, "code": det.code, "model": det.model, "prompt_hash": det.prompt_hash,
                "job": job, "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                "cost_usd": round(sum(c.get("cost_usd", 0.0) for c in det.calls), 6)}
         with self._lock:
+            if self._path(key).exists():
+                fresh.note = "not cached: an earlier entry for this definition is kept"
+                return fresh
             write_json(self._path(key), rec)
-        return Provenance(det.behavior, "fresh", f"written for this upload by {det.model} (effort high)",
-                          key[:16], det.model)
+        return fresh

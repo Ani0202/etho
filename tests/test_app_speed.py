@@ -381,3 +381,20 @@ def test_overlap_needs_both_windows():
     assert overlap_s(a, b) == 1.0 and overlap_s(b, a) == 1.0
     b.start_s = 3.0
     assert overlap_s(a, b) == 0.0
+
+
+def test_cache_is_first_writer_wins_and_skips_poorly_tracked_videos(tmp_path):
+    from etho.app.detcache import DetectorCache
+    from etho.rules.synthesize import Detector
+    dc = DetectorCache(tmp_path, tmp_path / "dc")
+    a = Detector("attack", "def detect(t, fps):\n    return t['gap'] < 1\n", "m")
+    b = Detector("attack", "def detect(t, fps):\n    return t['gap'] < 999\n", "m")
+    assert dc.put(a, "bite", "s", "p", job="j1").note == ""
+    assert "kept" in dc.put(b, "bite", "s", "p", job="j2").note
+    assert dc.candidates("attack", "bite", "s", "p")[0][0].code == a.code
+    assert "poorly tracked" in dc.put(b, "chase", "s", "p", job="j3", cacheable=False).note
+    assert dc.candidates("attack", "chase", "s", "p") == []
+    (tmp_path / "dc").mkdir(exist_ok=True)
+    for p in (tmp_path / "dc").glob("*.json"):
+        p.write_text("[1, 2]")          # garbage that is valid JSON but not a dict
+    assert dc.candidates("attack", "bite", "s", "p") == []
