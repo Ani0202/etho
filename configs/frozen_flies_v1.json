@@ -1,6 +1,6 @@
 {
  "name": "flies_v1",
- "frozen_at_commit": "3e5af48a37000fc76eb38126062556546f1ba1a3",
+ "frozen_at_commit": "868137c1e0bb6adef4ec5f714f642c3e92f2aecf",
  "branches": {
   "GO": {
    "window": "mid5",
@@ -106,15 +106,19 @@
    },
    {
     "path": "scripts/run_fly_etho.py",
-    "sha256": "c4b8897f75f813845bf050cab7a83148951cd3143828b79c86c85e1fc9b338ed"
+    "sha256": "c51c7b12d1959a994c3c37624a93650e31591c90285fd563c4569cddcb8110a8"
    },
    {
     "path": "etho/flies/predict.py",
-    "sha256": "acbc6b6cd0dded615fcd6d37c429ca2c355dce4911af2d07da5e333364c93ee4"
+    "sha256": "bcca6351698afb7f070bcddb744098282bbcda95898c9897c83eae3823ff99b1"
    },
    {
     "path": "etho/flies/extras.py",
-    "sha256": "a136571eeb4c2df1dabac053898d5b22295d4c26f0461cbce488c39b88ef87c9"
+    "sha256": "cd959f8f53af18b3291053cf5e0b58278558184d8acef776ca862c1dec847c3a"
+   },
+   {
+    "path": "etho/flies/frozen.py",
+    "sha256": "43094a0818da6b28bc2224d4ace9982f8d619862353fd93ed3519e067cec374b"
    },
    {
     "path": "etho/rules/sandbox.py",
@@ -134,7 +138,7 @@
    },
    {
     "path": "scripts/freeze_flies.py",
-    "sha256": "c53a87582388c5e15a0d5f3eb64e5b9438d34724085352384cc2b220bdb4b8a6"
+    "sha256": "9ec74bf5b46c6bd4b8ce2d453f511e729c5b44d386b5e9a8245ee5c31b2dbdb1"
    }
   ]
  }
