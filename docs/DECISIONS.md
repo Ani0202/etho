@@ -61,4 +61,12 @@ For eval, planner outputs on test are logged and never inspected by a person (EV
 - Rules: none for A or C. D triggers escalation items 6 and possibly 1.
 - Budget: B on test A breaks the `eval-sam` tag.
 - Integrity: the phrase and the thresholds above are frozen in the test config.
-**Codex view:** pending. The lead should run `bin/codex-ask` on the options and evidence, blind to this choice.
+**Codex view** (`ops/codex/ask-20261028-045338.md`, gpt-6-astra xhigh; given options and evidence without the choice, though it saw the ADR via its startup reads, which it disclosed):
+- It picks A as the baseline. Test E (box/point re-seed, forward and backward propagation) next. Keep C conditional on demonstrated failures. Reject B and D for now.
+- Keep biological identity separate from SAM IDs, and allow "unknown".
+- Use persistence/ROI as evidence, not a hard "two tracks" rule.
+- Never interpolate posture through occlusion.
+- Route missing-track intervals to adjudication; otherwise mount bouts can't be recovered.
+- Key catch (verified): every spike gap precedes a track's first detection. So recovery after losing an *established* track is untested.
+- The intensity identity resolver itself is unvalidated: the spike scored majority-nearest-reference identity.
+- **Lead's reconciliation:** agree on all points. E and a "mount with preceding footage" clip go first in Phase 2. Identity becomes {resident, intruder, unknown}, and gaps are kept as explicit missingness.

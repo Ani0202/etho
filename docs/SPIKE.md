@@ -42,8 +42,16 @@ keypoint centroid is nearer.
 
    **Coverage, the bigger problem:** both mice are detected in only 160/200 (A) and 190/200 (B)
    frames, 87.5% combined. In clip A, the intruder is missing in clip frames 0-39, which include
-   **all 27 mount frames**: it is hidden under the resident. So tracking does not "survive" the
-   mount. The mount is seen only as a single resident blob.
+   **all 27 mount frames**: it is hidden under the resident. The mount is seen only as a single
+   resident blob.
+
+   **But every gap is an initialization gap.** No track has an internal gap: the clip A intruder
+   is present from frame 40 to 199, the clip B resident from 4 onward, and the intruder from 10
+   onward. All missing frames come *before* each track's first detection (pointed out by Codex,
+   verified from the cached streams). The mount sat at the very start of clip A. So we have not
+   tested whether an **established** track survives a mount; the spike shows only that SAM can't
+   *start* a track on a hidden animal. Next test: the same mount with a few seconds of preceding
+   footage, plus a box-prompt re-seed with backward propagation (about $0.10 total).
 3. **Baseten Muse Spark Open accepts video** as a base64 `video_url` data URL (8.6 MB mp4) on Chat
    Completions.
    - Clip B (attack): it called every bout "attack, initiated by the black resident". That is
@@ -71,7 +79,7 @@ keypoint centroid is nearer.
 2. **Spurious objects.** In clip B, `"mouse"` produced two extra IDs, in 33 and 16 frames, about
    160 px from either mouse: a reflection in the cage wall and an object at the frame edge. Fix:
    keep the two most persistent tracks inside the arena-floor ROI.
-3. **Detection gaps, worst during mount.**
+3. **Detection gaps, worst during mount** (all are at track start; see the coverage note in §2).
    - Clip B's resident is missing in frames 0-3 (fast tumbling, motion blur).
    - Clip A's intruder is missing for 4 s (frames 0-39), which covers the entire mount.
    - A gap at the start of a clip has nothing to interpolate from, and interpolation can't recover
