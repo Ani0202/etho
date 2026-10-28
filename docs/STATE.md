@@ -1,6 +1,21 @@
 # Etho state
 
-_Updated 2026-10-28 21:00 UTC (17:00 ET)._
+_Updated 2026-10-28 23:25 UTC (19:25 ET)._
+
+## Latest (evening Oct 28)
+- **Hosting:** Aniket ran the sudo steps; `etho-app` is active in read-only mode at the Funnel URL (ops/public-url,
+  untracked). It still runs pre-merge code: **needs `sudo systemctl restart etho-app`** to load the cap schedule,
+  the ADR-005 bundle and the new showcase. The VM cannot reach its own Funnel URL (known loopback limit), so external
+  checks run from Aniket's Mac / a phone.
+- **ADR-005 bundle merged** (3b93891 + 89762a2): planner card, phased progress with real clock, bout trace, ethogram
+  polish + expert row, sample clip, job-showcase packaging, presentation mode. Claude reviewer: merge after fixes, all
+  9 fixed. Codex refused by policy (app-only). `make check`: 688 passed, lint clean.
+- **Public caps:** $3/day, $8/day Nov 4-9 ET, $30 total (5dba069).
+- **Showcase:** `sc-calms21-mouse075-live`, a real app run ($0.89 dev, 0.43x real time); scripted error recurs.
+- **Form:** docs/FORM_FINAL.md final (Aniket's review applied); open: X handle/hashtag.
+- **Script v4** adopted; captions draft docs/demo_captions_v4.srt; architecture diagram docs/architecture.svg.
+- **Next:** reliability pass (fresh-clone README test; judge path from a phone on cellular; kill-switch and cap-hit
+  drills), Oct 30 checkpoint, README polish, results in the Oct 31 status.
 
 ## Status (updated 2026-10-28 17:35 UTC / 13:35 ET)
 
