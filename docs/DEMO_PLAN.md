@@ -121,8 +121,8 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v4.s
     precomputed run, labeled "precomputed".
 - **Human annotation timeline:** the real CalMS21 labels for the clip, rendered like Etho's ethogram, credited
   "CalMS21, Sun et al. 2021, CC BY 4.0".
-- **Code beat assets:** an architecture diagram (to draw: `docs/architecture.svg`, matching the six-stage
-  architecture in the README), plus syntax-highlighted excerpts of the three files at 150% zoom.
+- **Code beat assets:** the architecture diagram `docs/architecture.svg` (done 2026-10-28, 1920x1080:
+  five stages, the correction loop, and the gateway under every model call), plus syntax-highlighted excerpts of the three files at 150% zoom.
 - **Before export:**
   - total length ≤ 3:00;
   - every on-screen number matches a repo file;
