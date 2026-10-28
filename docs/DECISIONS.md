@@ -143,3 +143,4 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
   | 10 s | 86.4% | 0% | 15.6% (new chunks start with the intruder hidden) |
   | 30 s | 85.5% | 2.0% | 100% |
   Short uploads are therefore slower (a 60 s clip is about 1.5x real time); videos of 2 min or more parallelize across chunks and stay under 1x. Accuracy over speed.
+- 2026-10-28 13:15 UTC: (fallback, no reply in 2 h) Headline wording adopted for all written material: "No labeled examples in any prompt and no model training; pipeline settings tuned on 13 labeled development videos (disclosed)." Correction-loop arm is "few-shot (18 corrections)". Reversible if Aniket prefers other wording. The frozen `etho/report` text ("zero labeled training frames") is changed after test run 1.
