@@ -245,3 +245,34 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
   - The test-run claim stays 0.88x, since it is what was measured on test; the sweep is a fresh-clip measurement, not a re-score.
   - Why test (0.88x) looked ~4x slower than dev (0.22x): the dev figure excluded tier-1. Without tier-1, test is ~0.27x.
   - Reverse: set the env var back to 8.
+
+## ADR-004 (2026-10-28): Fly vs. Fly claim bar (Aniket's decision; supersedes the evaluator's "clearly above" bar). Recorded before any fly gate or test labels are opened.
+**Context.** EVAL_PLAN §14 (amendment F1, frozen) defined "clearly above the random floor" as F1 ≥ max(2r, r+0.15)
+with the CI lower bound > r. That is about F1 ≥ 0.19 for wing threat. Aniket: "not what I meant."
+
+**Decision (Aniket, 2026-10-28 ~14:35 ET).** An on-screen F1 claim for any fly behavior requires all three:
+- (a) the movie-bootstrap CI lower bound is strictly above the random reference r;
+- (b) point F1 ≥ **0.40**;
+- (c) the number is shown next to the frozen simple baseline's score (`eval/flies_baselines_v1.json`) on the
+  same frames.
+
+Otherwise the fly segment is labeled **"qualitative"**, with no F1 on screen.
+
+**How it applies to the frozen tree.**
+- **Wing-threat train gate (by Oct 31 ET):** "clearly above" now means (a) and (b) on the train gate run.
+  The relative bar is replaced by this stricter absolute one.
+- **Test:** runs only if the train gate passes. The on-screen claim then needs (a), (b) and (c) on test.
+- **Lunge:** the lunge gate still only selects the branch (window and fps). Any lunge F1 claim must meet the
+  same three conditions, on test.
+- **Not changed:** evidence guards, the CI-informative rule, the deadline and the one-execution limits.
+
+**README regardless of outcome:**
+- report the simple baselines, stating that the 0.989 mask-width F1 is in-sample on dev movie 2 (6 bouts,
+  picked from 540 grid points);
+- if Etho's synthesized rule resembles the width threshold, say it was written by Muse Spark from the
+  plain-English definition, with no hand-written threshold.
+
+**Next.** The evaluator writes this as amendment F2 to EVAL_PLAN §14 and updates `eval/flies_criteria_v1.json`
+before any gate run.
+
+**Reverse:** only by Aniket.
