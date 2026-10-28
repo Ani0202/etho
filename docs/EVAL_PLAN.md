@@ -1073,6 +1073,24 @@ Adds a new, separate protocol. It changes no CalMS21 item: no metric, split, tar
 accounting in sections 1-13. Fly test runs are logged with `split: "flies-test"`, so `eval/common.py`'s CalMS21
 test-run accounting never counts them, and the reverse holds too.
 
+### A3 (2026-10-28, ~18:10 UTC): CalMS21 test-2 decision: no test-2 (lifts the per-sequence seal)
+Under section 7.4, this is the committed test-2 decision for CalMS21. **There will be no test-2.**
+- **Reason 1, owner instruction.** Aniket wrote "never re-score test" (`docs/ESCALATIONS.md`, "Answers from
+  Aniket (2026-10-28, ~13:50 ET)", item 3).
+- **Reason 2, no qualifying defect.** No implementation defect that qualifies under section 7.4 was found. The
+  tier-1 timeout was resumed within test-1 and produced complete outputs. The preprocessing-timing omission
+  (`eval/results/test1_report.md` section 11.3) is a timing-accounting defect. It does not affect predictions,
+  so it does not justify a second accuracy run; the Codex test-results gate agrees.
+- **Test-1 stands as the only CalMS21 test result:** `score-test-20261028T164333Z-473c64` and
+  `identity-test-20261028T164348Z-cdc866`.
+- **The seal is lifted.** Per section 7.2, committing this amendment lifts the seal on
+  `eval/results/score-test-20261028T164333Z-473c64.per_sequence.sealed.json`. Its sha256 is checked against
+  the run log before the file is opened.
+- **How the per-sequence results may be used.** They may be reported, and used to choose a demo clip, which is
+  presentation and not a result. They may not be used to change any pipeline setting that is then described as
+  evaluated on test.
+- This amendment changes no metric, target, split, frozen config, or reported test number.
+
 ## 14. Second species: Fly vs. Fly (Aggression)
 
 **FLIES-PLAN-STATUS: PROPOSED.** This section waits on the Codex eval-plan critique (`bin/codex-ask --gate
