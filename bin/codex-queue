@@ -42,7 +42,10 @@ def plan(items):
     reviews = [it for it in items if it["script"] == "review" and not it.get("gate") and "--head" in it["argv"]]
     out, merged = [], set()
     if len(reviews) > 1:
-        newest_head = review_parts(reviews[-1]["argv"])[0]
+        # The newest head is the one the most other heads are ancestors of (by git history, not
+        # queue order: items queued in the same second sort by a random id).
+        heads = [review_parts(it["argv"])[0] for it in reviews]
+        newest_head = max(heads, key=lambda h: sum(is_ancestor(o, h) for o in heads))
         line = [it for it in reviews if is_ancestor(review_parts(it["argv"])[0], newest_head)]
         if len(line) > 1:
             first = line[0]

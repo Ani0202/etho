@@ -1,19 +1,37 @@
 # Etho evaluation plan (DRAFT, not committed, targets not frozen)
 
-Owner: evaluator subagent. Status: **DRAFT v0, 2026-10-28.** Nothing here is binding until this file is
-committed. Targets are marked **TBD, proposed: ...** and must be frozen in a commit **before the first
-test-split run** (CLAUDE.md, "Evaluation integrity"). Changing this file after a test run requires a dated
-amendment section at the bottom, never an in-place edit of a frozen item.
+Owner: evaluator subagent. Status: **DRAFT v1, 2026-10-28** (v1 adds the claim wording, disclosures,
+reporting rules, baseline confirmation, and the scorer and identity definitions as implemented in
+`eval/score.py` and `eval/identity.py`). Nothing here is binding until this file is committed. Targets are
+marked **TBD, proposed: ...** and must be frozen in a commit **before the first test-split run** (CLAUDE.md,
+"Evaluation integrity"). Changing this file after a test run requires a dated amendment section at the bottom,
+never an in-place edit of a frozen item.
 
 ## 1. What we are claiming and what must be measured
 
-Etho is **zero-shot**: behavior definitions are written in English, and no CalMS21 label is used to fit any
-model, prompt, or rule. "Push the Frontier" (docs/PROBLEM_STATEMENTS.md) also requires measured **time and
+**Claim wording.** Etho uses **no labeled training frames**: behavior definitions are written in English, no
+model is trained or fine-tuned on CalMS21 labels, and no labeled frame is shown to any model as an example.
+"Zero-shot" in any Etho material means exactly this and must be accompanied by the disclosure below.
+
+**Disclosure (must accompany every reported number).**
+- *Dev tuning.* Prompts, definitions wording, thresholds, reasoning effort, SAM phrases, and the overlap priority
+  are chosen by developers by scoring against expert labels on the **dev** split (8 official-train sequences,
+  36,980 frames, 20.5 min) and checked at milestones on **dev-holdout** (5 sequences, 28,916 frames). This is
+  human-in-the-loop hyperparameter selection on labeled data; it is not training, but it is label use, and we say so.
+- *Test-label aggregates informed the split design.* Before any test run, test labels were read (never viewed
+  frame by frame, no test video, keypoints, or model output inspected) to compute per-sequence aggregates: frame
+  counts per behavior, bout counts, and the short-bout histogram in section 3. These aggregates shaped dev
+  selection (the "long attack sequence" constraint exists because all test attack is in 5 sequences of 17-20k
+  frames at ~5% prevalence), the option-B subset, and the 10 fps decision. No test aggregate was used to tune
+  any prompt, rule, threshold, or model setting.
+- *Etho Local* (if built) is distilled from Muse Spark judgments on unused-train sequences, never human labels.
+
+"Push the Frontier" (docs/PROBLEM_STATEMENTS.md) also requires measured **time and
 cost per video** next to accuracy, compared against a **cited** manual-scoring baseline.
 
 Evaluation answers four questions:
 1. How well does zero-shot Etho agree with expert frame labels (CalMS21 Task 1)?
-2. How does that compare to a supervised model trained on ~508k labeled frames, and to human agreement?
+2. How does that compare to a supervised model trained on the 70 labeled train videos, and to human agreement?
 3. How much does each adjudication tier add, and at what cost?
 4. What does one video cost in dollars and wall-clock, versus manual scoring?
 
@@ -45,7 +63,9 @@ Bout counts are maximal runs of a label in the 30 fps annotation.
 - **dev-holdout** (`mouse004, 034, 037, 047, 070`): scored only at milestones (proposed: at most once per
   pipeline version, and once right before freezing the test config). Not tuned on. A gap between dev and
   dev-holdout F1 is our overfitting signal. Every look is logged.
-- **test**: the 19 official test sequences. Never inspected (videos, overlays, or labels) before test run 1.
+- **test**: the 19 official test sequences. No test video, keypoint, overlay, or model output is inspected
+  before test run 1. Test labels have been read only to compute the per-sequence aggregates disclosed in
+  section 1 (counts in the table above, bout counts, the short-bout histogram in section 3).
 - **unused train**: available for Etho Local distillation labels (Muse Spark judgments only, never human
   labels) and for free keypoint-only experiments. Never used for dev-style tuning without moving it to dev
   in a new split version.
@@ -75,11 +95,18 @@ configuration chosen in the spike (section 8), A fits the budget, so B is not ex
 - Etho runs at 10 fps: sample `k` is source frame `3k` (frames 0, 3, 6, ...). Verified on the two local dev
   videos that the mp4 frame count equals the annotation length (mouse016: 3,692 = 3,692; mouse050:
   1,283 = 1,283). Not yet verified for other videos, nor that frame 0 aligns with label 0 (see open questions).
-- Etho emits bouts per behavior as `[start_frame_30, end_frame_30_inclusive]` or per-sample labels. The eval
-  harness rasterizes to 30 fps:
-  - per-sample labels: 30 fps frame `f` takes the label of sample `min(round(f/3), K-1)` (nearest sample;
-    `3k+1 -> k`, `3k+2 -> k+1`).
-  - bouts: rasterized directly on 30 fps frame indices.
+- Prediction directory, one file per sequence (implemented in `eval/score.py`; full spec in its docstring):
+  - `<seq>.jsonl`: bouts `{"behavior", "start_frame", "end_frame"}` on native 30 fps indices, **end exclusive**,
+    rasterized exactly as given. The sample rate used must be declared (`{"meta": {"sample_fps": 10}}` line or
+    `manifest.json`); a file without it fails.
+  - `<seq>.npz`: `labels` int array in CalMS21 coding (attack 0, investigation 1, mount 2, other 3), per 30 fps
+    frame or per sample, plus `sample_fps`. Per-sample labels: 30 fps frame `f` takes sample
+    `min(round(f/step), ceil(T/step) - 1)` (nearest sample; `3k+1 -> k`, `3k+2 -> k+1`); if fewer samples than
+    that were emitted, the missing tail is "other".
+  - `manifest.json` (optional): `sample_fps`, `config`, `cost`, `wall_clock_s`, `calls`, `notes`, copied to the log.
+  - Product guidance: under the nearest-sample rule, sample `k` covers frames `3k-1 .. 3k+1`, so a bout of samples
+    `k1..k2` (inclusive) corresponds to frames `[max(0, 3*k1 - 1), 3*k2 + 2)`. Emitting `[3*k1, 3*k2 + 3)` instead
+    shifts every bout by one frame; emitting per-sample npz avoids the question.
 - **Exclusive labels for the primary metric.** CalMS21 frames have exactly one label. If Etho predicts
   overlapping behaviors on a frame, a fixed priority resolves it (proposed: mount > attack > investigation;
   the order is set on dev and frozen with the test config). Frames with no behavior are "other".
@@ -97,8 +124,24 @@ configuration chosen in the spike (section 8), A fits the budget, so B is not ex
 - **Macro F1** = unweighted mean of the three F1s, excluding "other". This is the CalMS21 "average F1".
   Pooling convention still to be checked against the official CalMS21 evaluation code (open question 1);
   if it differs, we follow the official code and state it.
+  **Confirmed from the paper text** (CalMS21, arXiv:2104.02710 v4, Section E and Table 1,
+  https://arxiv.org/html/2104.02710v4; retrieved by a scout subagent, quotes forwarded by the lead, not re-read by
+  the evaluator): "true positives (TP) is the number of frames that a model correctly labels as positive for a
+  class"; "we use an unweighted average across behavior classes", "omitting the 'other' category"; "the metrics
+  should be computed on the entire test set with all the videos concatenated into one sequence". Our pooled
+  per-behavior F1 and unweighted macro over attack/investigation/mount match this. The official scorer code (AIcrowd
+  GitLab) was not retrievable, so zero-division and tie conventions are ours: P, R, or F1 with a zero denominator
+  is 0.0 (sklearn `zero_division=0`).
 - Uncertainty: 95% CI by **sequence-level bootstrap** (resample sequences with replacement, 10,000 reps,
-  seed 20261028). With 5 attack sequences, attack CIs will be wide; we report them anyway.
+  seed 20261028, percentile interval; each resample pools the drawn sequences' TP/FP/FN). With 5 attack
+  sequences, attack CIs will be wide; we report them anyway. Resamples in which a quantity is 0/0 are dropped
+  for that quantity and their fraction is logged (`*_undefined_frac`); resamples that draw no ground-truth
+  frames of a behavior but have false positives give F1 = 0, as pooling implies, and their fraction is logged
+  (`ci95_no_gt_resample_frac`). On dev, attack is in 3 of 8 sequences, so about (5/8)^8 = 2.3% of resamples
+  contain no attack.
+- **Reporting rule.** Macro F1 is never shown alone: every table, chart, sentence, README line, and demo frame
+  that shows a macro (average) F1 shows the three per-behavior F1s next to it, each with its CI where one exists.
+  The CLI report (`eval.score`) prints them together.
 - Secondary: per-sequence F1 table (mean and median over sequences that contain the behavior), confusion
   matrix over the 4 classes, and one-vs-rest F1 *without* the exclusivity rule (labeled as such).
 - MAP (the other CalMS21 metric) only if Etho emits a per-frame confidence; otherwise reported as "not
@@ -112,18 +155,54 @@ configuration chosen in the spike (section 8), A fits the budget, so B is not ex
   plus ICC(2,1) (proposed). These measure whether the *scientific readout* is right, which can hold even
   when frame F1 is moderate.
 
-### 4.3 Tracking quality (SAM 3.1 vs CalMS21 keypoints)
+### 4.3 Tracking quality and identity (SAM 3.1 vs CalMS21 keypoints), `eval/identity.py`
 CalMS21 keypoints are MARS pose-estimator outputs, not human ground truth (mean keypoint confidence on test
-~0.67-0.74), so these are agreement-with-reference metrics, computed on 10 fps samples.
-- **Detection coverage**: fraction of samples with 2, 1, 0 animal masks.
-- **Identity correctness**: per sample, match Etho's "resident"/"intruder" tracks to keypoint mouse 0/1 by
-  centroid distance (keypoint centroid = mean of 7 keypoints). Identity accuracy = fraction of samples (both
-  animals detected, both keypoint sets with mean score >= 0.5) where Etho's resident is nearer mouse 0.
-  Also: identity swaps per minute.
-- **Localization**: median centroid error in pixels and in units of median nose-to-tail length; keypoint
-  containment rate (fraction of a mouse's keypoints inside its own mask).
-- Reported per video and pooled; samples during mount/close contact reported separately (both trackers are
-  least reliable there).
+~0.67-0.74), so these are agreement-with-reference metrics. This section validates the brightness identity
+rule (ADR-001: one `"mouse"` SAM call, resident/intruder from mask intensity) on dev, before any UI work.
+
+Input: per sequence, a per-frame table (`frame` at 30 fps, `track_id`, `label` in {resident, intruder, unknown},
+`cx`, `cy`, `area`, `present`), npz or parquet. Evaluated on the 10 fps grid (frames 0, 3, 6, ...); a grid frame
+with no row counts as zero detections, so missing output lowers coverage instead of being skipped.
+
+- **Keypoint centroid**: mean of all 7 keypoints (nose, ears, neck, hips, tail base). The tail base is on the
+  rump, and the tail itself has no keypoint, so the "tail bias" seen with bounding boxes doesn't apply to mask
+  centroids. Dropping the tail base moves the reference toward the head: it goes from about 46% to about 37% of
+  the nose-to-tail-base length, by keypoint geometry, while a mask area centroid should sit near mid-body. The
+  resident's implant and cable pull its mask toward the head, which could favor `no_tail` for the resident. So
+  every dev identity run logs the median track-to-keypoint distance for `all7`, `no_tail`, and `torso` (neck,
+  hips, tail base). The definition is fixed on dev from that evidence and frozen with the test config.
+- **Eligibility**: a keypoint mouse is eligible on a frame if its mean keypoint score is >= 0.5. Measured on dev
+  (`sanity:keypoint-tracks` run): both mice are eligible on 0.800 of samples; the resident (implant) is
+  ineligible on ~16% of frames, the intruder on ~5%.
+- **Matching** (label-blind): per frame, present tracks are matched one-to-one to the eligible keypoint mice by
+  position only, maximizing the number of matches within a **60 px gate**, then minimizing total distance.
+  Labels are compared only afterwards. Gate rationale (dev keypoints): median nose-to-tail-base length is 183 px
+  (10th-90th percentile 141-225), so 60 px is about 1/3 of a body length. The 5th percentile of the inter-mouse
+  centroid distance is 33 px during attack and 37 px during mount, and its median is 99 px (attack), 74 px
+  (mount), and 117 px (investigation). Spurious extra tracks stay unmatched.
+- **Ambiguity**: a match is ambiguous if the swapped assignment is also inside the gate and costs < 10 px more
+  (centroids nearly coincide). With perfect tracks (keypoint centroids as tracks), 0.6% of mount samples and
+  ~0% of others are ambiguous on dev.
+- Reported overall and per ground-truth behavior (attack, investigation, mount, other), per video and pooled:
+  - **identity error rate**: fraction of matched (mouse, sample) pairs with a resident/intruder label where the
+    label disagrees with the matched keypoint mouse (mouse 0 = resident). Reported on all matches and on
+    unambiguous matches. `unknown` labels are not errors; they are counted separately;
+  - **swap events per video-minute**: grid samples at which at least one physical (keypoint) mouse's known label
+    differs from its previous known label (unknown and unmatched samples are skipped). A full swap counts once;
+    a single mislabeled sample counts twice (flip and flip back). Also reported on unambiguous matches only;
+  - **coverage**: fraction of samples with both a resident-labeled and an intruder-labeled track present; and
+    fraction of samples, among those where both keypoint mice are eligible, on which both mice are matched with
+    correct labels;
+  - **unknown rate**: fraction of present track-samples labeled unknown;
+  - **detections**: fraction of samples with 0, 1, 2, and 3+ present tracks;
+  - **localization**: median matched centroid distance (px) per animal. Keypoint containment in masks needs
+    the masks and is not implemented (the tracking table carries no mask).
+- **Frame-alignment check** (open question 3): per video and animal, for lags L = -10..+10 source frames, the
+  median distance between the labeled track at video frame f and its keypoint mouse at frame f + L. Only frames
+  where that mouse moves >= 1 px/frame are used, because stationary stretches match at every lag. We report the
+  best lag, the median at the best lag and at 0, and the margin to the runner-up. Sign: best L > 0 means label
+  index = video index + L. On perfect synthetic and keypoint-derived tracks the check recovers the planted lag,
+  with a 1-frame margin of 3-13 px on dev geometry.
 
 ### 4.4 Cost and time per video (required by docs/PROBLEM_STATEMENTS.md)
 - Dollars per video and per minute of video, split by stage (SAM, planner, rule synthesis, tier-1, tier-2,
@@ -145,14 +224,24 @@ CalMS21 keypoints are MARS pose-estimator outputs, not human ground truth (mean 
 
 | Reference | Supervision | Number | Status |
 |---|---|---|---|
-| CalMS21 Task 1 baseline, 1D ConvNet (Sun et al. 2021, Table 1) | **Supervised** on 507,738 labeled train frames | average F1 .793 +/- .011, MAP .856 | Reported by lead; per-class F1 not yet confirmed; evaluator has not checked the PDF |
-| Other published CalMS21 Task 1 results (e.g. challenge entries) | Supervised | TBD | Only if confirmed from a citable source |
+| CalMS21 Task 1 baseline, 1D ConvNet on raw pose (28 values/frame, +/-100-frame window) (Sun et al. 2021, Table 1) | **Supervised**, trained on the 70 official train sequences (507,738 frames per the lead; frame count not re-verified) | average F1 .793 +/- .011 (std over 5 training runs), MAP .856 | **Metric and split confirmed** (paper text, section 4.1): frame-level, pooled over the full official test set, unweighted mean over the 3 behaviors, so it is directly comparable to our test option A. **Per-class F1 unconfirmed** (appendix not retrieved): never print per-class baseline numbers until confirmed. Evaluator has not re-read the PDF |
+| Other CalMS21 Task 1 results, context only (arXiv:2603.07279, 2026, as reported by a scout; evaluator has not read it, and its split and metric are not checked) | Supervised: MARS features 0.878, pose coordinates 0.593. Unsupervised clusters mapped to labels: MARS 0.701 | macro F1 | None is zero-shot; the cluster mapping uses labels. No zero-shot CalMS21 result was found. Not cited in public material until checked |
 | Inter-annotator agreement (MARS, Segalin et al. 2021, eLife, per CalMS21) | Human vs human | TBD | The MARS main text gives no F1 values; they are in Figure 5, figure supplements 3-4, not yet retrieved. Note: our test labels are single-annotator, so this is context, not a computed ceiling on our test set |
-| Prevalence-matched random predictor (computed) | None | test F1 = prevalence: attack .048, investigation .234, mount .122, macro .134 | Computed from the split file |
+| Frequency-matched random predictor (computed, `eval.score.random_baseline`) | None (uses the split's class frequencies) | expected F1 = pooled prevalence. dev: attack .0757, investigation .2710, mount .0703, macro .1390. dev-holdout: .0680, .1810, .0640, macro .1043. test: .0482, .2338, .1215, macro .1345 | dev confirmed by the scorer (`sanity:oracle-10fps` run); dev-holdout and test from split-file counts |
+| 10 fps oracle (computed) | Ground truth subsampled to every 3rd frame, upsampled by nearest sample | dev: attack .995, investigation .992, mount .995, macro .994 | Ceiling imposed by 10 fps sampling alone (`sanity:oracle-10fps`) |
 | All-"other" predictor | None | F1 = 0 for every behavior | Trivial |
 
-Every chart or sentence that puts Etho next to the supervised baseline must say "zero-shot" and "supervised"
-on the respective numbers.
+Every chart or sentence that puts Etho next to the supervised baseline must say "zero-shot" (with the
+section 1 disclosure) and "supervised" on the respective numbers.
+
+**Comparison rules.**
+- Never claim Etho "beats", "matches", or "outperforms" a supervised result unless the test-split number does so
+  with the **whole 95% CI** above (or, for "matches", overlapping) the supervised point estimate, on the same
+  metric and split. Never base such a claim on dev or dev-holdout, on a single behavior chosen after the fact,
+  or on per-class baseline numbers we haven't confirmed. Otherwise the wording is the measured gap, e.g.
+  "zero-shot macro F1 X (attack a, investigation i, mount m) vs .793 for a supervised model trained on 70 labeled videos".
+- Per-behavior F1 always appears next to any average (section 4.1).
+- Context-only numbers (rows marked unverified) are never shown in the demo or README.
 
 ## 6. Ablations
 
@@ -232,14 +321,30 @@ cost is unknown; measure on dev.
 
 ## 9. Run logging: `eval/results/runs.jsonl`
 
-One JSON object per run, appended, never edited, including failed, aborted, and disappointing runs. Fields:
+Append-only, never edited, including failed, aborted, disappointing, and sanity runs. Each execution writes
+**two** records with the same `run_id`: a `status: "started"` record (predictions/tracks sha256, config, git
+state) appended **before any label file is opened**, then a final `ok` or `failed` record with the metrics or the
+error, and `labels_loaded`. `kind` is `score` or `identity`. The test guard (`eval/common.py`) refuses test
+labels unless `--confirm-test-run` and `--purpose test-1|test-2` are given, `eval/` and this file are committed
+and clean, `test-2` follows a logged `test-1`, and the same (kind, purpose) hasn't already run. A run may only be
+re-executed if it failed before loading labels. One test run = at most one `score` and one `identity`
+execution under the same purpose. Fields:
 `run_id`, `time_utc`, `split` (`dev`|`dev_holdout`|`test`), `purpose` (e.g. `tune`, `holdout-check`,
 `test-1`, `test-2`, `ablation:<name>`), `git_commit`, `git_dirty`, `split_file` + sha256, `sequences`,
 `config` (full: definitions, rule hashes, thresholds, priority, models, efforts, SAM phrases, fps) +
 config sha256, `predictions_sha256` (recorded before scoring), `metrics` (per-behavior P/R/F1, macro F1, CIs,
 bout metrics, tracking metrics, per-arm cascade metrics), `cost` (by provider/stage/tag; marginal and
 uncached), `wall_clock_s` (total and per stage, concurrency), `calls` (count, cache hits), `status`
-(`ok`|`failed`|`aborted`), `notes`.
+(`started`|`ok`|`failed`|`aborted`), `notes`. `cost`, `wall_clock_s`, `calls`, and `config` are copied from the
+prediction directory's `manifest.json` (written by the pipeline); the scorer doesn't compute them. A full
+result JSON is also written to `eval/results/<run_id>.json`.
+
+## 9a. Milestones (approved direction, Aniket, 2026-10-28)
+- Full dev-sequence scoring before any UI work.
+- **Checkpoint by end of Oct 30 ET**: per-behavior F1 (attack, investigation, mount) with macro F1, on dev and on
+  dev-holdout (this counts as one logged dev-holdout look), plus speed (wall-clock per video-minute) and spend.
+- Identity validation of the brightness rule against keypoints on dev (section 4.3), with the identity error
+  rate, as part of the same checkpoint.
 
 ## 10. Targets (TBD, not frozen)
 
@@ -253,7 +358,7 @@ baselines and a stretch near the supervised number.
 | Attack F1 | TBD, proposed: >= 0.45 |
 | Investigation F1 | TBD, proposed: >= 0.55 |
 | Mount F1 | TBD, proposed: >= 0.65 |
-| Identity accuracy vs keypoints | TBD, proposed: >= 0.95 of eligible samples |
+| Identity error rate vs keypoints (section 4.3, all matches) | TBD, proposed: <= 0.05 overall; mount reported separately |
 | Two-animal detection coverage | TBD, proposed: >= 0.95 of samples |
 | Cost per video-minute, full cascade, uncached | TBD, proposed: <= $0.25 |
 | Wall-clock per video-minute | TBD, proposed: <= 0.3 min per video-minute, i.e. >= 10x faster than the cited 3x manual figure (the low end, which is less favorable to us) |
@@ -263,9 +368,9 @@ These are guesses informed only by the trivial baselines and the supervised numb
 
 ## 11. Open questions
 
-1. Official CalMS21 F1 convention: pooled frames across sequences vs per-sequence average; check the
-   official evaluation code.
-2. Per-class F1 of the supervised baseline: needs confirmation from the CalMS21 paper. MARS inter-annotator
+1. ~~Official CalMS21 F1 convention~~: resolved from the paper text (pooled; section 4.1). Official code not
+   retrieved; zero-division handling is ours.
+2. Per-class F1 of the supervised baseline: still unconfirmed (CalMS21 appendix not retrieved). MARS inter-annotator
    F1 values are in MARS Figure 5, figure supplements 3-4 (not yet retrieved; the main text has none).
 3. Frame alignment (video frame 0 vs label 0): frame counts match on 2 of 89 videos, and alignment has only
    been checked approximately (best box-center match at a lag of -1 to -2 source frames, biased by tails).
