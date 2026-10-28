@@ -7,7 +7,7 @@ scored against the same labels, with paired sequence-bootstrap differences betwe
     uv run python -m eval.score_arms --split test --purpose test-1 --confirm-test-run \
         --frozen-config configs/frozen_test_v1.json --targets eval/targets_v1.json --primary zs_t1 \
         --arm zs_t1=<dir> --arm zs_rules=<dir> --arm fs_t1=<dir> --arm fs_rules=<dir> \
-        --compare zs_rules:zs_t1 --compare zs_t1:fs_t1 --compare fs_rules:fs_t1
+        --compare zs_rules:zs_t1 --compare zs_t1:fs_t1 --compare fs_rules:fs_t1 --compare zs_rules:fs_rules
 
 Each `--arm name=dir` is a prediction directory in the `eval.score` format. `--compare a:b` reports b minus a.
 

@@ -1,0 +1,102 @@
+{
+ "split": "test",
+ "note": "prepare_chunks uncached, sequential, fresh temp dir per video (stride 3, 10 fps, 60 s chunks)",
+ "total_prep_s": 475.6449618280021,
+ "seqs": {
+  "mouse071_task1_annotator1": {
+   "prep_s": 40.10484980200272,
+   "n_chunks": 14,
+   "n_samples": 7937
+  },
+  "mouse072_task1_annotator1": {
+   "prep_s": 29.52326955699391,
+   "n_chunks": 11,
+   "n_samples": 6055
+  },
+  "mouse073_task1_annotator1": {
+   "prep_s": 31.45159858900297,
+   "n_chunks": 11,
+   "n_samples": 6386
+  },
+  "mouse074_task1_annotator1": {
+   "prep_s": 31.12054777499725,
+   "n_chunks": 11,
+   "n_samples": 6275
+  },
+  "mouse075_task1_annotator1": {
+   "prep_s": 29.791322869998112,
+   "n_chunks": 11,
+   "n_samples": 6005
+  },
+  "mouse076_task1_annotator1": {
+   "prep_s": 34.18851153200376,
+   "n_chunks": 11,
+   "n_samples": 6570
+  },
+  "mouse077_task1_annotator1": {
+   "prep_s": 32.18286882400571,
+   "n_chunks": 11,
+   "n_samples": 6303
+  },
+  "mouse078_task1_annotator1": {
+   "prep_s": 35.387721159997454,
+   "n_chunks": 11,
+   "n_samples": 6491
+  },
+  "mouse079_task1_annotator1": {
+   "prep_s": 30.046444964005786,
+   "n_chunks": 10,
+   "n_samples": 5828
+  },
+  "mouse080_task1_annotator1": {
+   "prep_s": 11.077593025001988,
+   "n_chunks": 4,
+   "n_samples": 2060
+  },
+  "mouse081_task1_annotator1": {
+   "prep_s": 9.917457485003979,
+   "n_chunks": 3,
+   "n_samples": 1644
+  },
+  "mouse082_task1_annotator1": {
+   "prep_s": 15.03688185599458,
+   "n_chunks": 4,
+   "n_samples": 2372
+  },
+  "mouse083_task1_annotator1": {
+   "prep_s": 9.996459980000509,
+   "n_chunks": 3,
+   "n_samples": 1627
+  },
+  "mouse084_task1_annotator1": {
+   "prep_s": 11.159400362994347,
+   "n_chunks": 4,
+   "n_samples": 1876
+  },
+  "mouse085_task1_annotator1": {
+   "prep_s": 37.89347545000055,
+   "n_chunks": 11,
+   "n_samples": 6400
+  },
+  "mouse086_task1_annotator1": {
+   "prep_s": 17.14919842699601,
+   "n_chunks": 5,
+   "n_samples": 2873
+  },
+  "mouse087_task1_annotator1": {
+   "prep_s": 25.386783991998527,
+   "n_chunks": 7,
+   "n_samples": 3972
+  },
+  "mouse088_task1_annotator1": {
+   "prep_s": 19.442327987999306,
+   "n_chunks": 5,
+   "n_samples": 2942
+  },
+  "mouse089_task1_annotator1": {
+   "prep_s": 24.788248189004662,
+   "n_chunks": 7,
+   "n_samples": 3758
+  }
+ }
+}

@@ -13,11 +13,18 @@ is reported, the weak ones included.
   `eval/results/score-test-20261028T164333Z-473c64.per_sequence.sealed.json` (sha256 `88f361fe...0451`).
   Nobody has opened it. It stays sealed until the test-2 decision is committed (EVAL_PLAN 7.2).
 
+> **Corrected after the Codex test-results gate: see section 11**, which supersedes the speed figures and
+> verdicts, the headline status, the rounding policy, and several smaller items below.
+
 **Rounding.** F1, precision, recall, CI bounds and shares are **truncated** to 4 decimals (never rounded up).
 Speed and cost are rounded **up**. Paired differences are rounded away from zero toward the unfavorable side.
 Full-precision values are in the result JSON. All target verdicts were computed at full precision.
 
 ## 1. Supervision statement (attach to every number below)
+
+> **[2026-10-28, after the gate] Headline wording: pending Aniket's decision.** Both versions are in section
+> 11.2. "No setting was tuned on test" below is replaced by "No test prediction scores were used to select
+> this configuration."
 
 The primary arm `zs_t1` is described as follows (Aniket's approved wording, DECISIONS.md 2026-10-28):
 
@@ -193,6 +200,9 @@ These counts come from `data/runs/T1/verdicts_test_{zs,fs}_t1.jsonl`.
 
 ## 3. Pre-registered targets (primary arm `zs_t1`, test-1)
 
+> **[2026-10-28, after the gate]** The speed rows below omitted preprocessing. The corrected speed verdicts are
+> in section 11.3; the full corrected summary is in section 11.8.
+
 Thresholds and rules come from `eval/targets_v1.json` (sha256 `ec6b6a6d...ecf4b3`) and EVAL_PLAN 10.3.
 Higher-is-better targets are MET ROBUSTLY only if the CI lower bound also reaches the threshold;
 lower-is-better targets only if the CI upper bound does. A metric without a CI can be MET, but never MET
@@ -333,6 +343,10 @@ not demonstrated.
 ## 6. Speed and cost, primary arm `zs_t1`, all 19 full-length test videos
 
 ### 6.1 Speed
+
+> **[2026-10-28, after the gate]** The figures below omit 10 fps preprocessing (chunks were precomputed). The
+> corrected figures, including the separately measured preprocessing, are in section 11.3: pooled 0.8777x,
+> median 0.8602x, max 1.5421x; the manual time is 3.41x-4.55x Etho's.
 
 **Definition** (EVAL_PLAN 4.4 [A1]): per-video processing time = tracking wall + rules wall + **first-pass**
 tier-1 wall, divided by the video's duration (`src_frames / 30`). It is a sum of stage times, not one
@@ -559,3 +573,290 @@ and no prediction, config, label, or split was edited.
   and produced complete outputs, so the evaluator sees no defect that would qualify for a corrected test-2.
   The lead and Aniket decide. The per-sequence seal is lifted only after that decision is committed.
 - **Codex test-results gate**: the input is `eval/results/test1_gate_input.md`.
+
+---
+
+## 11. Corrections after the test-results gate (2026-10-28, ~17:15-17:45 UTC)
+
+This section is dated and was added after the Codex `test-results` gate. The gate output is
+`ops/codex/ask-20261028-165452-293961.md` (gpt-6-astra, reasoning xhigh; sha256 `c5026195...20ece6`). Sections
+1-10 above are kept exactly as first written, apart from short pointer lines added to sections 1 and 3 and
+6.1. **Where this section and sections 1-10 disagree, this section wins.**
+
+What was *not* done: nothing was rescored. No label, keypoint, or test video was opened, the sealed
+per-sequence file was not opened, no model API was called, and no prediction, config, label, or split was
+edited. The one new measurement (preprocessing time, 11.3) is label-free and was made by the lead.
+
+**The gate's overall view.** "Retain test-1's accuracy result, but require corrections before approving the
+public claims."
+- Codex re-verified all 76 prediction-file hashes and the four manifests against the scoring record.
+- It recomputed every arm's macro F1 from the recorded confusion matrices, and every value matched.
+- It found "no issues ... in those F1 calculations or the inspected pooled-metric and paired-bootstrap
+  implementation."
+- It agrees with the verdicts for accuracy, tier-1 lift, identity, and coverage.
+- It agrees that voiding the scorer's cache-replay speed verdict was correct.
+- It found the crash and resume defensible: "one scored evaluation, resumed after an inference failure", not one
+  uninterrupted process. It adds that neither the crash nor the timing defect justifies a replacement
+  test-2 headline or a rerun of accuracy.
+- Its two High findings are the speed omission (11.3) and the headline wording (11.2).
+
+### 11.1 Demo numbers (corrected; use these, with the wording as given)
+
+These three statements are approved by the evaluator for the demo, subject to Aniket's headline decision in
+11.2. Each must appear with its caveat.
+
+1. **Accuracy relative to the published baseline.**
+   > Etho achieved **73.1%** of the published raw-pose 1D ConvNet baseline's macro F1: **0.580 versus 0.793,
+   > a 0.213 gap** (CalMS21 Task 1 test set, frame-level F1).
+
+   - Show the per-behavior F1s beside it: attack 0.449 (baseline 0.664), investigation 0.635 (0.814), mount
+     0.656 (0.900). The baseline per-class values are from Sun et al. Table 8, verified (11.4).
+   - Interval: 62.1%-78.4% (the macro CI divided by 0.793, rounded outward; section 4's 62.1%-78.3% was
+     truncated). This treats 0.793 as fixed, so it is not a full uncertainty interval for the
+     comparison.
+   - 0.793 is *not* the best published result. On the same test set, the paper's Table 2 lists 0.829
+     (baseline plus task-programming features) and 0.864 (MABe 2021 Task 1 top-1 entry). Etho's macro is
+     67.1% of 0.864.
+   - Attach the supervision statement (11.2).
+2. **Speed, including preprocessing.**
+   > Summed processing time (10 fps chunking, tracking, rules, and adjudication, one video at a time) was
+   > **0.88x the video's duration** pooled over the 19 test videos (median 0.86x per video; 5 of 19 videos
+   > took longer than real time, max 1.54x). Published estimates put manual scoring of social behavior at
+   > 3-4x video duration (Segalin et al., eLife 2021).
+
+   - Caveat (mandatory): *this is a runtime comparison, not demonstrated labor savings.* Human review and
+     correction time were not measured, and Etho's accuracy is below supervised models.
+   - Preprocessing was measured separately, after the run (11.3). Video download is excluded.
+   - The cited manual time is 3.41x-4.55x Etho's summed processing time (3 / 0.8777 to 4 / 0.8777).
+3. **Cost.**
+   > Model API cost for this fixed benchmark pipeline was **$11.25 per hour of video** ($11.54 without
+   > input-cache discounts), excluding the planner, one-time detector synthesis, hosting, and human review.
+
+   - This is from the gateway ledger at logged rates. It is not an invoice.
+
+Supporting measurement, not a test-set result: the live app on a fresh **4-minute dev clip** (mouse021, 60-300
+s, re-encoded so nothing was cached).
+- End to end, including upload validation and re-encode, the planner, tracking, tier-1, and report, it took
+  191.2 s for 240 s of video = **0.80x real time**, costing **$0.7456**, about $11.18 per hour.
+- Source: `docs/DECISIONS.md`, 2026-10-28 17:05 UTC, measured by the lead.
+- The evaluator checked the cost against the ledger: one job (`j8864b898266d`), 87 calls, $0.745642, between
+  17:01:19 and 17:03:59 UTC. The 191.2 s wall time was not independently checked.
+- Caveats:
+  - The clip is from a **dev** (tuning) video, so it says nothing about accuracy.
+  - The app uses seeded detectors (no synthesis call) and is configured differently from the frozen test
+    pipeline (for example, app tier-1 concurrency is 8, per commit d3c3844).
+  - Per the lead's note, a 60 s clip would stay above 1x, because tier-1 latency dominates.
+
+### 11.2 Headline and footnote: PENDING ANIKET'S DECISION
+
+The lead is escalating this. The evaluator does not adopt either version. Until Aniket decides, public
+material should not use the "untouched" footnote.
+
+| | Version A (Aniket's approved wording, used in section 1) | Version B (proposed by the Codex gate) |
+|---|---|---|
+| Headline | "Training-free: plain-English behavior definitions, no labeled examples, no model training." | "Plain-English behavior definitions, no task-specific model training or fine-tuning, and no labeled examples supplied to models in the primary arm." |
+| Footnote | "Pipeline settings were tuned on 13 labeled development videos; test results are on 19 untouched videos." | "Pipeline settings were selected using 13 labeled development videos. Predictions were evaluated once on all 19 official test videos. Before evaluation, test-label summaries informed development-set selection, sampling rate, and targets." |
+
+The gate's reasons (High #2):
+- "No labeled examples" can be read as "no labeled data influenced the system", which is false, because
+  labeled dev data selected the settings.
+- "Untouched" is wrong, because test-label aggregates informed the dev selection, the sampling rate, and the
+  targets. Relegating that to long-form material "gives readers the wrong impression".
+- "Training-free" is defensible only as "no task-specific weight training or fine-tuning".
+
+**Correction adopted now** (a factual narrowing, not headline wording): in section 1, "no setting was tuned on
+test" is replaced by **"No test prediction scores were used to select this configuration."** The evaluator
+agrees with the gate that, since test-label aggregates shaped the dev set and the 10 fps choice, the broader
+sentence was not supported.
+
+### 11.3 Speed: preprocessing was missing (gate High #1); corrected verdicts
+
+**The defect.** EVAL_PLAN 4.4 [A1] defines `track_s` as including chunking. The test run reused 10 fps / 60 s
+chunks that `scripts/fetch_test_videos.py` had cut beforehand (line 18 calls the same `prepare_chunks`, in
+parallel across videos). `prepare_chunks` (`etho/tracking/pipeline.py:62`) returns cached chunks when they
+exist. So each video's recorded `prep_s` was about 0.0005-0.001 s, a cache lookup. Section 6.1 therefore
+omitted a stage that the registered metric includes. The evaluator missed this before the gate.
+
+**The fix.**
+- The lead measured preprocessing separately, after the run, with `scripts/time_prep.py` (commit efa9dd1; sha256
+  `814ca5c8...3b08`). The script runs the same `prepare_chunks(src, tmp)` call (stride 3, 10 fps, 60 s chunks)
+  **uncached** (a fresh temporary directory per video), **one video at a time**, on this VM.
+- Output: `data/runs/T1/prep_timing.json`, copied byte for byte to **`eval/results/test1_prep_timing.json`** (sha256
+  `71635ea7...54a86`).
+- Total 475.6 s for 19 videos (9.9-40.1 s each), producing the same 87,374 samples. The per-video counts equal
+  the manifests' `n_samples` (checked).
+- Disclosures:
+  - The measurement is **not contemporaneous** with test-1 (the file was written 17:13:44 UTC; the run started
+    ~17:05:48).
+  - The lead reports the machine was otherwise idle. The evaluator can only confirm that **no gateway call
+    overlapped it**: the last ledger entry before it is the live-app job ending at 17:03:59, and the next is
+    after 17:13:44. Other CPU load was not measured.
+  - It does not reproduce the original chunking conditions: the original ran in parallel with downloads.
+- The gate's alternative: from file timestamps during that parallel download-and-chunk job, Codex estimated about
+  1,790 s of preprocessing. That would put pooled speed at about 1.03x, which would fail the minimum pooled
+  target. The lead attributes the gap to the parallel download-and-chunk job, and the evaluator considers the
+  sequential uncached stopwatch measurement the better estimate of the registered stage.
+- **The minimum-credible speed verdict below therefore depends on accepting a non-contemporaneous
+  measurement.** It should be described that way.
+
+Per-video processing time = **prep (measured later)** + tracking + rules + first-pass tier-1, over the
+video's duration. Ratios are rounded up.
+
+| Video | Duration (s) | Prep (s, measured later) | Tracking (s) | Rules (s) | Tier-1 first pass (s) | Total (s) | x real time |
+|---|---|---|---|---|---|---|---|
+| mouse071 | 793.7 | 40.1 | 91.2 | 0.32 | 510.8 | 642.4 | 0.8095 |
+| mouse072 | 605.5 | 29.5 | 242.5 | 0.31 | 374.4 | 646.7 | 1.0682 |
+| mouse073 | 638.5 | 31.5 | 526.2 | 0.31 | 426.7 | 984.6 | 1.5421 |
+| mouse074 | 627.5 | 31.1 | 83.6 | 0.31 | 358.8 | 473.8 | 0.7551 |
+| mouse075 | 600.5 | 29.8 | 80.2 | 0.31 | 210.0 | 320.3 | 0.5334 |
+| mouse076 | 657.0 | 34.2 | 85.9 | 0.32 | 357.5 | 477.9 | 0.7275 |
+| mouse077 | 630.2 | 32.2 | 78.5 | 0.32 | 224.2 | 335.2 | 0.5320 |
+| mouse078 | 649.1 | 35.4 | 102.0 | 0.31 | 382.6 | 520.4 | 0.8017 |
+| mouse079 | 582.8 | 30.0 | 72.5 | 0.31 | 378.3 | 481.2 | 0.8257 |
+| mouse080 | 206.0 | 11.1 | 45.4 | 0.30 | 174.9 | 231.7 | 1.1252 |
+| mouse081 | 164.4 | 9.9 | 35.1 | 0.30 | 78.0 | 123.3 | 0.7502 |
+| mouse082 | 237.2 | 15.0 | 42.3 | 0.30 | 170.3 | 227.9 | 0.9609 |
+| mouse083 | 162.7 | 10.0 | 34.2 | 0.30 | 129.2 | 173.8 | 1.0681 |
+| mouse084 | 187.5 | 11.2 | 45.9 | 0.30 | 103.9 | 161.3 | 0.8602 |
+| mouse085 | 640.0 | 37.9 | 89.9 | 0.32 | 423.9 | 552.0 | 0.8625 |
+| mouse086 | 287.2 | 17.1 | 40.0 | 0.31 | 175.5 | 232.9 | 0.8109 |
+| mouse087 | 397.2 | 25.4 | 53.8 | 0.31 | 312.9 | 392.4 | 0.9879 |
+| mouse088 | 294.2 | 19.4 | 52.8 | 0.30 | 280.5 | 353.0 | 1.2001 |
+| mouse089 | 375.8 | 24.8 | 52.1 | 0.30 | 259.8 | 336.9 | 0.8966 |
+| **All 19** | **8736.9** | **475.6** | **1854.0** | **5.88** | **5332.2** | **7667.7** | pooled **0.8777** |
+
+**Pooled 0.8777x, median 0.8602x, max 1.5421x (mouse073); 5 of 19 videos above 1x** (mouse072 1.0682x,
+mouse073 1.5421x, mouse080 1.1252x, mouse083 1.0681x, mouse088 1.2001x). Preprocessing adds 0.0545x pooled.
+
+**Corrected speed verdicts**, mechanically from `eval/targets_v1.json` `speed_x_realtime` at full precision.
+There is no CI, so no "robustly":
+- **Minimum credible** (pooled <= 1.0 and median <= 1.0): pooled 0.877626 <= 1.0 and median 0.860181 <= 1.0,
+  so **MET**. This is conditional on the separately measured preprocessing (see above).
+- **Good** (max <= 1.0 and pooled <= 0.5): max 1.542032 > 1.0 and pooled 0.877626 > 0.5, so **NOT MET**.
+
+These replace the speed rows of section 3 and the ratios in sections 6.1 and 10. Against the cited manual
+figure, Etho's 7,667.7 s (127.8 min) for 145.6 min of video means the manual time is 3.41x-4.55x Etho's summed
+processing time. The earlier 3.64x-4.85x is withdrawn. The section 6.1 caveat stands: this is a contextual
+runtime comparison, not labor savings. The gate's interim wording, recorded for completeness, was: "With
+video chunks precomputed, summed tracking, rules, and adjudication time was approximately 0.82 times video
+duration. Preprocessing time is excluded; the registered complete-processing speed target has not been
+established." The preprocessing measurement above supersedes it.
+
+### 11.4 References: baseline, random floor, cost wording (gate Medium #4 and #5)
+
+**The supervised baseline, now verified by the evaluator.** On 2026-10-28 the evaluator downloaded
+https://arxiv.org/html/2104.02710v4 (local copy in the evaluator's scratchpad, sha256 `23545b53...d14efd`) and read it.
+- **Table 1** ("Class-averaged results on Task 1 (attack, investigation, mount) ... mean and standard deviation
+  over 5 runs"): 1D Conv Net, Average F1 .793 ± .011, MAP .856 ± .010.
+- Section 4.2: "using raw pose trajectories".
+- **Table 8** ("Per-class results on Task 1"), Baseline: **attack F1 .664 ± .031, investigation .814 ± .005,
+  mount .900 ± .004**. Their mean, 0.7927, is consistent with .793.
+- Table 2: Baseline .793; "Baseline w/ task prog" .829 ± .004, which also uses the unlabeled set; "MABe 2021
+  Task 1 Top-1" .864 ± .011.
+- Appendix E: "an unweighted average across behavior classes ... omitting the 'other' category", and "for
+  Task 1, the metrics should be computed on the entire test set with all the videos concatenated into one
+  sequence (each frame is weighted equally for each behavior)".
+- Section 3.1: "There are 70 videos in the public training set".
+- This resolves the "evaluator has not read the PDF" and "per-class baseline unconfirmed" items of section 4.
+  **Per-behavior comparison:** Etho attack 0.4493 vs .664, investigation 0.6350 vs .814, mount 0.6558 vs .900.
+  The per-behavior shares are 67.7%, 78.0%, and 72.8%. Each baseline value carries its ± std over 5 runs.
+- The gate's caution, adopted: 0.793 must not stand for "supervised performance" in general or for the state of
+  the art. Etho also differs in inputs (video vs pose) and in development procedure, so the gap cannot be
+  attributed to training alone.
+
+**Random reference, relabeled.**
+- Use the label "**Frequency-matched random reference: approximately 0.1345 macro F1, calculated from test-set
+  label prevalences.**"
+- It is not a universal chance floor. With the same prevalences, the evaluator recomputed the gate's
+  alternatives: uniform guessing over the 4 classes gives macro F1 **0.16198** (attack 0.0808, investigation
+  0.2416, mount 0.1635), and uniform guessing over the 3 scored behaviors gives **0.17904**. (Expected F1 for
+  a class with prevalence p and guess rate q is 2pq / (p + q).)
+- Do not write "N times chance".
+
+**Cost wording.** Use the 11.1 item 3 sentence: model API cost at logged rates, excluding the planner,
+one-time detector synthesis, hosting, and human review. The planner-inclusive "new-user" figure in section 6.2
+is an **extrapolation**, not a measured new-user run. The ledger is not independent invoice verification. The
+arithmetic was confirmed by the gate: $27.295316 for 145.615 video-minutes, $11.246911 per hour, or $11.533326
+without the cache discount.
+
+### 11.5 Smaller corrections (gate Low #6)
+
+- **Changed windows.** Section 2.5 says 2,117 changed labels in `fs_t1`. That is **wrong. The correct count is
+  1,829.** The 288 difference is verdicts of `none` on windows whose rule label was `other`. These map to the
+  same label (`etho/adjudication/tier1.py` `apply`, `none` to `other`), and the first count wrongly treated
+  them as changes. By type: attack to investigation 521, attack to other 382, other to investigation 352,
+  investigation to other 277, mount to investigation 271, mount to other 26. Applied but unchanged: 982.
+  Fall-backs: 1,403, which is unaffected. The `zs_t1` count of 1,455 was computed correctly.
+- **Non-exclusive ablation.** Section 2.4's sentence is replaced by: **"Pre-priority behavior masks were not
+  retained; a true nonexclusive ablation was not computed."** The runner applies the mount > attack >
+  investigation priority before it writes the per-sample labels (`scripts/test_run.py` `labels_from`). The
+  scorer's one-vs-rest numbers on those exclusive files are therefore identical to the exclusive F1 by
+  construction, and they say nothing about the priority rule.
+- **Rounding.** The rounding note at the top of this report ("truncate every bound downward") is withdrawn. Truncating both CI ends
+  downward is not uniformly conservative, and it made the borderline mount upper bound (-0.000067) read as
+  -0.0001. Below, points use conventional rounding and **CIs are rounded outward**, with 6 decimals where a
+  bound is within 0.001 of zero. Full precision is in the result JSON.
+
+| Arm | Macro F1 [95% CI] | Attack F1 [CI] | Investigation F1 [CI] | Mount F1 [CI] |
+|---|---|---|---|---|
+| `zs_t1` | 0.5800 [0.4927, 0.6213] | 0.4493 [0.1729, 0.5596] | 0.6350 [0.5439, 0.6994] | 0.6558 [0.5044, 0.7439] |
+| `zs_rules` | 0.3748 [0.2967, 0.4242] | 0.3240 [0.0977, 0.4634] | 0.2398 [0.1822, 0.2813] | 0.5606 [0.3701, 0.6851] |
+| `fs_t1` | 0.5724 [0.4750, 0.6222] | 0.4614 [0.1684, 0.5884] | 0.6817 [0.6003, 0.7400] | 0.5740 [0.4064, 0.6824] |
+| `fs_rules` | 0.4240 [0.3351, 0.4822] | 0.3380 [0.0984, 0.4844] | 0.4263 [0.3737, 0.4649] | 0.5077 [0.3272, 0.6352] |
+
+| Paired difference | Macro [95% CI] | Attack [CI] | Investigation [CI] | Mount [CI] |
+|---|---|---|---|---|
+| Tier-1 lift, zero-shot: `zs_t1 - zs_rules` | +0.2053 [+0.1611, +0.2353] increased | +0.1253 [+0.0657, +0.1552] increased | +0.3952 [+0.3411, +0.4381] increased | +0.0952 [+0.0275, +0.1627] increased |
+| Few-shot effect, full cascade: `fs_t1 - zs_t1` | -0.0077 [-0.0464, +0.0332] inconclusive | +0.0121 [-0.0327, +0.0538] inconclusive | +0.0467 [+0.0303, +0.0674] increased | -0.0819 [-0.1713, -0.000067] decreased (nominal) |
+| Tier-1 lift, few-shot: `fs_t1 - fs_rules` | +0.1483 [+0.1101, +0.1773] increased | +0.1234 [+0.0652, +0.1604] increased | +0.2554 [+0.2000, +0.2998] increased | +0.0662 [+0.0222, +0.1206] increased |
+| Few-shot effect, rules only: `fs_rules - zs_rules` | +0.0492 [+0.0178, +0.0807] increased | +0.0140 [-0.0093, +0.0340] inconclusive | +0.1866 [+0.1601, +0.2131] increased | -0.0529 [-0.1301, +0.0231] inconclusive |
+
+- **The few-shot mount decrease is nominal and borderline.** `fs_t1 - zs_t1` mount -0.0819 [-0.1713,
+  -0.000067] excludes 0 by 0.000067, and 2.48% of resamples are positive. It is one of 16 paired intervals
+  reported (4 comparisons x macro + 3 behaviors), with no multiplicity adjustment. It should be read as a
+  nominal, borderline result, not a robust finding. The same applies to every per-behavior paired interval in
+  2.2.
+
+### 11.6 Provenance shortcomings (gate Medium #3; already in section 8, restated)
+
+The gate classes these as "provenance/reporting shortcomings, not evidence of favorable result selection".
+1. **SAM began before the gate reconciliation was committed.**
+   - The frozen config (7391fca, 08:11) and the numeric targets (e68f1e7, 08:25) preceded SAM inference
+     (08:38:15).
+   - Amendment A1 (814d273, 08:49) and the scorer's `etho/app` exclusion (a59db83, 08:54) came after it started.
+2. **The tracking stage's commit and dirty state were not recorded.** The runner overwrote them with those of
+   the final invocation. 4718187 is *inferred* from commit timestamps.
+3. **The tier-1 failure has no structured failed-attempt record.** It is preserved only in the traceback
+   (`data/runs/T1/logs/t1_test_attempt1_crash.log`), the DECISIONS.md entry, and the spend ledger (one entry
+   with `error`, $0.013187). The manifests' `failed_or_maybe_billed_calls` is 0, and
+   `pipeline_test.json` `failed_calls` is empty.
+
+The gate's other checks:
+- All 3,241 successful primary-arm request keys appear in the cache replay.
+- No request key had more than one successful uncached response during the test window.
+- The timed-out request was requested again on restart.
+
+Items the gate lists as unverified, and still unverified:
+- foundation-model exposure to CalMS21;
+- independence of the 19 sequences;
+- that nobody accessed unlogged or sealed outputs. The evaluator can only state that it did not.
+
+### 11.7 Other changes made with this correction
+
+- **The `eval/score_arms.py` help text** now lists all four `--compare` pairs, including
+  `--compare zs_rules:fs_rules`. Docstring only; no behavior changed. `uv run pytest -q eval/tests` passes.
+  The sha256 of `eval/score_arms.py` recorded in the gate input refers to the version *before* this edit.
+- `eval/results/test1_gate_input.md` is left as it was reviewed.
+
+### 11.8 Corrected verdict summary (primary arm `zs_t1`, test-1)
+
+| Target | Verdict |
+|---|---|
+| F1 level "minimum credible" | MET (not robustly: attack CI lower bound 0.1729 < 0.25) |
+| F1 level "good" | MET (not robustly) |
+| Tier-1 lift, minimum and good | MET ROBUSTLY (+0.2053 [+0.1611, +0.2353]) |
+| Identity error, minimum and good | MET (0.0029449; no CI) |
+| Two-animal coverage, minimum / good | MET / **NOT MET** (0.972612) |
+| **Speed, minimum credible** | **MET**, *conditional on the separately measured preprocessing*: pooled 0.8777x, median 0.8602x |
+| **Speed, good** | **NOT MET**: max 1.5421x, pooled 0.8777x |
+| Cost per video-minute, minimum / good | MET / MET ($0.1923 most conservative; no CI; without planner). With the planner extrapolation it would be $0.1988-0.2014, straddling the $0.20 threshold |
