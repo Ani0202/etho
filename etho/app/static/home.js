@@ -18,13 +18,10 @@
   }).catch(() => { $("showcases").replaceChildren(h("div", { class: "err" }, "Could not load showcases.")); });
 
   // ---- what this visitor may do: read-only, needs the code, or live ----
-  function applyMode() {
+  function applyMode(extra) {
     const lv = (cfg && cfg.live) || { mode: "live", can_submit: true, access_required: false };
     const note = $("mode-note");
-    const text = lv.mode === "killed" ? "Live use has been switched off. The precomputed showcase runs below are still open."
-      : lv.mode === "expired" ? "The live window for this demo has ended. The precomputed showcase runs below are still open."
-      : lv.mode === "read-only" ? "Read-only showcase: the precomputed runs below are open to browse. Uploads and revisions are switched off on this site."
-      : "";
+    const text = lv.message || (!lv.can_submit && extra) || "";   // the server's own sentence for this state
     note.textContent = text; note.hidden = !text;
     $("access-card").hidden = !(lv.mode === "live" && lv.access_required && !lv.access_granted);
     $("form").hidden = !lv.can_submit;
@@ -121,6 +118,14 @@
     } catch (ex) {
       err.textContent = ex.message;
       $("go").disabled = false; $("go").textContent = "Score video";
+      if (LIVE_OFF.has(ex.code)) {         // live use just became unavailable: fall back to the showcase with the reason
+        const c = await loadHeader();
+        if (c) { cfg.live = c.live; cfg.cap = c.cap; }
+        if (cfg && cfg.live && cfg.live.can_submit) cfg.live = { ...cfg.live, can_submit: false, message: ex.message };
+        err.textContent = "";
+        applyMode(ex.message);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
   });
 

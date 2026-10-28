@@ -13,7 +13,7 @@ ALLOWED_EXT = (".mp4", ".mov", ".avi")
 ET = ZoneInfo("America/New_York")
 # Hosted live mode switches itself off after this moment (Aniket, 2026-10-28); read-only browsing stays up.
 DEFAULT_LIVE_UNTIL = datetime(2026, 11, 10, 23, 59, 59, tzinfo=ET)
-MIN_ACCESS_CODE_LEN = 12
+MIN_ACCESS_CODE_LEN = 16
 _UNSET = "unset"      # "not given": __post_init__ picks the default for the deployment kind
 
 
@@ -56,11 +56,16 @@ class AppConfig:
     cookie_ttl_s: float = field(default_factory=lambda: _env("ETHO_APP_COOKIE_TTL_S", 7200.0, float))
     access_max_failures: int = field(default_factory=lambda: _env("ETHO_APP_ACCESS_FAILURES", 5, int))
     access_window_s: float = field(default_factory=lambda: _env("ETHO_APP_ACCESS_WINDOW_S", 900.0, float))
-    access_global_failures: int = field(default_factory=lambda: _env("ETHO_APP_ACCESS_GLOBAL_FAILURES", 60, int))
+    access_global_failures: int = field(default_factory=lambda: _env("ETHO_APP_ACCESS_GLOBAL_FAILURES", 600, int))
+    access_throttle_delay_s: float = field(default_factory=lambda: _env("ETHO_APP_ACCESS_DELAY_S", 1.0, float))
     access_global_window_s: float = 3600.0
     # Live mode ends at this moment (public: Nov 10 2026 23:59:59 ET). None = no auto-off.
     live_until: datetime | str | None = field(default_factory=lambda: _env("ETHO_APP_LIVE_UNTIL", _UNSET,
                                                                           lambda v: parse_live_until(v)))
+    # Prefix of the `caller` string on every ledger row of an app job. The caps count only rows with the app's own
+    # prefix, so a second instance on the same tag (the lead's localhost demo recording) does not eat the public
+    # instance's budget. (public: "pub:job:", localhost: "job:")
+    caller_prefix: str | None = field(default_factory=lambda: _env("ETHO_APP_CALLER_PREFIX", None))
     # Gateway tag for every model call the app makes (public: "demo-reserve"; the gateway refuses it before Nov 3).
     tag: str | None = field(default_factory=lambda: _env("ETHO_APP_TAG", None))
     # Cumulative cap over the app's own ledger rows (None = no cumulative cap; public: $20).
@@ -68,8 +73,9 @@ class AppConfig:
     # Paths. Defaults live under the repo; a deployment under another Unix user points these elsewhere.
     data_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_DATA_DIR", None, _path))
     showcase_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_SHOWCASE_DIR", None, _path))
-    # Working directory of the process. Tier 1 and the chunk cache use `cache/chunks` relative to it (public: a
-    # directory of its own under the data dir, so no other cache is mixed with uploads and it can be swept).
+    # The app's own working directory (default: `<data dir>/work`). Its `cache/chunks` is the only chunk cache the
+    # app uses, in every mode, so it is never mixed with the repo's `cache/chunks` (the benchmark's) and it can be
+    # swept; tier 1's own hard-coded `cache/chunks` is redirected to it (tuning.py).
     work_root: Path | None = field(default_factory=lambda: _env("ETHO_APP_WORK_DIR", None, _path))
     # Gateway response cache. None = the gateway's own (shared) cache. A private dir (public default) holds only this
     # app's entries, so retention can delete them with the job.
@@ -93,8 +99,9 @@ class AppConfig:
     # The "day" is a rolling 24 hours, not a calendar day, so spend cannot be doubled around midnight. (public: $3)
     daily_cap_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_DAILY_CAP_USD", None, float))
     # Per-job ceiling = min(max(mult x estimate, estimate + extra), headroom); reserved when the job is admitted.
-    job_ceiling_mult: float = 2.0
-    job_ceiling_extra_usd: float = 0.5
+    # (public: 1.5 and $0.25, so two 120 s jobs fit under $3 a day; measured cost is 0.4 to 0.6 of the estimate)
+    job_ceiling_mult: float | None = field(default_factory=lambda: _env("ETHO_APP_CEILING_MULT", None, float))
+    job_ceiling_extra_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_CEILING_EXTRA_USD", None, float))
     est_sam_usd_per_s: float = 0.003
     est_tier1_usd_per_s: float = 0.003
     est_fixed_usd: float = 0.05
@@ -124,6 +131,12 @@ class AppConfig:
 
     def __post_init__(self) -> None:
         pub = self.public
+        if self.job_ceiling_mult is None:
+            self.job_ceiling_mult = 1.5 if pub else 2.0
+        if self.job_ceiling_extra_usd is None:
+            self.job_ceiling_extra_usd = 0.25 if pub else 0.5
+        if self.caller_prefix is None:
+            self.caller_prefix = "pub:job:" if pub else "job:"
         if self.tag is None:
             self.tag = "demo-reserve" if pub else "dev"
         if self.daily_cap_usd is None:
@@ -138,8 +151,6 @@ class AppConfig:
             self.live_until = DEFAULT_LIVE_UNTIL if pub else None
         if self.gateway_cache_root is None and pub:
             self.gateway_cache_root = self.data_dir / "gateway_cache"
-        if self.work_root is None and pub:
-            self.work_root = self.data_dir / "work"
 
     @property
     def detector_cache_dir(self) -> Path:
@@ -151,7 +162,7 @@ class AppConfig:
 
     @property
     def work_dir(self) -> Path:
-        return self.work_root or self.root
+        return self.work_root or self.data_dir / "work"
 
     @property
     def tmp_dir(self) -> Path:

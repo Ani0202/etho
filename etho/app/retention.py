@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import AppConfig
-from .jobgw import AppLedger
+from .jobgw import AppLedger, caller_for
 from .metafiles import delete_job_files, record_undeleted
 from .store import read_json, write_json
 
@@ -46,8 +46,12 @@ _refs_lock = threading.Lock()
 
 
 # ---- recording what a project put in shared places ----------------------------------------------------------
-def note_chunk_dirs(cfg: AppConfig, project_base: Path, chunk_paths) -> None:
-    """Remember the chunk directories cut for a project so retention can delete them with it."""
+def note_chunk_dirs(cfg: AppConfig, project_base: Path, chunk_paths, *, src: Path) -> None:
+    """Remember the chunk directories cut for a project so retention can delete them with it. Only chunks cut from
+    the project's OWN video (a file inside its directory) are recorded: a revision of a showcase copy cuts chunks of
+    the showcase's source, a directory other visitors share, and that is never recorded or deleted here."""
+    if not _within(Path(src), Path(project_base)) or Path(src).is_symlink():
+        return
     dirs = {str(Path(p).resolve().parent) for p in chunk_paths}
     if not dirs:
         return
@@ -112,7 +116,9 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
     chunk_root = cfg.chunk_cache_dir
     for c in refs.get("chunk_dirs", []):
         p = Path(c)
-        if p.is_dir() and p != chunk_root.resolve() and _within(p, chunk_root):
+        # only a direct child of the app's own chunk dir (one dir per source video), never the dir itself or a path
+        # that merely resolves into it
+        if p.is_dir() and p.parent.resolve() == chunk_root.resolve() and not p.is_symlink():
             shutil.rmtree(p, ignore_errors=True)
             rep["chunk_dirs"] += 1
     root = cfg.gateway_cache_root
@@ -124,7 +130,8 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
                 if isinstance(k, str) and KEY_RE.match(k):
                     keys[k] = keys.get(k, False) or r.get("endpoint") == "/files"
         if gw is not None:     # ask Meta to delete whatever the early pass did not; list only the failures
-            r = delete_job_files(cfg, ledger, gw, job_ids, caller=f"job:{d.name}|etho.app.retention",
+            who = caller_for(d.name, "etho.app.retention", cfg.caller_prefix)
+            r = delete_job_files(cfg, ledger, gw, job_ids, caller=who,
                                  project=d.name, record_failures=True)
             rep["meta_files_deleted"], rep["meta_files_recorded"] = r["deleted"], r["failed"]
         else:                  # no gateway to ask: keep the ids so they can be deleted by hand
@@ -197,15 +204,17 @@ class Retention:
         with self._lock:
             removed = self.manager.cleanup(now)
             limit = cfg.retention_hours * 3600
-            swept = {"gateway_cache_files": 0, "chunk_files": 0, "tmp_entries": 0}
-            if cfg.private_gateway_cache:
-                swept["gateway_cache_files"] = _sweep_files(cfg.gateway_cache_root, limit, now)
-            if cfg.work_root is not None:       # a chunk dir of the app's own: nothing else lives there
-                swept["chunk_files"] = _sweep_files(cfg.chunk_cache_dir, limit, now)
-            swept["tmp_entries"] = sweep_tmp(cfg, now, 0.0 if startup else TMP_MAX_AGE_S)
+            swept = {"gateway_cache_files": 0, "chunk_files": 0, "tmp_entries": 0, "sweeps_skipped": False}
+            if self.manager.busy():       # shared dirs (caches, temp) are only swept while no job could be using them
+                swept["sweeps_skipped"] = True
+            else:
+                if cfg.private_gateway_cache:
+                    swept["gateway_cache_files"] = _sweep_files(cfg.gateway_cache_root, limit, now)
+                swept["chunk_files"] = _sweep_files(cfg.chunk_cache_dir, limit, now)   # the app's own chunk dir
+                swept["tmp_entries"] = sweep_tmp(cfg, now, 0.0 if startup else TMP_MAX_AGE_S)
             self.last = {"at": datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds"),
                          "removed_projects": len(removed), "retention_hours": cfg.retention_hours, **swept}
-            if removed or any(swept.values()):
+            if removed or any(v for v in swept.values() if v is not True):
                 log.info("retention: removed %d project(s), swept %s", len(removed), swept)
             return self.last
 

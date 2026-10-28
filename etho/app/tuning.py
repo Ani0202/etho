@@ -6,6 +6,7 @@
   default `chunk_s=60`; the app cuts at `chunk_s` from `choose_chunk_s`, and the chunk cache is keyed by `chunk_s`,
   so without this it would cut the video a second time. The app registers each source's `chunk_s` and the shim
   substitutes it. Sources that were never registered behave as before.
+Only registered (app) sources are redirected to the app's chunk cache dir (`cfg.chunk_cache_dir`).
 `install` is idempotent and process-wide; it is called by `Backend.__init__`.
 """
 
@@ -47,8 +48,13 @@ def registered_chunk_s(src: Path) -> int | None:
         return _REGISTRY.get(str(Path(src).resolve()))
 
 
+_CHUNK_ROOT: Path | None = None
+
+
 def _prepare_chunks_for_app(src, out_dir, *, stride=3, fps=10, chunk_s=60):
     cs = registered_chunk_s(Path(src))
+    if cs and _CHUNK_ROOT is not None:      # an app source: tier 1's hard-coded `cache/chunks` becomes the app's own
+        out_dir = _CHUNK_ROOT
     return _original_prepare(src, out_dir, stride=stride, fps=fps, chunk_s=cs if cs else chunk_s)
 
 
@@ -57,6 +63,8 @@ _prepare_chunks_for_app._etho_app_shim = True  # type: ignore[attr-defined]
 
 
 def install(cfg: AppConfig) -> None:
+    global _CHUNK_ROOT
+    _CHUNK_ROOT = cfg.chunk_cache_dir
     n = max(1, int(cfg.tier1_concurrency))
     tier1.FW_CONCURRENCY = n
     tier1._FW_SLOTS = threading.BoundedSemaphore(n)

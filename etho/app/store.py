@@ -127,11 +127,13 @@ def fork_showcase(cfg: AppConfig, sc: Project, new_id: str) -> Project:
         else:
             os.symlink(item.resolve(), base / item.name)
     res = read_json(sc.base / "result.json")
-    res.update(id=new_id, kind="showcase_copy", forked_from=sc.id)
+    # A visitor's corrections are user input. On a public deployment the copy therefore uses the Standard models even
+    # when the showcase itself is public data (the -contributor models let Meta train on what they are sent).
+    public = bool(res.get("public_data")) and not cfg.public
+    res.update(id=new_id, kind="showcase_copy", forked_from=sc.id, public_data=public)
     write_json(base / "result.json", res)
-    write_json(base / "input.json", {"public_data": bool(res.get("public_data")), "forked_from": sc.id,
-                                     "filename": res.get("title")})
-    return Project(new_id, "job", base, base, bool(res.get("public_data")))
+    write_json(base / "input.json", {"public_data": public, "forked_from": sc.id, "filename": res.get("title")})
+    return Project(new_id, "job", base, base, public)
 
 
 def list_showcases(cfg: AppConfig) -> list[dict]:

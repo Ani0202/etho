@@ -247,7 +247,7 @@
     if (!lv || lv.can_submit) return null;
     return h("div", { class: "note" }, lv.mode === "live" && lv.access_required && !lv.access_granted
       ? h("span", {}, "Revising makes paid model calls and needs the access code. ", h("a", { href: "/" }, "Enter it on the home page"), ", then come back.")
-      : "Revising is switched off on this site (read-only showcase). You can still browse every result, report and audit trail.");
+      : (lv.message || "Revising is switched off on this site.") + " You can still browse every result, report and audit trail.");
   }
 
   function reviseBar(disabled) {
@@ -260,7 +260,14 @@
         if (r.project_id !== pid) { location.href = `/p/${r.project_id}`; return; }   // showcase: continue in your own copy
         S.pending = []; drawPending(); drawEtho();
         watchRevision(r.job_id);
-      } catch (e) { err.textContent = e.message; btn.disabled = false; }
+      } catch (e) {
+        err.textContent = e.message;
+        if (LIVE_OFF.has(e.code)) {          // live use became unavailable: keep the results, say why, disable revising
+          const c = await loadHeader();
+          if (c && c.live) window.ETHO_CFG.live = { ...c.live, can_submit: false, message: c.live.message || e.message };
+          btn.disabled = true;
+        } else btn.disabled = false;
+      }
     } }, "Revise rules");
     return h("div", {}, reviseBlockedNote(), h("div", { class: "row" }, h("div", { class: "fit" }, btn),
       h("div", { class: "sub" }, `Calls Muse Spark (effort high) once per affected behavior, then the tier-1 check on the new windows. Costs are shown live.${P().kind === "showcase" ? " Revising a showcase makes your own private copy first; the showcase itself never changes." : ""}`)), err);

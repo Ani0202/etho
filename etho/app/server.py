@@ -26,7 +26,7 @@ from etho.gateway import Gateway, GatewayConfig
 from etho.rules.sandbox import SandboxUnavailable, isolation_status
 
 from . import corrections as C
-from .access import COOKIE, AccessControl
+from .access import COOKIE, AccessControl, shared_bucket
 from .backend import FPS, Backend
 from .config import AppConfig
 from .guards import RateLimiter, Refused, SpendGuard, client_key
@@ -62,13 +62,39 @@ def default_definitions(cfg: AppConfig) -> dict:
     return {"behaviors": d.get("behaviors", {}), "subject": d.get("subject", ""), "partner": d.get("partner", "")}
 
 
-def err(status: int, code: str, message: str, headers: dict | None = None) -> JSONResponse:
-    return JSONResponse({"error": code, "message": message}, status_code=status, headers=headers)
+# What the browser UI shows for each refusal: a plain sentence that says what happened and that the showcase is still
+# open. API clients still get the structured error and status; `friendly` is extra.
+SHARED_BUCKET_WARNING = ("every visitor appears as one client (a loopback or Tailscale address): the per-client job "
+                         "limit and the wrong-code throttle are one shared bucket, so ETHO_APP_RATE_JOBS is a total")
+OPEN = "The precomputed showcase runs stay open."
+FRIENDLY = {
+    "daily_cap": "Today's live budget for this demo is used up, so uploads and revisions are paused. " + OPEN +
+                 " Live use reopens as the 24-hour window moves on.",
+    "total_cap": "The live budget for this demo is used up, so uploads and revisions are closed. " + OPEN,
+    "read_only": "This site is a read-only showcase: uploads and revisions are switched off. " + OPEN,
+    "killed": "Live scoring is switched off right now. " + OPEN,
+    "expired": "The live window for this demo has ended. " + OPEN,
+    "access_required": "Live scoring needs the access code from the submission notes. Enter it on the home page. " +
+                       OPEN,
+    "access_unavailable": "Live scoring is not available right now. " + OPEN,
+    "access_throttled": "Too many wrong codes from your connection; please wait a few minutes and try again.",
+    "wrong_code": "That access code is not valid.",
+    "queue_full": "The scoring queue is full right now. Please try again in a few minutes. " + OPEN,
+    "rate_limited": "You have reached the hourly limit for scoring jobs. Please try again later. " + OPEN,
+    "busy": "The server is busy with other uploads. Please try again in a moment.",
+}
+
+
+def err(status: int, code: str, message: str, headers: dict | None = None, friendly: str | None = None) -> JSONResponse:
+    body = {"error": code, "message": message}
+    if friendly or code in FRIENDLY:
+        body["friendly"] = friendly or FRIENDLY[code]
+    return JSONResponse(body, status_code=status, headers=headers)
 
 
 def refusal(e: Refused) -> JSONResponse:
     h = {"Retry-After": str(int(e.retry_after) + 1)} if e.retry_after else None
-    return err(e.status, e.code, e.message, h)
+    return err(e.status, e.code, e.message, h, e.friendly)
 
 
 @dataclass
@@ -94,7 +120,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                                           "rule sandbox isolation: %s (%s)", _iso["mode"], _iso["detail"])
     except SandboxUnavailable as e:
         logging.getLogger("etho.app").error("rule sandbox misconfigured, jobs will fail: %s", e)
-    ledger = ledger or AppLedger(cfg.ledger_path)
+    ledger = ledger or AppLedger(cfg.ledger_path, cfg.caller_prefix)
     guard = SpendGuard(cfg, ledger, now=now)
     access = AccessControl(cfg, now=now)
     live = LiveState(cfg, access, now=now, isolation=isolation or isolation_status_safe)
@@ -105,7 +131,10 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     manager = JobManager(cfg, backend or Backend(cfg), ledger, guard, gateway_factory, live=live)
     manager.load_existing()
     retention = Retention(cfg, manager, ledger)
-    retention.run_once(startup=True)
+    try:
+        retention.run_once(startup=True)
+    except Exception:                  # a bad file or ledger row must not stop the service from starting
+        logging.getLogger("etho.app").exception("startup retention pass failed; the timer will retry")
     admit_lock = threading.Lock()
     upload_sem = threading.BoundedSemaphore(cfg.max_concurrent_uploads)
     probe_sem = threading.BoundedSemaphore(cfg.max_concurrent_probes)
@@ -119,7 +148,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         retention.stop()
         manager.stop()
 
-    app = FastAPI(title="Etho", docs_url=None, redoc_url=None, lifespan=lifespan)
+    app = FastAPI(title="Etho", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.cfg, app.state.manager, app.state.ledger = cfg, manager, ledger
     app.state.guard, app.state.limiter = guard, limiter
     app.state.access, app.state.live, app.state.retention = access, live, retention
@@ -209,21 +238,54 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     # ---- config and showcases ----------------------------------------------------------------
+    def cap_status() -> dict:
+        """The caps for display; a ledger that cannot be read shows as no budget left (the caps close then too)."""
+        try:
+            return guard.status()
+        except Exception:
+            logging.getLogger("etho.app").exception("could not read the spend ledger")
+            return {"tag": cfg.tag, "daily_cap_usd": cfg.daily_cap_usd, "spent_24h_usd": None,
+                    "daily_remaining_usd": 0.0, "total_cap_usd": cfg.total_cap_usd, "spent_total_usd": None,
+                    "total_remaining_usd": 0.0 if cfg.total_cap_usd is not None else None, "reserved_usd": None,
+                    "remaining_usd": 0.0, "ledger_error": True}
+
+    def capped_by() -> str | None:
+        """'daily_cap' / 'total_cap' when not even the smallest job fits, else None."""
+        try:
+            room, which = guard.headroom()
+        except Exception:
+            return "daily_cap"
+        return which if room < cfg.estimate_job_usd(1.0, 1) else None
+
+    def is_admin(request: Request) -> bool:
+        """The operator's view: a visitor holding a valid access cookie, or the access code in X-Etho-Admin (checked
+        and throttled like any code entry)."""
+        if access.valid(request.cookies.get(COOKIE)):
+            return True
+        hdr = request.headers.get("x-etho-admin")
+        if not hdr:
+            return False
+        try:
+            access.attempt(who(request), hdr)
+            return True
+        except Refused:
+            return False
+
     def live_view(request: Request) -> dict:
         st = live.snapshot()
         granted = access.valid(request.cookies.get(COOKIE))
-        return {"mode": st["mode"], "reasons": st["reasons"], "live_until": st["live_until"],
+        capped = capped_by() if st["mode"] == "live" else None
+        message = {"killed": FRIENDLY["killed"], "expired": FRIENDLY["expired"],
+                   "read-only": FRIENDLY["read_only"]}.get(st["mode"], FRIENDLY.get(capped or "", ""))
+        return {"mode": st["mode"], "live_until": st["live_until"], "capped": capped, "message": message,
                 "access_required": st["access_required"], "access_granted": granted,
-                "can_submit": st["mode"] == "live" and granted}
+                "can_submit": st["mode"] == "live" and granted and capped is None}
 
     @app.get("/api/config")
     def api_config(request: Request):
         d = default_definitions(cfg)
-        cap = guard.status()
-        try:
-            sandbox = isolation_status()
-        except SandboxUnavailable as e:
-            sandbox = {"mode": "unavailable", "detail": str(e)[:200]}
+        cap = cap_status()
+        sandbox = {"mode": live.sandbox().get("mode") if cfg.public else isolation_status_safe().get("mode")}
         return {"sandbox": sandbox, "live": live_view(request),
                 "limits": {"max_upload_mb": cfg.max_upload_mb, "max_duration_s": cfg.max_duration_s,
                            "extensions": [".mp4", ".mov", ".avi"], "max_behaviors": cfg.max_behaviors,
@@ -254,6 +316,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         except Refused as e:
             log = logging.getLogger("etho.app.access")        # never the code itself, only who and what happened
             log.warning("access code refused for %s: %s", client, e.code)
+            if (d := access.delay_for(e)) > 0:                  # slows a guesser; the right code is never delayed
+                await asyncio.sleep(d)
             return refusal(e)
         logging.getLogger("etho.app.access").info("access code accepted for %s", client)
         resp = JSONResponse({"granted": True, "expires_in_s": cfg.cookie_ttl_s})
@@ -269,14 +333,28 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
 
     @app.get("/api/health")
     def api_health(request: Request):
-        """Operator status: mode, why, sandbox isolation, caps left. No secrets, no visitor data."""
+        """Anyone gets the mode and the budget left. The operator (a valid access cookie, or the code in the
+        `X-Etho-Admin` header) also gets reasons, sandbox, queue, retention and how the client address looks."""
         st = live.snapshot()
-        return {"ok": True, "mode": st["mode"], "reasons": st["reasons"], "live_until": st["live_until"],
-                "access_required": st["access_required"], "access_problem": access.problem(),
-                "sandbox": live.sandbox(), "caps": guard.status(), "queue": manager.queue_len(),
-                "running": any(j.status == "running" for j in list(manager.jobs.values())),
-                "retention": retention.last, "retention_hours": cfg.retention_hours,
-                "client_seen_as": who(request), "time": (now() if now else datetime.now(timezone.utc)).isoformat()}
+        cap = cap_status()
+        out = {"ok": True, "mode": st["mode"], "live_until": st["live_until"],
+               "caps": {"remaining_usd": cap["remaining_usd"], "daily_remaining_usd": cap["daily_remaining_usd"],
+                        "total_remaining_usd": cap["total_remaining_usd"]}}
+        if not is_admin(request):
+            return out
+        who_key = who(request)
+        shared = shared_bucket(who_key)
+        out.update({"reasons": st["reasons"], "access_required": st["access_required"],
+                    "access_problem": access.problem(), "sandbox": live.sandbox(), "caps": cap,
+                    "queue": manager.queue_len(),
+                    "running": any(j.status == "running" for j in list(manager.jobs.values())),
+                    "retention": retention.last, "retention_hours": cfg.retention_hours,
+                    "client_seen_as": who_key,
+                    "shared_client_bucket": shared,
+                    "warnings": ([SHARED_BUCKET_WARNING] if shared else []),
+                    "ledger_bad_rows": ledger.bad_rows, "ledger_unreadable": ledger.unreadable,
+                    "time": (now() if now else datetime.now(timezone.utc)).isoformat()})
+        return out
 
     @app.get("/api/showcases")
     def api_showcases():
@@ -315,7 +393,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             if not probe_sem.acquire(timeout=15):
                 raise Refused("too many videos are being inspected; try again in a moment", 503, "busy")
             try:
-                info = check_video(dest, cfg)        # ffprobe: real frame count, duration, decodable; nothing spent
+                # ffprobe (under bwrap when public): real frame count, duration, decodable; nothing spent
+                info = check_video(dest, cfg, confine=cfg.public)
             finally:
                 probe_sem.release()
             est = cfg.estimate_job_usd(info.duration_s, len(defs))
@@ -573,7 +652,7 @@ def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
             "partner": res.get("partner"),
             "ledger": {"rows": n_calls, "by_stage_usd": {k: round(x, 6) for k, x in by_stage.items()},
                        "total_usd": round(sum(by_stage.values()), 6)},
-            "sandbox": isolation_status_safe(),
+            "sandbox": {"mode": isolation_status_safe().get("mode")},
             "note": res.get("audit_note")}
 
 

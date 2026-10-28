@@ -9,15 +9,17 @@ code; a correct code gets an HttpOnly, SameSite=Strict cookie that expires after
 * The cookie is `<expiry>.<nonce>.<mac>`. The MAC key is random per process (a restart signs everyone out, which is
   fine for a two-hour cookie) and covers a fingerprint of the current code, so rotating the code invalidates every
   cookie at once. The MAC key is not derived from the code, so a stolen cookie cannot be used to guess it offline.
-* Failed entries are throttled per client (a sliding window) and in total (so a spread-out guesser is slowed too).
-  A locked-out client is refused even with the right code, so a lock-out reveals nothing. The cost of the global limit
-  is that a flood of bad guesses can keep a real visitor from entering for up to an hour; browsing is unaffected.
+* Wrong entries are throttled per client (a sliding window: 429 and a server-side delay) and counted in total (a
+  warning in the log and a delay past the limit).
+  Only wrong codes are throttled; the right code is never refused, so no one can lock a real visitor out.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
+import logging
 import os
 import threading
 from collections import defaultdict, deque
@@ -27,6 +29,7 @@ from datetime import datetime, timezone
 from .config import MIN_ACCESS_CODE_LEN, AppConfig
 from .guards import Refused
 
+log = logging.getLogger("etho.app.access")
 COOKIE = "etho_live"
 MAX_CODE_LEN = 256
 
@@ -106,7 +109,7 @@ class AccessControl:
         if code is None or not cookie:
             return False
         parts = cookie.split(".")
-        if len(parts) != 3 or not parts[0].isdigit():
+        if len(parts) != 3 or not (parts[0].isascii() and parts[0].isdigit()):
             return False
         exp, nonce, mac = parts
         if int(exp) <= self.now().timestamp():
@@ -119,43 +122,56 @@ class AccessControl:
         while q and now - q[0] >= window:
             q.popleft()
 
-    def _locked_out(self, client: str, now: float) -> float | None:
-        """Seconds until this client may try again, or None."""
-        cfg = self.cfg
-        q = self._fails.get(client)
-        if q is not None:
-            self._recent(q, now, cfg.access_window_s)
-            if not q:
-                del self._fails[client]
-            elif len(q) >= cfg.access_max_failures:
-                return cfg.access_window_s - (now - q[0])
-        self._recent(self._global, now, cfg.access_global_window_s)
-        if len(self._global) >= cfg.access_global_failures:
-            return cfg.access_global_window_s - (now - self._global[0])
-        return None
-
     def attempt(self, client: str, candidate: object) -> str:
-        """Check a code. Returns a cookie value, or raises Refused (401 wrong code, 429 throttled, 503 no code set)."""
+        """Check a code. Returns a cookie value, or raises Refused (401 wrong code, 429 too many wrong codes from this
+        client, 503 no code set). Throttling applies to WRONG codes only: the right code always works, so nobody can
+        lock a real visitor out by guessing. A throttled wrong guess answers 429 and the server also delays it
+        (`delay_for`), which is what slows a guesser; the code has about 140 bits, so the throttle is a courtesy."""
         code = self.code()
         if code is None:
             raise Refused("live use is not available: no valid access code is configured on the server", 503,
                           "access_unavailable")
         now = self.now().timestamp()
+        cfg = self.cfg
+        ok = isinstance(candidate, str) and len(candidate) <= MAX_CODE_LEN and hmac.compare_digest(
+            _h(candidate), _h(code))
         with self._lock:
-            wait = self._locked_out(client, now)
-            if wait is not None:
-                raise Refused(f"too many wrong codes; try again in {max(1, int(wait / 60) + 1)} min", 429,
+            if ok:
+                self._fails.pop(client, None)
+                return self._issue(code)
+            q = self._fails[client]
+            self._recent(q, now, cfg.access_window_s)
+            q.append(now)
+            self._recent(self._global, now, cfg.access_global_window_s)
+            self._global.append(now)
+            if len(self._fails) > 2000:           # forget idle clients rather than grow without bound
+                for k in list(self._fails):
+                    self._recent(self._fails[k], now, cfg.access_window_s)
+                    if not self._fails[k]:
+                        del self._fails[k]
+            if len(self._global) == cfg.access_global_failures:
+                log.warning("access code: %d wrong codes in the last hour from all clients", len(self._global))
+            if len(q) > cfg.access_max_failures:
+                wait = cfg.access_window_s - (now - q[0])
+                raise Refused(f"too many wrong codes; wait {max(1, int(wait / 60) + 1)} min before trying again", 429,
                               "access_throttled", retry_after=wait)
-            ok = isinstance(candidate, str) and len(candidate) <= MAX_CODE_LEN and hmac.compare_digest(
-                _h(candidate), _h(code))
-            if not ok:
-                self._fails[client].append(now)
-                self._global.append(now)
-                if len(self._fails) > 2000:           # forget idle clients rather than grow without bound
-                    for k in list(self._fails):
-                        self._recent(self._fails[k], now, self.cfg.access_window_s)
-                        if not self._fails[k]:
-                            del self._fails[k]
-                raise Refused("that access code is not valid", 401, "wrong_code")
-            self._fails.pop(client, None)
-        return self._issue(code)
+        raise Refused("that access code is not valid", 401, "wrong_code")
+
+    def delay_for(self, refused: Refused) -> float:
+        """Seconds the server should wait before answering a refused entry (0 for anything but a wrong guess that
+        was throttled, per client or over the whole server)."""
+        if refused.code == "access_throttled":
+            return self.cfg.access_throttle_delay_s
+        if refused.code == "wrong_code" and len(self._global) >= self.cfg.access_global_failures:
+            return self.cfg.access_throttle_delay_s
+        return 0.0
+
+
+def shared_bucket(client: str) -> bool:
+    """True when the client key is a loopback or Tailscale (CGNAT 100.64.0.0/10) address: behind a proxy that does not
+    pass the visitor's address, every visitor then shares one bucket for the per-client limits."""
+    try:
+        ip = ipaddress.ip_address(client)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip in ipaddress.ip_network("100.64.0.0/10")

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import inspect
 import json
+import logging
+import math
 import threading
 import time
 from collections import defaultdict
@@ -24,6 +26,7 @@ from etho.gateway import Gateway
 from etho.gateway import prices as gw_prices
 from etho.gateway.gateway import DEFAULT_MAX_TOKENS, estimate_llm_cost
 
+log = logging.getLogger("etho.app.ledger")
 JOB_PREFIX = "job:"
 MAX_TEXT = 6000
 FALLBACK_CALL_EST_USD = 0.05     # reserved for a call whose worst case cannot be computed (the gateway will judge it)
@@ -37,13 +40,13 @@ class JobCancelled(Exception):
     """The user cancelled the job; no further model call is made."""
 
 
-def caller_for(job_id: str, caller: str) -> str:
-    return f"{JOB_PREFIX}{job_id}|{caller}"
+def caller_for(job_id: str, caller: str, prefix: str = JOB_PREFIX) -> str:
+    return f"{prefix}{job_id}|{caller}"
 
 
-def job_of_caller(caller: str) -> str | None:
-    if caller.startswith(JOB_PREFIX) and "|" in caller:
-        return caller[len(JOB_PREFIX):caller.index("|")]
+def job_of_caller(caller: str, prefix: str = JOB_PREFIX) -> str | None:
+    if caller.startswith(prefix) and "|" in caller:
+        return caller[len(prefix):caller.index("|")]
     return None
 
 
@@ -117,8 +120,9 @@ class JobGateway:
     cost the gateway booked for a failed call counts toward the ceiling too."""
 
     def __init__(self, gw: Gateway, *, job_id: str, tag: str, calls_path: Path | None = None,
-                 on_cost=None, max_cost_usd: float | None = None, cancelled=None, spent=None):
-        self._gw, self.job_id, self.tag = gw, job_id, tag
+                 on_cost=None, max_cost_usd: float | None = None, cancelled=None, spent=None,
+                 prefix: str = JOB_PREFIX):
+        self._gw, self.job_id, self.tag, self.prefix = gw, job_id, tag, prefix
         self.max_cost_usd = max_cost_usd      # per-job ceiling, reserved before every call
         self._cancelled = cancelled
         self._spent = spent                   # callable: ledger cost of this job so far
@@ -175,7 +179,7 @@ class JobGateway:
                 if not mod.startswith(("etho.gateway", "etho.app.jobgw")):
                     caller = f"{mod}:{fr.function}"
                     break
-        return caller_for(self.job_id, caller)
+        return caller_for(self.job_id, caller, self.prefix)
 
     def _record(self, kind: str, caller: str, stage: str, cost: float, rec: dict) -> None:
         with self._lock:
@@ -257,17 +261,27 @@ def row_epoch(t: Any) -> float:
         return time.time()
 
 
+BAD_ROW_USD = 1e6          # what a ledger row we cannot read is counted as: more than any cap, so the caps close
+UNREADABLE_USD = 1e6
+
+
 class AppLedger:
     """Incremental reader of the gateway ledger, aggregated for app-attributed rows.
 
     The caps (rolling 24 h and cumulative) are computed here from the ledger itself, so they survive restarts and
-    see exactly what the gateway booked. A row counts toward them when its caller starts with `job:` (a call made
-    for an app job) or when it is a reservation the gateway booked as abandoned (a process died mid-call; the
-    gateway cannot say whose) and its tag is the app's tag; counting those errs on the safe side. Rows of other
-    callers on the same tag (the lead's own demo recording on `demo-reserve`) do not count."""
+    see exactly what the gateway booked. A row counts toward them when its caller starts with `prefix` (a call made
+    for an app job; the public instance uses its own prefix, so the lead's localhost runs on the same tag do not
+    count) or when it is a reservation the gateway booked as abandoned (a process died mid-call; the gateway cannot
+    say whose) and its tag is the app's tag; counting those errs on the safe side.
 
-    def __init__(self, path: Path):
+    Reading fails closed. A line that cannot be read as a ledger row, or an app row whose cost is missing, negative,
+    NaN or infinite, is counted as `BAD_ROW_USD` toward both caps for good (until the line is fixed and the app
+    restarted) and logged; it never stops the lines after it from being read. A ledger that cannot be opened counts
+    as spent too. Offsets advance only after the whole chunk has been processed."""
+
+    def __init__(self, path: Path, prefix: str = JOB_PREFIX):
         self.path = Path(path)
+        self.prefix = prefix
         self._offset = 0
         self._buf = b""
         self._lock = threading.Lock()
@@ -275,41 +289,85 @@ class AppLedger:
         self.by_day: dict[str, float] = defaultdict(float)
         self.rows_by_job: dict[str, list[dict]] = defaultdict(list)
         self._app_rows: list[tuple[float, str, float]] = []      # (epoch, tag, cost_usd)
+        self.bad_rows = 0
+        self.unreadable: str | None = None
+
+    def _bad(self, why: str, line: bytes) -> None:
+        self.bad_rows += 1
+        self._app_rows.append((float("inf"), "", BAD_ROW_USD))
+        log.error("ledger row counted as $%.0f toward the app caps (%s): %r", BAD_ROW_USD, why, line[:120])
+
+    def _row(self, line: bytes) -> None:
+        """Apply one ledger line. Everything is computed before anything is stored, so a row is never half counted."""
+        mine = self.prefix.encode() in line or b"abandoned_reservation" in line
+        try:
+            r = json.loads(line)
+        except (ValueError, RecursionError):
+            if mine:
+                self._bad("not valid JSON", line)
+            return
+        if not isinstance(r, dict):
+            if mine:
+                self._bad("not a JSON object", line)
+            return
+        caller = r.get("caller")
+        jid = job_of_caller(caller, self.prefix) if isinstance(caller, str) else None
+        abandoned = bool(r.get("abandoned_reservation"))
+        if jid is None and not abandoned:
+            return
+        raw = r.get("cost_usd", 0.0)
+        try:
+            cost = 0.0 if raw is None else float(raw)
+        except (TypeError, ValueError):
+            cost = float("nan")
+        if not math.isfinite(cost) or cost < 0:
+            self._bad(f"cost_usd {raw!r}", line)
+            if jid is not None:
+                self.rows_by_job[jid].append(r)
+            return
+        tag, epoch = str(r.get("tag", "")), row_epoch(r.get("time"))
+        if jid is None:
+            if cost > 0:
+                self._app_rows.append((epoch, tag, cost))
+            return
+        self._app_rows.append((epoch, tag, cost))
+        self.by_job[jid] += cost
+        self.by_day[str(r.get("time", ""))[:10]] += cost
+        self.rows_by_job[jid].append(r)
 
     def refresh(self) -> None:
         with self._lock:
-            if not self.path.exists():
+            try:
+                if not self.path.exists():
+                    self.unreadable = None
+                    return
+                size = self.path.stat().st_size
+                if size < self._offset:  # truncated / rotated
+                    self._offset, self._buf = 0, b""
+                    self.by_job.clear()
+                    self.by_day.clear()
+                    self.rows_by_job.clear()
+                    self._app_rows.clear()
+                    self.bad_rows = 0
+                with self.path.open("rb") as f:
+                    f.seek(self._offset)
+                    data = f.read()
+            except OSError as e:
+                if self.unreadable is None:
+                    log.error("spend ledger unreadable, caps treat the app as out of budget: %s", e)
+                self.unreadable = str(e)[:200]
                 return
-            size = self.path.stat().st_size
-            if size < self._offset:  # truncated / rotated
-                self._offset, self._buf = 0, b""
-                self.by_job.clear()
-                self.by_day.clear()
-                self.rows_by_job.clear()
-                self._app_rows.clear()
-            with self.path.open("rb") as f:
-                f.seek(self._offset)
-                data = f.read()
-            self._offset += len(data)
+            self.unreadable = None
             lines = (self._buf + data).split(b"\n")
-            self._buf = lines.pop()  # a partial last line stays buffered
+            tail = lines.pop()  # a partial last line stays buffered
             for line in lines:
-                if not line.strip():
-                    continue
-                try:
-                    r = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                jid = job_of_caller(str(r.get("caller", "")))
-                cost = float(r.get("cost_usd", 0.0) or 0.0)
-                if jid is None:
-                    if r.get("abandoned_reservation") and cost > 0:
-                        self._app_rows.append((row_epoch(r.get("time")), str(r.get("tag", "")), cost))
-                    continue
-                self._app_rows.append((row_epoch(r.get("time")), str(r.get("tag", "")), cost))
-                self.by_job[jid] += cost
-                self.by_day[str(r.get("time", ""))[:10]] += cost
-                self.rows_by_job[jid].append(r)
+                if line.strip():
+                    try:
+                        self._row(line)
+                    except Exception as e:      # whatever it was, the row is not lost: it closes the caps
+                        self._bad(f"{type(e).__name__}: {e}", line)
+            self._buf = tail
+            self._offset += len(data)
 
     def job_cost(self, job_id: str) -> float:
         self.refresh()
@@ -336,10 +394,12 @@ class AppLedger:
         self.refresh()
         start = (now or datetime.now(timezone.utc)).timestamp() - hours * 3600
         with self._lock:      # rows dated after `now` (clock skew) count: that errs on the safe side
-            return sum(c for t, tg, c in self._app_rows if t > start and self._tag_ok(tg, tag))
+            return sum(c for t, tg, c in self._app_rows if t > start and self._tag_ok(tg, tag)) + (
+                UNREADABLE_USD if self.unreadable else 0.0)
 
     def spend_total(self, tag: str | None = None) -> float:
         """All app spend ever booked on `tag` (the cumulative cap)."""
         self.refresh()
         with self._lock:
-            return sum(c for _, tg, c in self._app_rows if self._tag_ok(tg, tag))
+            return sum(c for _, tg, c in self._app_rows if self._tag_ok(tg, tag)) + (
+                UNREADABLE_USD if self.unreadable else 0.0)

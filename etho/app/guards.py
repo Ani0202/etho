@@ -26,9 +26,11 @@ def client_key(host: str | None) -> str:
 
 
 class Refused(Exception):
-    def __init__(self, message: str, status: int, code: str, retry_after: float | None = None):
+    def __init__(self, message: str, status: int, code: str, retry_after: float | None = None,
+                 friendly: str | None = None):
         super().__init__(message)
         self.message, self.status, self.code, self.retry_after = message, status, code, retry_after
+        self.friendly = friendly
 
 
 class SpendGuard:

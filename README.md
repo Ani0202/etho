@@ -70,7 +70,10 @@ Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
 Public hosting (`ETHO_APP_PUBLIC=1`): the showcases are open read-only; uploads and revisions need an access code kept in a
 file, a kill-switch file and a read-only flag file work without a restart, live mode ends itself on a set date, and the
 service runs as its own unix user. Setup, the exact sudo commands and checks are in `docs/HOSTING.md`; `GET /api/health`
-reports the mode, the sandbox isolation and the caps left.
+reports the mode and the budget left (the operator sees more). Every refusal (a cap, read-only, kill switch, expiry,
+no code, a full queue) shows a plain message in the page and leaves the showcase browsable. `bin/app-watchdog` restarts
+a hung service, `bin/uptime-check` (cron) logs the public URL's health to `ops/uptime.jsonl`, and `bin/uptime-report`
+summarizes it.
 
 UI wording is configurable: `ETHO_APP_TAGLINE`, `ETHO_APP_TILE_TITLE`, `ETHO_APP_TILE_VALUE`, `ETHO_APP_TILE_SUB`.
 

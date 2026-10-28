@@ -180,10 +180,12 @@ class Gateway:
         self.now = now or (lambda: datetime.now(timezone.utc))
 
     # ---- policy ---------------------------------------------------------------------------
-    def _check_tag(self, tag: str) -> None:
+    def _check_tag(self, tag: str, *, free_call: bool = False) -> None:
+        """`free_call`: a call that costs nothing (a file delete) may use demo-reserve before it opens."""
         if tag not in prices.TAGS:
             raise PolicyError(f"tag must be one of {prices.TAGS}, got {tag!r}")
-        if tag == "demo-reserve" and self.now() < datetime.fromisoformat(prices.DEMO_RESERVE_OPENS_UTC):
+        opens = datetime.fromisoformat(prices.DEMO_RESERVE_OPENS_UTC)
+        if tag == "demo-reserve" and not free_call and self.now() < opens:
             raise PolicyError("demo-reserve is untouchable until Nov 3 (ET)")
 
     def _check_model(self, provider: str, model: str, public_data: bool) -> None:
@@ -356,7 +358,7 @@ class Gateway:
         in the ledger row's `request_key`), a successful delete also forgets that entry so a later upload of the same
         bytes uploads again instead of reusing a dead id."""
         caller = caller or _caller()
-        self._check_tag(tag)
+        self._check_tag(tag, free_call=True)
         if not _FILE_ID_RE.match(file_id or ""):
             raise PolicyError(f"not a file id: {file_id!r}")
         row = {"provider": "meta", "model": "files", "endpoint": "/files", "method": "DELETE", "tag": tag,

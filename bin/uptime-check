@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# External uptime check of the PUBLIC URL (docs/HOSTING.md section 11). Appends one line to ops/uptime.jsonl.
+# Cron: */15 * * * * <repo>/bin/uptime-check >> <repo>/ops/uptime.cron.log 2>&1
+# The URL is read from $ETHO_PUBLIC_URL or ops/public-url. Exit 0 = healthy, 1 = failed, 2 = no URL.
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root" || exit 2
+py="$root/.venv/bin/python"; [ -x "$py" ] || py=python3
+exec env ETHO_ROOT="$root" "$py" -m etho.app.uptime check "$@"

@@ -28,7 +28,7 @@ from . import tuning
 from .backend import Backend, Ctx, StageSkipped
 from .config import AppConfig
 from .guards import Refused, SpendGuard
-from .jobgw import AppLedger, JobBudgetExceeded, JobCancelled, JobGateway
+from .jobgw import AppLedger, JobBudgetExceeded, JobCancelled, JobGateway, caller_for
 from .metafiles import delete_job_files
 from .retention import project_created, purge_project
 from .store import read_json, resolve_project, write_json
@@ -138,6 +138,7 @@ class JobManager:
         self._stop = False
         self._thread: threading.Thread | None = None
         self._files_thread: threading.Thread | None = None
+        self._purging: set[str] = set()      # projects retention is deleting right now
 
     # ---- lifecycle ------------------------------------------------------------------------
     def start(self) -> None:
@@ -173,6 +174,15 @@ class JobManager:
         with self._cv:
             return len(self._queue)
 
+    def _busy_locked(self, project_id: str | None = None) -> bool:
+        return any(j.status in ("queued", "running") and (project_id is None or j.project_id == project_id)
+                   for j in self.jobs.values())
+
+    def busy(self) -> bool:
+        """Is any job queued or running (so shared directories must not be swept)?"""
+        with self._cv:
+            return self._busy_locked()
+
     def cleanup(self, now: float | None = None) -> list[str]:
         """Delete projects (uploads, tracks, overlays, revisions, their chunk videos and gateway-cache entries)
         older than `retention_hours` counted from the upload, unless a job for them is queued or running. Returns
@@ -182,22 +192,27 @@ class JobManager:
         removed = []
         if not self.cfg.jobs_dir.exists():
             return removed
-        with self._cv:
-            busy = {j.project_id for j in self.jobs.values() if j.status in ("queued", "running")}
-        for d in self.cfg.jobs_dir.iterdir():
-            if not d.is_dir() or d.name in busy:
+        for d in list(self.cfg.jobs_dir.iterdir()):
+            if not d.is_dir():
                 continue
             born = project_created(d)
             if born is None:                    # no job record (a crash before the first one): go by file times
                 born = max((p.stat().st_mtime for p in d.rglob("*") if not p.is_symlink()), default=0.0)
                 born = max(born, d.stat().st_mtime)
             if now - born > limit:
-                with self._cv:
+                with self._cv:     # decided under the lock: a job (a revision) queued a moment ago is seen here, and
+                    if self._busy_locked(d.name) or d.name in self._purging:   # one submitted later is refused
+                        continue
+                    self._purging.add(d.name)
                     ids = {j.id for j in self.jobs.values() if j.project_id == d.name} | {d.name}
-                ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
-                purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway())
-                tuning.forget_under(d)
-                removed.append(d.name)
+                try:
+                    ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
+                    purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway())
+                    tuning.forget_under(d)
+                    removed.append(d.name)
+                finally:
+                    with self._cv:
+                        self._purging.discard(d.name)
         with self._cv:
             for jid in [k for k, j in self.jobs.items() if j.project_id in removed]:
                 del self.jobs[jid]
@@ -222,7 +237,8 @@ class JobManager:
         if gw is None:
             return None
         try:
-            return delete_job_files(self.cfg, self.ledger, gw, [job.id], caller=f"job:{job.id}|etho.app.metafiles")
+            who = caller_for(job.id, "etho.app.metafiles", self.cfg.caller_prefix)
+            return delete_job_files(self.cfg, self.ledger, gw, [job.id], caller=who)
         except Exception:
             return None
 
@@ -244,6 +260,8 @@ class JobManager:
         with self._cv:
             if len(self._queue) >= self.cfg.max_queue:
                 raise QueueFull(f"{len(self._queue)} jobs are already waiting; try again later")
+            if job.project_id in self._purging:
+                raise QueueFull("this project is being deleted (its retention time is over)")
             job.ceiling_usd = self.guard.reserve(job.id, job.est_cost_usd)
             job.stages = [Stage(n) for n in (ANALYZE_STAGES if job.kind == "analyze" else REVISE_STAGES)]
             self.jobs[job.id] = job
@@ -396,7 +414,7 @@ class JobManager:
         gw = JobGateway(self._gw, job_id=job.id, tag=self.cfg.tag, calls_path=outdir / "calls.jsonl",
                         on_cost=lambda _c: self.touch(job), max_cost_usd=ceiling,
                         cancelled=lambda: job.cancel_requested or self.stopped_by_operator(),
-                        spent=lambda: self.ledger.job_cost(job.id))
+                        spent=lambda: self.ledger.job_cost(job.id), prefix=self.cfg.caller_prefix)
         job.gw = gw
         version = 0 if job.kind == "analyze" else int(job.rev)
         ctx = Ctx(self.cfg, project, job, gw, outdir, version, public_data=project.public_data,

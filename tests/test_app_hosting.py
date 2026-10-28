@@ -139,44 +139,59 @@ def test_a_showcase_revise_is_spending_and_needs_the_code(tmp_path, monkeypatch)
     wait_terminal(c.manager, r.json()["job_id"])
 
 
-def test_wrong_codes_are_throttled_per_client_and_a_locked_client_cannot_even_succeed(tmp_path, monkeypatch):
-    client, c = hosted(tmp_path, monkeypatch)
+def test_wrong_codes_are_throttled_per_client_but_the_right_code_always_works(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch, cfg_kw={"access_throttle_delay_s": 0.0})
     for _ in range(5):
         assert unlock(client, "guess").status_code == 401
     r = unlock(client, "guess")
     assert r.status_code == 429 and r.json()["error"] == "access_throttled" and int(r.headers["retry-after"]) > 0
-    assert unlock(client).status_code == 429                  # the right code is refused too: no oracle
+    assert r.json()["friendly"]
+    assert unlock(client).status_code == 200                  # the right code still works for the throttled client
+    assert unlock(client, "guess").status_code in (401, 429)  # and wrong ones keep being throttled afterwards
     assert client.get("/api/health").status_code == 200       # browsing is unaffected
-    c.clock.advance(seconds=901)
-    assert unlock(client).status_code == 200                  # the window passed
 
 
-def test_throttle_is_per_client_plus_a_global_limit(tmp_path):
+def test_throttle_only_slows_wrong_codes_and_never_locks_the_right_one_out(tmp_path):
     codefile = tmp_path / "code"
     codefile.write_text(CODE)
-    cfg = AppConfig(public=True, access_code_file=codefile, access_max_failures=3, access_global_failures=5)
+    cfg = AppConfig(public=True, access_code_file=codefile, access_max_failures=5, access_global_failures=60)
     clock = Clock()
     ac = AccessControl(cfg, now=clock)
-    for _ in range(3):
+    for _ in range(5):                                          # 5 wrong from one client ...
         with pytest.raises(Refused) as e:
             ac.attempt("1.1.1.1", "bad")
         assert e.value.code == "wrong_code"
-    with pytest.raises(Refused) as e:
-        ac.attempt("1.1.1.1", CODE)
-    assert e.value.code == "access_throttled"
-    assert ac.valid(ac.attempt("2.2.2.2", CODE))              # another client is not locked by it
-    for ip in ("3.3.3.3", "4.4.4.4"):
+    with pytest.raises(Refused) as e:                           # ... the 6th wrong one is throttled (429, delayed)
+        ac.attempt("1.1.1.1", "bad")
+    assert e.value.code == "access_throttled" and ac.delay_for(e.value) > 0
+    assert ac.valid(ac.attempt("1.1.1.1", CODE))                # ... but the right code from that client works
+    for i in range(60):                                         # 60 failures from distinct clients ...
         with pytest.raises(Refused):
-            ac.attempt(ip, "bad")
-    with pytest.raises(Refused) as e:                          # 5 failures overall: everyone waits
-        ac.attempt("5.5.5.5", CODE)
-    assert e.value.code == "access_throttled"
-    clock.advance(hours=1, seconds=1)
-    assert ac.valid(ac.attempt("5.5.5.5", CODE))
-    for bad in (None, 5, ["x"], "x" * 5000):                   # junk is a wrong code, never a crash
+            ac.attempt(f"10.0.{i // 250}.{i % 250}", "bad")
+    assert ac.valid(ac.attempt("9.9.9.9", CODE))                # ... then the right code works for everyone
+    with pytest.raises(Refused) as e:                           # past the global limit a wrong guess is only delayed
+        ac.attempt("8.8.8.8", "bad")
+    assert e.value.code == "wrong_code" and ac.delay_for(e.value) == cfg.access_throttle_delay_s == 1.0
+    clock.advance(minutes=16)                                   # the window passes: wrong codes count afresh
+    with pytest.raises(Refused) as e:
+        ac.attempt("1.1.1.1", "bad")
+    assert e.value.code == "wrong_code"
+    for bad in (None, 5, ["x"], "x" * 5000):                    # junk is a wrong code, never a crash
         with pytest.raises(Refused) as e:
-            ac.attempt("9.9.9.9", bad)
+            ac.attempt("7.7.7.7", bad)
         assert e.value.code in ("wrong_code", "access_throttled")
+
+
+def test_the_server_delays_a_throttled_wrong_guess_but_not_the_right_code(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch, cfg_kw={"access_throttle_delay_s": 0.4})
+    for _ in range(5):
+        unlock(client, "guess")
+    t = time.monotonic()
+    assert unlock(client, "guess").status_code == 429
+    assert time.monotonic() - t >= 0.35
+    t = time.monotonic()
+    assert unlock(client).status_code == 200
+    assert time.monotonic() - t < 0.35
 
 
 def test_code_comparison_is_constant_time_digest_compare(tmp_path, monkeypatch):
@@ -235,7 +250,8 @@ def test_without_a_usable_code_a_public_app_is_read_only(tmp_path, monkeypatch):
         if label == "missing":
             c.codefile.unlink(missing_ok=True)
         h = client.get("/api/health").json()
-        assert h["mode"] == "read-only" and h["access_problem"], (label, h)
+        assert h["mode"] == "read-only" and "reasons" not in h, (label, h)       # visitors see no reasons
+        assert c.app.state.access.problem() and c.app.state.live.snapshot()["reasons"], label
         assert unlock(client, "anything-at-all-12345").status_code == 503
         assert post_job(client, c.video).status_code == 403 and spent_nothing(c)
 
@@ -250,7 +266,7 @@ def test_without_bubblewrap_a_public_app_is_read_only(tmp_path, monkeypatch):
 
 def test_a_localhost_app_without_a_code_file_needs_no_code(tmp_path, monkeypatch):
     client, c = make_app(tmp_path, monkeypatch)
-    assert client.get("/api/health").json()["mode"] == "live" and not client.get("/api/health").json()["access_required"]
+    assert client.get("/api/health").json()["mode"] == "live" and not client.get("/api/config").json()["live"]["access_required"]
     assert client.post("/api/access", json={"code": "x"}).status_code == 400
     assert post_job(client, c.video).status_code == 200
 
@@ -513,7 +529,8 @@ def test_the_job_ceiling_is_reserved_when_the_job_is_admitted(tmp_path, monkeypa
     unlock(client)
     a = post_job(client, c.video).json()["id"]
     g = c.app.state.guard
-    assert c.manager.jobs[a].ceiling_usd == pytest.approx(0.71, abs=0.02) and g.reserved(a) == c.manager.jobs[a].ceiling_usd
+    # public ceiling = max(1.5 x estimate, estimate + $0.25), about $0.46 for this 6 s video (estimate $0.21)
+    assert c.manager.jobs[a].ceiling_usd == pytest.approx(0.46, abs=0.02) and g.reserved(a) == c.manager.jobs[a].ceiling_usd
     wait_terminal(c.manager, a)
     assert g.reserved(a) is None and g.outstanding() == 0                       # released when the job ended
 
@@ -547,7 +564,7 @@ def test_retention_timer_deletes_everything_a_job_left(tmp_path, monkeypatch):
     rows_before = len(c.app.state.ledger.job_rows(jid))
     # a revision's rows and cache entry are covered too
     (d / "revisions" / "1").mkdir(parents=True)
-    write_rows(c.cfg.ledger_path, [{"caller": f"job:{jid}-r1|x", "cost_usd": 0.0, "endpoint": "/chat/completions",
+    write_rows(c.cfg.ledger_path, [{"caller": f"{c.cfg.caller_prefix}{jid}-r1|x", "cost_usd": 0.0, "endpoint": "/chat/completions",
                                     "request_key": "ab" * 32}])
     (gwc / "ab").mkdir(exist_ok=True)
     (gwc / "ab" / ("ab" * 32 + ".json.gz")).write_bytes(b"x")
@@ -611,9 +628,12 @@ def test_retention_counts_from_the_upload_and_default_is_24h(tmp_path, monkeypat
 def test_privacy_notice_is_on_the_upload_page(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     html = client.get("/").text
-    for needle in ("Privacy notice", "Meta's Model API in Standard mode", "does not use them for training",
-                   "Fireworks", "deleted", 'id="ret-h"', "hours after upload", "Files API", "as soon as tracking ends", "their own policies",
-                   "right to share"):
+    for needle in ("Privacy notice", "Meta's Model API in Standard mode",
+                   'does not use your Content from\n      Standard Services to train Meta Models',
+                   "https://dev.meta.ai/legal/commitments", "Fireworks", "deleted from this server", 'id="ret-h"',
+                   "Within about", "Files API", "right after tracking", "again\n      when the job ends",
+                   "their own policies", "detector code written from your", "spend\n      ledger", "server logs",
+                   "Revising a showcase also uses the Standard models", "right to share"):
         assert needle in html, needle
     js = client.get("/static/home.js").text
     assert "retention_hours" in js                                       # the number of hours comes from the server
@@ -743,7 +763,7 @@ def test_meta_files_are_deleted_right_after_tracking_not_at_24h(tmp_path, monkey
     assert not [p for p in c.cfg.gateway_cache_root.rglob("*.json.gz")
                 if "file-" in __import__("gzip").open(p, "rt").read()]            # the dead id is forgotten
     rows = delete_rows(c)
-    assert rows and all(r["cost_usd"] == 0.0 and r["caller"].startswith(f"job:{jid}|") for r in rows)
+    assert rows and all(r["cost_usd"] == 0.0 and r["caller"].startswith(f"pub:job:{jid}|") for r in rows)
     assert c.app.state.retention.run_once(time.time() + 25 * 3600)["removed_projects"] == 1
     assert len(c.gw.deleted) == 1                                                # retention had nothing left to delete
     assert not (c.cfg.data_dir / "meta_files_undeleted.jsonl").exists()
@@ -775,3 +795,105 @@ def test_a_shared_gateway_cache_deployment_does_not_delete_meta_files(tmp_path, 
     wait_done(c, post_job(client, c.video).json()["id"])
     time.sleep(0.3)
     assert c.gw.deleted == []            # deleting would orphan the id kept in the shared cache (SAM cache hits)
+
+
+def test_health_shows_visitors_only_the_mode_and_the_budget_and_the_operator_everything(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch)
+    h = client.get("/api/health").json()
+    assert set(h) == {"ok", "mode", "live_until", "caps"} and set(h["caps"]) == {
+        "remaining_usd", "daily_remaining_usd", "total_remaining_usd"}
+    assert h["mode"] == "live"
+    text = json.dumps(h)
+    for leak in ("sandbox", "bwrap", "reasons", "client_seen_as", "retention", str(tmp_path), "queue"):
+        assert leak not in text, leak
+    bad = client.get("/api/health", headers={"X-Etho-Admin": "wrong-wrong-wrong-wrong"}).json()
+    assert "sandbox" not in bad
+    full = client.get("/api/health", headers={"X-Etho-Admin": CODE}).json()          # the operator, from the shell
+    assert full["sandbox"]["mode"] == "bwrap" and full["client_seen_as"] == "testclient"
+    assert full["shared_client_bucket"] is False and full["warnings"] == [] and full["ledger_bad_rows"] == 0
+    unlock(client)                                                                     # or a visitor with the code
+    assert "sandbox" in client.get("/api/health").json()
+
+
+def test_a_loopback_or_tailscale_client_address_is_reported_as_one_shared_bucket(tmp_path):
+    from etho.app.access import shared_bucket
+    for ip in ("127.0.0.1", "::1", "100.64.0.1", "100.127.255.254"):
+        assert shared_bucket(ip), ip
+    for ip in ("203.0.113.9", "100.128.0.1", "10.0.0.1", "2001:db8::1", "testclient", ""):
+        assert not shared_bucket(ip), ip
+
+
+def test_the_shared_bucket_warning_reaches_the_operator_view(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch)
+    from etho.app import server as srv
+    monkeypatch.setattr(srv, "client_key", lambda host: "127.0.0.1")
+    full = client.get("/api/health", headers={"X-Etho-Admin": CODE}).json()
+    assert full["shared_client_bucket"] is True and "ETHO_APP_RATE_JOBS is a total" in full["warnings"][0]
+
+
+def test_api_docs_and_openapi_are_not_served(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch)
+    for path in ("/openapi.json", "/docs", "/redoc"):
+        assert client.get(path).status_code == 404, path
+
+
+def test_cookie_digit_check_is_ascii_only(tmp_path):
+    codefile = tmp_path / "code"
+    codefile.write_text(CODE)
+    ac = AccessControl(AppConfig(public=True, access_code_file=codefile))
+    for bad in ("\u00b2.a.b", "\u0661\u0662.a.b", "99999999999999999999999999.a.b", "1.2.3", "..", ""):
+        assert ac.valid(bad) is False
+
+
+def test_showcase_revise_on_a_public_deployment_uses_standard_models(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch)
+    build_showcase(c, monkeypatch)
+    assert client.get("/api/projects/sc-calms21-x").json()["public_data"] is True        # the showcase itself
+    unlock(client)
+    r = client.post("/api/projects/sc-calms21-x/revise", json=BODY)
+    assert r.status_code == 200
+    wait_terminal(c.manager, r.json()["job_id"])
+    models = {x["model"] for x in c.gw.calls if x.get("model")}
+    assert models and not any(m.endswith("-contributor") for m in models), models      # corrections are user input
+    p = client.get(f"/api/projects/{r.json()['project_id']}").json()
+    assert p["public_data"] is False
+
+
+def test_the_public_ceiling_lets_two_120_s_jobs_coexist_under_the_daily_cap(tmp_path):
+    cfg = AppConfig(root=tmp_path, public=True, tag="demo-reserve")
+    g = SpendGuard(cfg, AppLedger(cfg.ledger_path, cfg.caller_prefix), now=lambda: START)
+    est = cfg.estimate_job_usd(120, 3)                           # 120 s, 3 behaviors: about $0.95
+    first, second = g.reserve("a", est), g.reserve("b", est)
+    assert first + second <= 3.0 and second >= est
+    assert (cfg.job_ceiling_mult, cfg.job_ceiling_extra_usd) == (1.5, 0.25)
+    with pytest.raises(Refused):
+        g.reserve("c", est)
+
+
+def test_the_public_instance_counts_only_its_own_rows_not_the_localhost_demo(tmp_path):
+    cfg = AppConfig(root=tmp_path, public=True, tag="demo-reserve")
+    assert cfg.caller_prefix == "pub:job:"
+    write_rows(cfg.ledger_path, [{"caller": "pub:job:a|x", "cost_usd": 1.0},
+                                 {"caller": "job:rec1|x", "cost_usd": 9.0},          # the lead's localhost recording
+                                 {"caller": "pub:job:b|x", "cost_usd": 0.5}])
+    g = SpendGuard(cfg, AppLedger(cfg.ledger_path, cfg.caller_prefix), now=lambda: START)
+    assert g.spent_total() == pytest.approx(1.5) and g.spent_24h() == pytest.approx(1.5)
+    local = SpendGuard(AppConfig(root=tmp_path, tag="demo-reserve"), AppLedger(cfg.ledger_path), now=lambda: START)
+    assert local.spent_total() == pytest.approx(9.0)             # and the localhost app counts only its own
+
+
+def test_the_hosting_runbook_has_the_hardening_and_operations_steps_it_promises():
+    import re
+    doc = (Path(__file__).resolve().parents[1] / "docs" / "HOSTING.md").read_text()
+    unit = re.search(r"etho-app\.service >/dev/null <<'EOF'\n(.*?)\nEOF", doc, re.S).group(1)
+    assert "AF_NETLINK" in re.search(r"RestrictAddressFamilies=(.*)", unit).group(1)
+    assert "ReadWritePaths=/var/lib/etho-app /home/ubuntu/work/etho/ops" in unit and "Restart=on-failure" in unit
+    assert "ProtectHome=tmpfs" in unit and "RestrictNamespaces" not in unit.replace("# NOT set on purpose: RestrictNamespaces", "")
+    assert "systemd-run --uid=etho-app" in doc and "bwrap --unshare-all" in doc and "bwrap pre-flight: OK" in doc
+    assert "sudo chattr +a /home/ubuntu/work/etho/ops/spend.jsonl" in doc
+    assert "| sh" not in doc and "tailscale-archive-keyring.gpg" in doc                  # the signed apt repository
+    assert "etho-app-watchdog.timer" in doc and "OnUnitActiveSec=1min" in doc and "bin/uptime-report" in doc
+    assert "*/15 * * * * /home/ubuntu/work/etho/bin/uptime-check" in doc
+    assert "OnCalendar=2026-11-11 00:05:00 America/New_York" in doc and "Nov 9" in doc
+    assert "ETHO_APP_CALLER_PREFIX=pub:job:" in doc and "ETHO_APP_RATE_JOBS=10" in doc
+    assert "never refused" in doc and "at least 16 characters" in doc

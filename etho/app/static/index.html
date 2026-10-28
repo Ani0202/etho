@@ -56,14 +56,19 @@
     <div id="behs"></div>
     <button type="button" class="small" id="add">+ Add behavior</button>
     <div class="note" id="privacy" style="margin-top:16px"><strong>Privacy notice.</strong>
-      Uploads are processed by Meta's Model API in Standard mode (Meta does not use them for training), and frame
-      strips from them are sent to Fireworks (Muse Spark Open) for the tier-1 checks. The video, its results and every
-      intermediate file made from it are deleted <span id="ret-h">24</span> hours after upload. The clips uploaded to
-      Meta's Files API for tracking are deleted there through its API as soon as tracking ends (and again at that
-      deadline if the first attempt failed). Request logs that Meta or Fireworks keep follow their own policies. Only upload video you have
-      the right to share. Cost records (job id, time, token counts and cost; no video or text) are kept for the
-      spending caps. Detector code runs in a local sandbox. The app estimates the cost before starting and refuses a
-      job that would pass its spend cap.</div>
+      Uploads are processed by Meta's Model API in Standard mode. Meta states that it "does not use your Content from
+      Standard Services to train Meta Models" and keeps API content as described in its Terms and Privacy Policy
+      (<a href="https://dev.meta.ai/legal/commitments" target="_blank" rel="noopener noreferrer">Meta Model API Data
+      Commitments</a>). Frame strips from your video are sent to Fireworks (Muse Spark Open) for the tier-1 checks;
+      Fireworks and Meta keep request logs under their own policies. Within about <span id="ret-h">24</span> hours
+      after upload, the video, its results and every intermediate file made from it are deleted from this server. The
+      clips uploaded to Meta's Files API for tracking are deleted there through its API right after tracking, again
+      when the job ends, and again at that deadline if an attempt failed. Kept longer: detector code written from your
+      behavior definitions (no video or user data; it is reused when someone writes the same definition), the spend
+      ledger (job id, times, token counts, cost, and the phrase used to find the animals), and server logs that include
+      job links. Revising a showcase also uses the Standard models. Only upload video you have the right to share.
+      Detector code runs in a local sandbox. The app estimates the cost before starting and refuses a job that would
+      pass its spend cap.</div>
     <div class="row">
       <div class="fit"><button type="submit" class="primary" id="go">Score video</button></div>
       <div id="est" class="sub"></div>

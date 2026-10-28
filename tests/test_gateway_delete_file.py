@@ -88,3 +88,35 @@ def test_bad_ids_and_tags_are_refused_before_any_request(make_gw, cfg):
     with pytest.raises(PolicyError):
         gw.delete_file(FID, tag="not-a-tag")
     assert not cfg.ledger_path.exists()
+
+
+def test_deleting_is_allowed_on_demo_reserve_before_it_opens_but_spending_is_not(make_gw, cfg):
+    from datetime import datetime, timezone
+
+    def before():
+        return datetime(2026, 11, 1, tzinfo=timezone.utc)                 # the lock opens on Nov 3
+    gw = make_gw(lambda req: httpx.Response(200, json={"deleted": True}), now=before)
+    assert gw.delete_file(FID, tag="demo-reserve") is True                # free: the date lock does not apply
+    with pytest.raises(PolicyError):
+        gw.chat("meta", "muse-spark-1.3", [{"role": "user", "content": "x"}], effort="low", tag="demo-reserve")
+    with pytest.raises(PolicyError):                                      # the tag check itself still applies
+        gw.delete_file(FID, tag="bogus")
+
+
+def test_malformed_reservation_files_are_skipped_not_raised(make_gw, cfg, capsys):
+    from etho.gateway.ledger import Ledger
+    led = Ledger(cfg.ops_dir)
+    good = led.reserve("meta", "dev", 0.5)
+    d = led.inflight_dir
+    (d / "a.json").write_text("not json")
+    (d / "b.json").write_text("[1, 2]")
+    (d / "c.json").write_text(json.dumps({"id": "c", "provider": "meta", "tag": "dev", "pid": "x", "est": 1}))
+    (d / "d.json").write_text(json.dumps({"id": "d", "provider": "meta", "tag": "dev", "pid": 1, "est": "NaN"}))
+    (d / "e.json").write_text(json.dumps({"id": "../e", "provider": "meta", "tag": "dev", "pid": 1, "est": 1}))
+    (d / "f.json").write_text(json.dumps({"provider": "meta"}))
+    (d / "g.json").write_text(json.dumps({"id": "g", "provider": "meta", "tag": "dev", "pid": 1, "est": -3}))
+    rid = led.reserve("meta", "dev", 0.25)                                # a reservation still works, nothing raises
+    led.settle(rid, {"provider": "meta", "tag": "dev", "caller": "t", "cost_usd": 0.0})
+    led.settle(good, {"provider": "meta", "tag": "dev", "caller": "t", "cost_usd": 0.0})
+    assert "ignoring malformed reservation file" in capsys.readouterr().err
+    assert led._inflight() == []
