@@ -1,0 +1,16 @@
+{
+ "_doc": "Frozen tracking parameters for the Fly vs. Fly pipeline (EVAL_PLAN 14.12 item 10, asset role 'tracking'). scripts/run_fly.py --branch GO|NO-GO reads this file. The identity thresholds (1 body length unknown, 0.5 body length stitch margin) are constants in etho/tracking/fly_identity.py, which is a hashed tracking asset too. overlap_s is 1.0, not the 2.0 the tracking implementer suggested: the dev tracks that Etho was tuned and gated on were made at 1.0 (re-tracking dev movies 1-2 at 2.0 would cost about $3.65 of the remaining fly budget), and on dev 1.0 gives both flies in 99.9% / 99.5% of samples and localized coverage 0.999 / 0.994 (EVAL_PLAN 14.12 item 12). The first second after a chunk start is the weak spot (movie2 chunk 4: both flies in 87% of its first second, 100% afterwards).",
+ "phrase": "fruit fly",
+ "src_fps": 30.0,
+ "scale": 1,
+ "chunk_s": 60.0,
+ "overlap_s": 1.0,
+ "workers": 5,
+ "tag": "ablation",
+ "public_data": true,
+ "mask_encoding": "one_bit",
+ "branches": {
+  "GO": {"window": "mid5", "start": 22500, "stop": 31500, "stride": 1},
+  "NO-GO": {"window": "mid10", "start": 18000, "stop": 36000, "stride": 3}
+ }
+}
