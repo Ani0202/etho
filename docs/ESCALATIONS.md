@@ -225,3 +225,19 @@ exported arrays stay uncommitted in gitignored `data/demo/` unless you want them
    Etho works from raw video with no training." Keep 0.88x (test) as the speed claim on the card. The live
    run's clock shows whatever the app actually does.
 6. **Hosting:** Aniket runs the sudo commands after the merge. Go live only after Nov 3.
+
+### Answers from Aniket (2026-10-28, ~15:05 ET): Official Rules excerpt
+1. The live product is a primary judging artifact, so hosting is required.
+   - When a cap is hit, the app falls back gracefully to the read-only showcase with a message, never an error.
+   - Add a web-app watchdog, and an external uptime check every 15 min that logs to ops/.
+   - The app stays up from submission through Nov 9 (finals); live mode still turns off on Nov 10.
+2. The video must show "features, code, and functionality built during the Hackathon". Add a 10-15 s code beat
+   (architecture plus our cascade and gateway code). Hard limit: 3:00.
+3. README section "What we learned about Meta's models", with evidence; the strongest finding gets a line in the
+   voice-over.
+4. Finals are shown live on a shared screen: large fonts, burned-in captions, even audio.
+5. docs/SUBMISSION.md checklist:
+   - the repo is public;
+   - the video is Unlisted on YouTube, checked logged out;
+   - only Aniket is listed;
+   - **submit by Nov 4 12:00 PM ET; late submissions are not considered.**

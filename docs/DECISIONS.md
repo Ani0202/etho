@@ -276,3 +276,4 @@ Otherwise the fly segment is labeled **"qualitative"**, with no F1 on screen.
 before any gate run.
 
 **Reverse:** only by Aniket.
+- 2026-10-28: (Aniket, Official Rules excerpt) The submission deadline is **Nov 4 12:00 PM ET**, with no late submissions. This replaces the 9:00 PM ET in CLAUDE.md. Hosting is required and must stay up through Nov 9. The video is hard-limited to 3:00 and must show code built during the event. The checklist is docs/SUBMISSION.md and the demo plan is v3.
