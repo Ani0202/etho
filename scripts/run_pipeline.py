@@ -98,9 +98,47 @@ def cmd_predict(a) -> None:
     print(out)
 
 
+def cmd_adjudicate(a) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from etho.adjudication.tier1 import CONFIDENT, adjudicate, apply, make_windows
+
+    defs = json.loads(Path(a.definitions).read_text())
+    run_dir = Path("data/runs") / a.run
+    src = run_dir / f"pred_{a.split}"
+    out = run_dir / f"pred_{a.split}_t1"
+    out.mkdir(parents=True, exist_ok=True)
+    gw = Gateway()
+    tables = load_tables(a.run, a.split)
+
+    def one(seq):
+        lab = np.load(src / f"{seq}.npz")["labels"]
+        ws = make_windows(seq, lab, tables[seq], CODES, 10.0)
+        t0 = time.monotonic()
+        v = adjudicate(run_dir, seq, ws, defs, gw=gw, effort=a.effort_t1, out_dir=run_dir / "strips" / a.split)
+        return seq, lab, v, time.monotonic() - t0
+
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(len(tables)) as ex:
+        res = list(ex.map(one, tables))
+    allv = []
+    for seq, lab, v, dt in res:
+        new = apply(lab, v, CODES, a.confident or CONFIDENT)
+        np.savez_compressed(out / f"{seq}.npz", labels=new, sample_fps=np.float64(10.0), sample_stride=np.int64(3))
+        allv += v
+        print(seq, len(v), "windows", f"{dt:.0f}s", f"${sum(x['cost_usd'] for x in v):.3f}", flush=True)
+    (run_dir / f"verdicts_{a.split}_t1.jsonl").write_text("".join(json.dumps(x) + "\n" for x in allv))
+    (out / "manifest.json").write_text(json.dumps({"sample_fps": 10, "tier1_model": "fireworks muse-spark-open",
+                                                   "effort": a.effort_t1, "confident": a.confident or CONFIDENT,
+                                                   "windows": len(allv),
+                                                   "cost_usd": sum(x["cost_usd"] for x in allv),
+                                                   "wall_s": time.monotonic() - t0}, indent=1))
+    print(f"{len(allv)} windows, ${sum(x['cost_usd'] for x in allv):.3f}, {time.monotonic() - t0:.0f}s -> {out}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["track", "synth", "predict"])
+    ap.add_argument("cmd", choices=["track", "synth", "predict", "adjudicate"])
     ap.add_argument("--split", default="dev")
     ap.add_argument("--run", required=True)
     ap.add_argument("--workers", type=int, default=8)
@@ -109,8 +147,10 @@ def main() -> None:
     ap.add_argument("--model", default="muse-spark-1.3-contributor")
     ap.add_argument("--effort", default="high")
     ap.add_argument("--detectors")
+    ap.add_argument("--effort-t1", default="low")
+    ap.add_argument("--confident", type=float)
     a = ap.parse_args()
-    {"track": cmd_track, "synth": cmd_synth, "predict": cmd_predict}[a.cmd](a)
+    {"track": cmd_track, "synth": cmd_synth, "predict": cmd_predict, "adjudicate": cmd_adjudicate}[a.cmd](a)
 
 
 if __name__ == "__main__":
