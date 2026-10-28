@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import shutil
@@ -18,6 +19,8 @@ import numpy as np
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+
+from etho.rules.sandbox import SandboxUnavailable, isolation_status
 
 from . import corrections as C
 from .backend import FPS, Backend
@@ -60,6 +63,12 @@ def refusal(e: Refused) -> JSONResponse:
 def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, gateway_factory=None,
                ledger: AppLedger | None = None, start_worker: bool = True, clock=None, now=None) -> FastAPI:
     cfg = cfg or AppConfig()
+    try:
+        _iso = isolation_status()
+        logging.getLogger("etho.app").log(logging.INFO if _iso["mode"] == "bwrap" else logging.WARNING,
+                                          "rule sandbox isolation: %s (%s)", _iso["mode"], _iso["detail"])
+    except SandboxUnavailable as e:
+        logging.getLogger("etho.app").error("rule sandbox misconfigured, jobs will fail: %s", e)
     ledger = ledger or AppLedger(cfg.ledger_path)
     guard = SpendGuard(cfg, ledger, now=now)
     limiter = RateLimiter(cfg.rate_limit_jobs, cfg.rate_window_s, **({"clock": clock} if clock else {}))
@@ -159,7 +168,11 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     def api_config():
         d = default_definitions(cfg)
         spent = ledger.spend_today(guard.now())
-        return {"limits": {"max_upload_mb": cfg.max_upload_mb, "max_duration_s": cfg.max_duration_s,
+        try:
+            sandbox = isolation_status()
+        except SandboxUnavailable as e:
+            sandbox = {"mode": "unavailable", "detail": str(e)[:200]}
+        return {"sandbox": sandbox, "limits": {"max_upload_mb": cfg.max_upload_mb, "max_duration_s": cfg.max_duration_s,
                            "extensions": [".mp4", ".mov", ".avi"], "max_behaviors": cfg.max_behaviors,
                            "rate_limit_jobs": cfg.rate_limit_jobs, "rate_window_s": cfg.rate_window_s},
                 "defaults": d,
@@ -407,6 +420,13 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     return app
 
 
+def isolation_status_safe() -> dict:
+    try:
+        return isolation_status()
+    except SandboxUnavailable as e:
+        return {"mode": "unavailable", "detail": str(e)[:200]}
+
+
 def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
     """Everything needed to audit a result: models, efforts, prompts, detector code, every call's cost."""
     versions = [0] + p.revision_numbers()
@@ -451,6 +471,7 @@ def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
             "partner": res.get("partner"),
             "ledger": {"rows": n_calls, "by_stage_usd": {k: round(x, 6) for k, x in by_stage.items()},
                        "total_usd": round(sum(by_stage.values()), 6)},
+            "sandbox": isolation_status_safe(),
             "note": res.get("audit_note")}
 
 

@@ -23,7 +23,7 @@ from etho.perception.planner import plan as run_planner
 from etho.report.report import ReportInput
 from etho.report.report import build as build_report
 from etho.rules.revise import revise as run_revise
-from etho.rules.sandbox import SandboxError, run_detector
+from etho.rules.sandbox import SandboxError, SandboxUnavailable, isolation_status, run_detector
 from etho.rules.synthesize import Detector, synthesize
 from etho.tracking.pipeline import count_frames, prepare_chunks, track_video
 
@@ -201,6 +201,9 @@ class Backend:
         model = meta_model(ctx.public_data)
         subject, partner = inp["subject"], inp["partner"]
 
+        iso = isolation_status()  # raises SandboxUnavailable (fails the job) if the forced isolation is broken
+        why = "" if iso["mode"] == "bwrap" else f" ({iso['detail'][:120]})"
+        ctx.say(f"rule sandbox isolation: {iso['mode']}{why}")
         # 1. reuse: the benchmark seed, then the cache. A reused detector must still run on this video's features.
         found: dict[str, Detector] = {}
         prov: dict[str, Provenance] = {}
@@ -227,7 +230,7 @@ class Backend:
                 return synthesize(name, defs[name], subject=subject, partner=partner, tables=[table],
                                   fps=FPS, frame_wh=(v["width"], v["height"]), gw=ctx.gw, model=model,
                                   public_data=ctx.public_data, tag=self.cfg.tag, effort="high"), None
-            except (JobCancelled, JobBudgetExceeded):
+            except (JobCancelled, JobBudgetExceeded, SandboxUnavailable):
                 raise
             except Exception as e:  # SandboxError after repairs, provider error, ...
                 return None, f"{name}: {type(e).__name__}: {e}"[:400]
