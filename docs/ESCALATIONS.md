@@ -23,3 +23,32 @@ the fallback if there's no reply in 2 hours (non-blocking items only).
 
    *Recommend:* yes, report F1 honestly even if it's well below .793. The zero-shot, zero-labels
    angle plus cost and time is the story. *Blocking:* no (targets get frozen around Oct 31).
+
+### Answers from Aniket (2026-10-28, ~01:35 ET)
+1. **Approved:** full dev-sequence scoring before any UI, starting with the mount tests.
+   - **Top priority:** mask-decode speed and parallel SAM calls. Report end-to-end wall-clock per
+     video-minute; the target is **≤ 1x real time**, which keeps it clearly faster than the MARS
+     3–4x manual figure.
+   - Validate the brightness identity rule against the pose keypoints on dev and report the
+     identity error rate.
+   - **Checkpoint by end of Oct 30 ET:** per-behavior F1 on dev and dev-holdout, speed, and spend.
+     If it's at risk, tell Aniket what to cut by Oct 29.
+2. **Pre-approved:** one SAM pass on all 19 test sequences, up to $20. Conditions:
+   - `EVAL_PLAN.md` targets are committed;
+   - the Codex `eval-plan` gate is done;
+   - prompts and thresholds are frozen;
+   - nothing is tuned on test.
+
+   Write `ops/spend-plan.md` and send a PushNotification when it starts; no need to wait for a
+   reply.
+3. **Approved headline:** zero-shot test F1 next to the supervised .793 and the random .134, plus
+   time and cost vs the 3–4x manual figure.
+   - Show per-behavior F1, not only the average.
+   - Confirm that .793 uses the same metric and split.
+   - Never say "beats supervised" unless it does.
+4. **Second species:**
+   - Drop MABe22 from anything public.
+   - Check the license of Caltech's Fly vs. Fly dataset. If it's open, aim for a measured F1 on
+     1–2 behaviors and propose an identity method (brightness won't separate flies).
+   - Fallback: the 2026 Scientific Data zebrafish dyads dataset, if its license is open.
+   - Write an ADR and get Aniket's approval before committing any second-species data.

@@ -70,3 +70,6 @@ For eval, planner outputs on test are logged and never inspected by a person (EV
 - Key catch (verified): every spike gap precedes a track's first detection. So recovery after losing an *established* track is untested.
 - The intensity identity resolver itself is unvalidated: the spike scored majority-nearest-reference identity.
 - **Lead's reconciliation:** agree on all points. E and a "mount with preceding footage" clip go first in Phase 2. Identity becomes {resident, intruder, unknown}, and gaps are kept as explicit missingness.
+- 2026-10-28: (Aniket) Speed is a headline requirement: end-to-end ≤ 1x real time per video-minute. Mask decode and SAM parallelism are now P0, ahead of scoring.
+- 2026-10-28: (Aniket) Test-split SAM pass pre-approved up to $20, once targets are committed, the eval-plan Codex gate is done, and config is frozen. MABe22 dropped from anything public; second species to be Fly vs. Fly (if licensed) via an ADR.
+- 2026-10-28: SAM masks requested as `one_bit` from now on: 28x less wire data, and binary masks are all the features need.
