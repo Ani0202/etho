@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Stop the lead session and pause the watchdog. Restart later with: rm ops/lead.disabled && bin/lead-start --resume
+root=$(cd "$(dirname "$0")/.." && pwd)
+mkdir -p "$root/ops"; touch "$root/ops/lead.disabled"
+tmux kill-session -t etho 2>/dev/null && echo "lead stopped; watchdog paused" || echo "no lead session running; watchdog paused"

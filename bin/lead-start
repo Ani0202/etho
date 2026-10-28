@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Start the lead Claude Code session in a detached tmux session named "etho".
+#   bin/lead-start            first start: reads docs/KICKOFF.md and begins
+#   bin/lead-start --resume   restart after a crash: continues the most recent conversation
+# Watch it:  tmux attach -t etho   (detach: Ctrl-b then d)  - or use the Claude app on your phone.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+session=etho
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin" LANG="${LANG:-C.UTF-8}"
+if tmux has-session -t "$session" 2>/dev/null; then
+  echo "already running (tmux attach -t $session)"; exit 0
+fi
+mkdir -p "$root/ops"
+# --remote-control goes first so it can never swallow the prompt as a session name.
+flags=(--remote-control --model opus --effort high --permission-mode auto)
+if [ "${1:-}" = "--resume" ]; then
+  prompt="You were restarted automatically after your process exited. Re-read CLAUDE.md and docs/STATE.md, check bin/spend, then continue where you left off."
+  cmd=(claude --continue "${flags[@]}" "$prompt")
+else
+  prompt="Read docs/KICKOFF.md and carry out everything after its first '---' line."
+  cmd=(claude "${flags[@]}" "$prompt")
+  date -u +%FT%TZ > "$root/ops/lead.started"
+fi
+tmux new-session -d -s "$session" -x 220 -y 60 -c "$root" "$(printf '%q ' "${cmd[@]}")"
+echo "lead started in tmux session '$session' ($( [ "${1:-}" = "--resume" ] && echo resumed || echo fresh ))"

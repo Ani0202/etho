@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+cache/
+.cache/
+*.mp4
+*.avi
+*.mov
+ops/sessions/
+ops/codex/*.log
+ops/codex/*.patch

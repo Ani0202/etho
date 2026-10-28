@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Independent second-opinion code review by Codex (GPT), read-only sandbox.
+# Usage: bin/codex-review [base-ref=main] ["extra focus"]
+# Output: ops/codex/review-<timestamp>.md (path printed at the end)
+set -euo pipefail
+base=${1:-main}; focus=${2:-}
+root=$(git rev-parse --show-toplevel); cd "$root"
+mkdir -p ops/codex
+ts=$(date +%Y%m%d-%H%M%S)
+git diff "$base"...HEAD > "ops/codex/diff-$ts.patch"
+[ -s "ops/codex/diff-$ts.patch" ] || { echo "no diff vs $base"; exit 0; }
+model_args=(); [ -n "${CODEX_MODEL:-}" ] && model_args=(-m "$CODEX_MODEL")
+codex exec --sandbox read-only "${model_args[@]}" -c model_reasoning_effort="high" \
+"Read AGENTS.md, then review the change in ops/codex/diff-$ts.patch (diff vs $base).
+Look for: correctness bugs, missing tests, model calls that bypass etho/gateway or its cache,
+unbounded per-frame loops or missing fps subsampling, secrets in code, and anything that could
+leak eval labels into product code. $focus
+Rank findings by severity with file:line, evidence, and a concrete fix. If nothing is wrong, say so.
+Don't invent issues to seem thorough." \
+  </dev/null > "ops/codex/review-$ts.md" 2> "ops/codex/review-$ts.log"
+echo "ops/codex/review-$ts.md"

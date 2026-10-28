@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Install cron entries so the watchdog runs every 5 minutes and after a reboot. Safe to re-run.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+( crontab -l 2>/dev/null | grep -v 'bin/lead-watchdog' ;
+  echo "*/5 * * * * $root/bin/lead-watchdog >/dev/null 2>&1" ;
+  echo "@reboot sleep 90 && $root/bin/lead-watchdog >/dev/null 2>&1" ) | crontab -
+crontab -l | grep lead-watchdog

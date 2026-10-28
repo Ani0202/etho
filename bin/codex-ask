@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Blind second opinion from Codex (GPT) on a decision, plan, or claim. Read-only.
+# Usage: bin/codex-ask <file-with-context> "<question>"
+# Give it the options and evidence, NOT Claude's preferred answer, to keep the opinion independent.
+set -euo pipefail
+[ $# -ge 2 ] || { echo 'usage: bin/codex-ask <context-file> "<question>"'; exit 1; }
+ctx=$1; shift
+root=$(git rev-parse --show-toplevel); cd "$root"
+mkdir -p ops/codex; ts=$(date +%Y%m%d-%H%M%S)
+model_args=(); [ -n "${CODEX_MODEL:-}" ] && model_args=(-m "$CODEX_MODEL")
+codex exec --sandbox read-only "${model_args[@]}" -c model_reasoning_effort="high" \
+"Read AGENTS.md and $ctx. Question: $*
+Answer independently: give your recommendation, the strongest argument against it, what evidence
+would change your mind, and anything in the context you think is wrong or unverified." \
+  </dev/null > "ops/codex/ask-$ts.md" 2> "ops/codex/ask-$ts.log"
+echo "ops/codex/ask-$ts.md"
