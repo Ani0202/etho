@@ -77,6 +77,7 @@ from eval.score import _vec_prf, prf, step_from_fps
 
 BOUT_THRESHOLDS = ("any", 0.3, 0.5)
 CRITERIA_FILE = Path("eval/flies_criteria_v1.json")
+BASELINE_PARAMS = Path("eval/flies_baselines_v1.json")
 DECISION_FILE = Path("eval/flies_decision.json")
 PLAN_FILE = Path("docs/EVAL_PLAN.md")
 PROPOSED_MARKER = "FLIES-PLAN-STATUS: PROPOSED"
@@ -469,6 +470,9 @@ def paired_diff(main_pm: dict, base_pm: dict, b: str, reps: int, seed: int = com
 # --------------------------------------------------------------------------- pre-registered criteria
 
 def _bar(ref: float, rule: dict) -> float:
+    """{"absolute": x} -> x (amendment F2, ADR-004); {"times_ref", "plus_ref"} -> max(t * ref, ref + p)."""
+    if "absolute" in rule:
+        return float(rule["absolute"])
     return max(rule["times_ref"] * ref, ref + rule["plus_ref"])
 
 
@@ -535,27 +539,39 @@ def evaluate_wing_gate(metrics: dict, crit: dict, run_ctx: dict, branch: str, no
 
 
 def evaluate_test_targets(metrics: dict, crit: dict) -> dict:
+    """Per-behavior on-screen claim verdict (amendment F2, ADR-004): CLAIMABLE iff evidence is sufficient, the
+    frame-F1 CI is informative with its lower bound strictly above r, point F1 >= the absolute bar (0.40), and
+    the frozen simple baseline was scored on the same frames in this execution (its F1 is printed alongside).
+    Anything else is QUALITATIVE: no F1 on screen."""
     out = {}
     for b, tgt in crit["test_targets"].items():
         if b not in metrics["behaviors"]:
             continue
         blk = metrics["behaviors"][b]
+        rule = tgt["claim"]
         ev = evidence(metrics, b, tgt["evidence"])
-        res = {"evidence": ev}
-        for metric, levels in tgt["metrics"].items():
-            if metric == "frame_f1":
-                point, ci, ref = blk["frame"]["f1"], blk["frame_ci95"], blk["random_reference"]["iid_expected_f1"]
-            else:  # bout_any_f1
-                point, ci, ref = (blk["bouts"]["any"]["f1"], blk["bout_any_ci95"],
-                                  blk["random_reference"]["oracle_bout_placement_mean_bout_f1"])
-            res[metric] = {lvl: _rel_check(point, ci, ref, rule) for lvl, rule in levels.items()}
-            if not ev["sufficient"]:
-                res[metric]["verdict"] = "NOT EVALUABLE (low evidence): report the number, make no claim"
-            else:
-                lv = [lvl for lvl in ("good", "credible") if res[metric][lvl]["pass"]]
-                res[metric]["verdict"] = f"{lv[0].upper()} MET" if lv else "NOT MET"
+        chk = _rel_check(blk["frame"]["f1"], blk["frame_ci95"], blk["random_reference"]["iid_expected_f1"], rule)
+        bname = rule["baseline"]
+        bl = (metrics.get("baselines") or {}).get(bname, {}).get(b)
+        base = None if bl is None else {
+            "name": bname, "frame_f1": bl["frame"]["f1"], "frame_f1_ci95": bl["frame_ci95"]["f1"],
+            "paired_diff_frame_f1_main_minus_baseline": bl.get("paired_diff_frame_f1_main_minus_baseline")}
+        reasons = []
+        if not ev["sufficient"]:
+            reasons.append("low evidence")
+        if not chk["ci_informative"]:
+            reasons.append("CI uninformative")
+        if chk["ci_lower"] is None or not chk["ci_lower"] > chk["ci_lower_bar"]:
+            reasons.append("CI lower bound not above r")
+        if chk["point"] is None or not chk["point"] >= chk["point_bar"]:
+            reasons.append(f"F1 below {chk['point_bar']:.2f}")
+        if base is None:
+            reasons.append(f"frozen baseline {bname} not scored on the same frames")
         shift = blk.get("circular_shift_test") or {}
-        res["above_chance_wording_allowed"] = bool(shift.get("p_value") is not None and shift["p_value"] < 0.05)
+        res = {"evidence": ev, "frame_f1": chk, "baseline": base,
+               "bout_any_f1_report_only": blk["bouts"]["any"]["f1"],
+               "above_chance_wording_allowed": bool(shift.get("p_value") is not None and shift["p_value"] < 0.05),
+               "reasons": reasons, "verdict": "QUALITATIVE" if reasons else "CLAIMABLE"}
         out[b] = res
     return out
 
@@ -812,6 +828,17 @@ def run(split: str, window: str, pred_dir: Path, behaviors=fx.SCORED, purpose: s
     if man_p.exists():
         per_file["manifest.json"] = common.sha256_file(man_p)
     base_preds, base_hash = {}, {}
+    if is_test:  # amendment F2: the claim must be shown next to the frozen simple baseline on the same frames
+        need = {crit["test_targets"][b]["claim"]["baseline"] for b in behaviors if b in crit["test_targets"]}
+        missing_bl = sorted(need - set(baselines or {}))
+        if missing_bl:
+            raise SystemExit(f"flies test split: frozen baseline arm(s) {missing_bl} required (--baseline name=dir)")
+        for name in need:
+            bman = Path(baselines[name]) / "manifest.json"
+            bcfg = json.loads(bman.read_text()).get("config", {}) if bman.exists() else {}
+            if bcfg.get("baseline") != name or bcfg.get("params_sha256") != common.sha256_file(BASELINE_PARAMS):
+                raise SystemExit(f"flies test split: baseline {name} was not produced with the frozen "
+                                 f"{BASELINE_PARAMS}")
     for name, d in (baselines or {}).items():  # report-only arms, validated and hashed before any label is read
         bfiles = {m: Path(d) / f"movie{m}.npz" for m in movies}
         miss = [m for m, q in bfiles.items() if not q.exists()]
@@ -952,6 +979,16 @@ def format_report(rec: dict) -> str:
         L.append(f"identity: accuracy {idp['identity_accuracy']}, switches/min {idp['switches_per_min']:.2f}, "
                  f"episodes/min {idp['error_episodes_per_min']:.2f}, unknown/missing "
                  f"{idp['pct_unknown_or_missing']:.3f}, both localized {idp['both_localized_frac']:.3f}")
+    if rec.get("verdicts") and rec["split"] == "flies-test":
+        L.append("")
+        for b, v in rec["verdicts"].items():
+            bl = v.get("baseline") or {}
+            ci = v["frame_f1"]["ci_lower"]
+            L.append(f"CLAIM {b}: {v['verdict']}  F1 {v['frame_f1']['point']:.3f} (CI lower "
+                     f"{'n/a' if ci is None else f'{ci:.3f}'} vs r {v['frame_f1']['reference']:.3f}; bar "
+                     f"{v['frame_f1']['point_bar']:.2f})  | frozen baseline {bl.get('name')}: F1 "
+                     f"{'n/a' if bl.get('frame_f1') is None else format(bl['frame_f1'], '.3f')} on the same frames"
+                     + (f"  [{'; '.join(v['reasons'])}]" if v["reasons"] else ""))
     if rec.get("verdicts"):
         L += ["", "verdicts: " + json.dumps(rec["verdicts"], indent=1, default=str)]
     return "\n".join(L)

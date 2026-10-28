@@ -1,60 +1,108 @@
 {
  "status": "FROZEN",
  "frozen_by": "docs/EVAL_PLAN.md 14.12 (amendment F1, 2026-10-28), after the Codex eval-plan critique ops/codex/ask-20261028-174252-335391.md, before any fly prediction existed",
- "doc": "Evaluated mechanically by eval/flies_score.py. r = iid prevalence-matched reference of the SAME scored frames (expected frame F1 = pooled prevalence). r_b = oracle bout-placement reference (each movie's GT bouts, same count and durations, random non-overlapping positions; mean one-to-one any-overlap bout F1 over 200 draws). Bar = max(times_ref * r, r + plus_ref). A check passes iff point >= bar AND movie-bootstrap 95% CI lower bound > lower bar (strict) AND the CI is informative (<= 5% undefined resamples). Bouts = maximal runs of the unexcluded masks, censored at unknown frames, matched one-to-one with maximum cardinality.",
+ "doc": "Evaluated mechanically by eval/flies_score.py. r = iid prevalence-matched reference of the SAME scored frames (expected frame F1 = pooled prevalence). r_b = oracle bout-placement reference (each movie's GT bouts, same count and durations, random non-overlapping positions; mean one-to-one any-overlap bout F1 over 200 draws). Bar = max(times_ref * r, r + plus_ref). A check passes iff point >= bar AND movie-bootstrap 95% CI lower bound > lower bar (strict) AND the CI is informative (<= 5% undefined resamples). Bouts = maximal runs of the unexcluded masks, censored at unknown frames, matched one-to-one with maximum cardinality. F2: a point_min of {\"absolute\": x} means point >= x. On test the per-behavior verdict is CLAIMABLE / QUALITATIVE (claim block).",
  "decision_tree": {
   "lunge_gate": "purpose gate-lunge, split dev = movies 1-2 only, mid5, 30 fps, behaviors wing_threat+lunge, one execution, frozen pipeline config",
-  "GO": {"window": "mid5", "sample_fps": 30, "behaviors": ["wing_threat", "lunge"]},
-  "NO-GO": {"window": "mid10", "sample_fps": 10, "behaviors": ["wing_threat"]},
-  "wing_gate": "purpose gate-wing, split train = movies 1-5 (no subset), the branch's window/fps/behaviors, same frozen config, one execution, by the deadline",
+  "GO": {
+   "window": "mid5",
+   "sample_fps": 30,
+   "behaviors": [
+    "wing_threat",
+    "lunge"
+   ]
+  },
+  "NO-GO": {
+   "window": "mid10",
+   "sample_fps": 10,
+   "behaviors": [
+    "wing_threat"
+   ]
+  },
+  "wing_gate": "purpose gate-wing, split train = movies 1-5 (no subset), the branch's window/fps/behaviors, same frozen config, one execution, by the deadline; GO = CI lower > r AND F1 >= 0.40 (F2)",
   "wing_NO-GO": "no fly F1 claim of any kind (wing threat or lunge); qualitative demo clip only; the scorer refuses the fly test split",
   "wing_GO": "test run(s) on movies 6-10 with the branch's window/fps/behaviors and the same frozen config; test-1 is the primary result"
  },
  "go_no_go": {
   "wing_threat": {
-   "source": "Aniket 2026-10-28: if wing threat isn't clearly above the random floor on the training split by end of Oct 31 ET, ship it as a qualitative demo clip with no F1 claim. 'Clearly above' operationalized by the evaluator (not separately approved by Aniket).",
+   "source": "Aniket 2026-10-28: if wing threat isn't clearly above the random floor on the training split by end of Oct 31 ET, ship it as a qualitative demo clip with no F1 claim. 'Clearly above' operationalized by the evaluator (not separately approved by Aniket).. F2 (ADR-004, Aniket): 'clearly above' = CI lower > r (strict, informative CI) AND point F1 >= 0.40.",
    "split": "train",
-   "point_min": {"times_ref": 2.0, "plus_ref": 0.15},
+   "point_min": {
+    "absolute": 0.4
+   },
    "ci_lower_gt": "ref",
-   "evidence": {"min_gt_bouts": 15, "min_movies_with_behavior": 3},
-   "deadline_et": "2026-10-31T23:59:59-04:00"
+   "evidence": {
+    "min_gt_bouts": 15,
+    "min_movies_with_behavior": 3
+   },
+   "deadline_et": "2026-10-31T23:59:59-04:00",
+   "point_min_v1_superseded": {
+    "times_ref": 2.0,
+    "plus_ref": 0.15
+   }
   },
   "lunge": {
    "source": "ADR-002 (b): SAM sees 2 flies in >= 90% of samples AND rule bout-level recall >= 0.5 on train; evaluator adds the bout-F1 and frame-F1 guards",
    "split": "dev",
-   "movies": [1, 2],
+   "movies": [
+    1,
+    2
+   ],
    "window": "mid5",
    "sample_fps": 30,
-   "both_localized_min": 0.90,
+   "both_localized_min": 0.9,
    "bout_recall_min": 0.5,
-   "bout_f1": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
-   "frame_f1": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
-   "evidence": {"min_gt_bouts": 30, "min_movies_with_behavior": 1}
+   "bout_f1": {
+    "point_min": {
+     "times_ref": 2.0,
+     "plus_ref": 0.15
+    },
+    "ci_lower_gt": "ref"
+   },
+   "frame_f1": {
+    "point_min": {
+     "times_ref": 2.0,
+     "plus_ref": 0.15
+    },
+    "ci_lower_gt": "ref"
+   },
+   "evidence": {
+    "min_gt_bouts": 30,
+    "min_movies_with_behavior": 1
+   }
   }
  },
  "test_targets": {
   "wing_threat": {
-   "evidence": {"min_gt_bouts": 10, "min_movies_with_behavior": 3},
-   "metrics": {
-    "frame_f1": {
-     "credible": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
-     "good": {"point_min": {"times_ref": 3.0, "plus_ref": 0.30}, "ci_lower_gt": {"times_ref": 2.0, "plus_ref": 0.15}}
-    }
+   "evidence": {
+    "min_gt_bouts": 10,
+    "min_movies_with_behavior": 3
+   },
+   "claim": {
+    "metric": "pair frame F1",
+    "point_min": {
+     "absolute": 0.4
+    },
+    "ci_lower_gt": "ref",
+    "baseline": "wing_proxy"
    }
   },
   "lunge": {
    "only_if": "lunge gate GO (enforced: lunge is scored on test only in the GO branch)",
-   "evidence": {"min_gt_bouts": 30, "min_movies_with_behavior": 3},
-   "metrics": {
-    "frame_f1": {
-     "credible": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
-     "good": {"point_min": {"times_ref": 3.0, "plus_ref": 0.30}, "ci_lower_gt": {"times_ref": 2.0, "plus_ref": 0.15}}
+   "evidence": {
+    "min_gt_bouts": 30,
+    "min_movies_with_behavior": 3
+   },
+   "claim": {
+    "metric": "pair frame F1",
+    "point_min": {
+     "absolute": 0.4
     },
-    "bout_any_f1": {
-     "credible": {"point_min": {"times_ref": 2.0, "plus_ref": 0.15}, "ci_lower_gt": "ref"},
-     "good": {"point_min": {"times_ref": 3.0, "plus_ref": 0.30}, "ci_lower_gt": {"times_ref": 2.0, "plus_ref": 0.15}}
-    }
+    "ci_lower_gt": "ref",
+    "baseline": "lunge_speed"
    }
   }
- }
+ },
+ "amended_by": "docs/EVAL_PLAN.md 14.13 (amendment F2, 2026-10-28), owner decision ADR-004 (Aniket ~14:35 ET), made before any gate run; status stays FROZEN",
+ "test_targets_v1_superseded": "credible/good relative bars of F1 (14.7) replaced by the F2 claim rule"
 }
