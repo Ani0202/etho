@@ -1,73 +1,97 @@
-# Demo video plan (v3: APPROVED by Aniket 2026-10-28; updated for the Official Rules excerpt; script draft for his review)
+# Demo video plan (v4 script: Aniket's text, adopted 2026-10-28; plan v3 APPROVED 2026-10-28)
 
 - **Hard limit 3:00.** Aniket records the voice-over; captions are burned in.
 - **Finals are watched live on a shared screen:** large fonts (UI zoom 150% or more, captions at least 48 px at
   1080p), burned-in captions, and even audio levels (normalize the voice-over to about -16 LUFS, no music
   louder than -30 LUFS).
 - **The video must show "features, code, and functionality built during the Hackathon".** The code beat
-  (1:05-1:20) shows the architecture diagram and our own gateway and cascade code, not only the rules the model
+  (1:04-1:21) shows the architecture diagram and our own gateway and cascade code, not only the rules the model
   wrote.
 - **Schedule:** rough cut Nov 2 (up to $5 of `demo-reserve` unlocked for it). Final recording Nov 3.
   Internal submission target Nov 4, 12:00 PM ET; official deadline Nov 4, 9:00 PM ET (`docs/SUBMISSION.md`).
 - **Sources and numbers:** every factual claim in the voice-over has a source (table below). Numbers come only
   from committed files.
 
-## Script (draft v3)
-About 420 words (GO fly line), ~2:54 at ~145 words/min, leaving ~6 s of slack under 3:00. Clip: test video mouse075,
-0-300 s. Pending: ⟨fly result⟩ (Oct 31 gate; on-screen fly F1 only under ADR-004).
+## Script (v4, Aniket's text, adopted 2026-10-28)
+391 words. At 145 words/min that is 2:42 of speech; the timeline below adds pauses for on-screen moments and ends
+at 2:57, leaving 3 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
+recording on Nov 2 (`docs/demo_captions_v4.srt` is a draft at 145 wpm, one caption per sentence, 32 captions).
 
-**0:00-0:20, hook** (on screen: two mice; title "Etho · Push the Frontier")
-> Labs that study behavior still score it by hand: someone watches every second and writes down what the
-> animals do. For social behavior that takes three to four times the length of the video. This is Etho, for
-> Push the Frontier. It's training-free, and on a public benchmark it reaches 0.58 F1.
+Source check of the two new phrases (2026-10-28):
+- "more than six hundred tests": supported. `uv run pytest` gives 662 passed (all written during the event).
+- "the largest single gain in the pipeline": **adjusted** to "the biggest gain of any step on top of the rules".
+  The rules alone go from the 0.134 random reference to 0.375 (+0.240), which is larger than +0.205, so "largest
+  single gain" is not supported. Among the steps added on top of the rules, the frame check is the largest
+  measured gain (test: +0.205; corrections inconclusive; dev: video tier +0.005, medium effort -0.011).
+- Flagged for Aniket: "Nothing is a black box." The models themselves are black boxes; what is traceable is
+  each label. Suggested: "No label goes unexplained." Kept as written until Aniket decides.
 
-**0:20-0:35, who it's for and the gap** (on screen: the real CalMS21 human annotation as a timeline)
-> Behavior scoring runs through neuroscience labs and regulated drug-safety testing. Today's options: a person
-> with a stopwatch, or software that needs hand-labeled examples of every behavior. Etho needs a sentence.
+| Beat | Time | Words | Speech |
+|---|---|---|---|
+| Hook | 0:00-0:20 | 47 | 19.4 s |
+| Who it's for, the gap | 0:20-0:35 | 34 | 14.1 s |
+| Live run | 0:35-1:04 | 64 | 26.5 s |
+| Code beat | 1:04-1:21 | 38 | 15.7 s |
+| Results and traced error | 1:21-1:44 | 52 | 21.5 s |
+| Correction loop | 1:44-1:55 | 20 | 8.3 s |
+| Evidence card | 1:55-2:27 | 74 | 30.6 s |
+| Second species | 2:27-2:41 | 29 | 12.0 s |
+| Close | 2:41-2:57 | 33 | 13.7 s |
 
-**0:35-1:05, live run** (on screen: the app with a visible clock; waits are cut and marked with a "time
-skipped" tag; the clock keeps the real elapsed time)
-> This is a test video Etho was never tuned on. I paste the dataset authors' definitions of attack,
-> investigation and mount. Muse Spark picks what to track, and SAM 3.1 follows both mice, even when one climbs
-> on the other. Muse Spark turns each definition into a short Python rule, and Muse Spark Open checks
-> borderline moments from strips of frames. The clock is real; we've only cut the waiting.
+**0:00-0:20, hook** (on screen: two mice; title "Etho · Push the Frontier"; slide footnote with the headline)
+> In behavior labs, someone still watches every second of video and labels it by hand. For social behavior, that
+> takes three to four times the video's length. This is Etho, for Push the Frontier: no training, just
+> plain-English definitions. On a public benchmark, it reaches 0.58 F1.
 
-**1:05-1:20, code beat** (on screen: the architecture diagram, then ~4 s each of `etho/gateway/gateway.py`
-(the cap check and cache), `etho/adjudication/tier1.py` (the cascade: strips, verdict, restricted apply) and
-`etho/rules/sandbox.py`; a commit-date overlay showing it was written Oct 26-Nov 4)
-> Everything around the models we built this week: a gateway that caps every dollar and caches every call,
-> the tracking and identity code, the sandbox that runs the model's rules, and the two-tier cascade.
+**0:20-0:35, who it's for** (on screen: the real CalMS21 human annotation as a timeline)
+> Behavior scoring sits underneath neuroscience research and drug-safety studies. Today it takes a person with a
+> stopwatch, or software you must first feed hand-labeled examples of every behavior. Etho needs one sentence per
+> behavior.
 
-**1:20-1:45, results and audit trail, with one real error** (on screen: Etho's ethogram over the expert's)
-> Here's the result beside the expert's annotation. Every label can be traced, including mistakes. At
-> thirty-eight seconds Etho says mount; the expert says attack. The frame-strip check answered "attack",
-> correctly, but this version only lets it confirm investigation or reject, so that answer was set aside. The
-> trace shows exactly which step overrode the right answer.
+**0:35-1:04, live run** (on screen: the app with a visible clock; waits cut and tagged "time skipped"; the
+planner card shows the phrases Muse Spark proposed and the one SAM confirmed)
+> This is a test video Etho was never tuned on. I paste the dataset authors' own definitions of attack,
+> investigation and mount. Muse Spark decides what to track. SAM 3.1 follows both mice, and keeps them apart even
+> when they're tangled together. Muse Spark turns each definition into a short Python rule, and Muse Spark Open
+> double-checks the borderline moments from strips of frames.
 
-**1:45-2:00, correction loop** (no gain claim)
-> If the researcher disagrees, they mark a few bouts. Etho rewrites the rule and shows exactly what changed. The
-> researcher stays in control.
+**1:04-1:21, code beat** (architecture diagram, then `etho/gateway/gateway.py`, `etho/adjudication/tier1.py`,
+`etho/rules/sandbox.py`; commit-date overlay; the pytest summary line)
+> Around the models, built this week: a gateway that caps every dollar and caches every call, the tracking and
+> identity code, a locked-down sandbox for the model-written rules, and the two-step check, with more than six
+> hundred tests.
 
-**2:00-2:30, evidence card** (on screen: per-behavior F1 attack 0.449, investigation 0.635, mount 0.656;
-supervised .793, .829 and .864; "0.88× real time on test; worst 1.54×; manual scoring takes 3-4×"; $11.25 per
-hour of video; slide footnote)
-> On the 19 official CalMS21 test videos, scored once, Etho reaches 0.58 F1 with no training. Supervised
-> methods trained on labeled data and given pose keypoints reach 0.79 to 0.86; Etho works from raw video. It
-> scores a video unattended in about its own length; manual scoring takes three to four times. About eleven
-> dollars per hour of video. Our biggest surprise: Muse Spark Open, glancing at six frames at its lowest
-> effort, added 0.2 F1.
+**1:21-1:44, results and one real error** (on screen: Etho's ethogram over the expert's; the trace panel)
+> Here's Etho beside the expert's labels. Every label is traceable, including the mistakes. At thirty-eight
+> seconds, Etho says mount; the expert says attack. The frame check actually answered "attack", but a rule in the
+> cascade set it aside, and the trace shows exactly which step did it. Nothing is a black box.
 
-**2:30-2:45, second species** (NO-GO version applies: the pre-registered wing gate failed on 2026-10-28, see eval/flies_decision.json. Qualitative clip, no F1 on screen)
-> GO: Same pipeline, new animal: Caltech's fighting fruit flies, with wing threat defined in one sentence from
-> the literature. No retraining. ⟨F1, shown next to the simple width-threshold baseline⟩.
-> NO-GO: Same pipeline, new animal: fruit flies, scored from a one-sentence definition with no retraining. This
-> one is qualitative; we haven't measured it to our standard yet.
+Traced-error contingency (Aniket, 2026-10-28, decided before the run):
+- If the live run shows a different real error, use it and rewrite this line to match.
+- If no clear error appears, show the trace from the committed test report, labeled "from the test run".
+- Never re-roll runs to get a particular error.
 
-**2:45-3:00, close** (on screen: Meta model stack, who it's for, repo and live link)
-> Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open. It's for every lab that still scores by
-> hand. It's open source, and live at the link below.
+**1:44-1:55, correction loop** (no gain claim)
+> Disagree? Mark a few bouts. Etho rewrites the rule and shows you exactly what changed. The researcher stays in
+> control.
 
-Captions: the script text, one caption per sentence, timed from the recorded voice-over (SRT generated Nov 2).
+**1:55-2:27, evidence card** (on screen: macro F1 0.58 with per-behavior attack 0.449, investigation 0.635,
+mount 0.656; supervised .793, .829, .864; "0.88× real time on test; worst 1.54×; manual scoring takes 3-4×";
+$11.25 per hour of video; slide footnote)
+> On the nineteen official test videos, scored once: 0.58 F1, with no training. Supervised methods, trained on
+> labeled data and given pose keypoints, reach 0.79 to 0.86. Etho works from raw video, unattended, in about the
+> video's own length, for about eleven dollars per hour of footage. Our biggest surprise: Muse Spark Open, looking
+> at six frames at low effort, added 0.2 F1, the biggest gain of any step on top of the rules.
+
+**2:27-2:41, second species** (qualitative clip; no F1 on screen; wing gate NO-GO, eval/flies_decision.json)
+> Same pipeline, new animal: fruit flies, from a one-sentence definition, with no retraining. It's a preview: it
+> hasn't cleared the confidence bar we set, so there's no number here.
+
+**2:41-2:57, close** (on screen: Meta model stack, who it's for, repo and live link)
+> Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open. It's for every lab that still scores
+> behavior by hand. It's open source. Try it live at the link below.
+
+Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v4.srt`).
 
 ## Sources for every claim (all in the repo or cited)
 | Claim | Source |
@@ -82,6 +106,10 @@ Captions: the script text, one caption per sentence, timed from the recorded voi
 | Biggest surprise: 6 frames, lowest effort, +0.2 F1 | test1_report (zs_t1 − zs_rules +0.205, CI excludes 0); tier1.FRAMES_PER_STRIP = 6; effort low (configs/frozen_test_v1.json); README "What we learned" |
 | Gateway caps every dollar and caches every call | etho/gateway/ (ledger, caps, cache); CLAUDE.md budget caps |
 | Fly definitions from the literature | configs/flies_definitions.json (Chen et al. 2002, PNAS, Table 1) |
+| "More than six hundred tests" | `uv run pytest`: 662 passed (2026-10-28) |
+| "Biggest gain of any step on top of the rules" | test1_report §11 paired differences: tier-1 lift +0.205 (CI excludes 0); fs_t1 vs zs_t1 inconclusive; dev video tier +0.005 and medium effort -0.011 (README "What we learned") |
+| Fly "hasn't cleared the confidence bar we set" | ADR-004; eval/flies_decision.json (wing CI lower 0.009 <= random reference 0.043) |
+| "Keeps them apart even when they're tangled together" | test1_report: identity error 0.29%; DECISIONS chunk-length table (both mice labeled on 100% of mount frames) |
 
 ## Production
 - **Live run:** test video mouse075, 0-300 s (11 attack, 1 mount, 17 investigation bouts).

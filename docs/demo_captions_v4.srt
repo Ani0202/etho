@@ -1,0 +1,127 @@
+1
+00:00:00,300 --> 00:00:06,507
+In behavior labs, someone still watches every second of video and labels it by hand.
+
+2
+00:00:06,507 --> 00:00:11,472
+For social behavior, that takes three to four times the video's length.
+
+3
+00:00:11,472 --> 00:00:16,438
+This is Etho, for Push the Frontier: no training, just plain-English definitions.
+
+4
+00:00:16,438 --> 00:00:19,748
+On a public benchmark, it reaches 0.58 F1.
+
+5
+00:00:20,300 --> 00:00:24,024
+Behavior scoring sits underneath neuroscience research and drug-safety studies.
+
+6
+00:00:24,024 --> 00:00:31,886
+Today it takes a person with a stopwatch, or software you must first feed hand-labeled examples of every behavior.
+
+7
+00:00:31,886 --> 00:00:34,369
+Etho needs one sentence per behavior.
+
+8
+00:00:35,300 --> 00:00:39,438
+This is a test video Etho was never tuned on.
+
+9
+00:00:39,438 --> 00:00:44,403
+I paste the dataset authors' own definitions of attack, investigation and mount.
+
+10
+00:00:44,403 --> 00:00:46,886
+Muse Spark decides what to track.
+
+11
+00:00:46,886 --> 00:00:52,679
+SAM 3.1 follows both mice, and keeps them apart even when they're tangled together.
+
+12
+00:00:52,679 --> 00:01:01,783
+Muse Spark turns each definition into a short Python rule, and Muse Spark Open double-checks the borderline moments from strips of frames.
+
+13
+00:01:04,300 --> 00:01:20,024
+Around the models, built this week: a gateway that caps every dollar and caches every call, the tracking and identity code, a locked-down sandbox for the model-written rules, and the two-step check, with more than six hundred tests.
+
+14
+00:01:21,300 --> 00:01:23,783
+Here's Etho beside the expert's labels.
+
+15
+00:01:23,783 --> 00:01:26,679
+Every label is traceable, including the mistakes.
+
+16
+00:01:26,679 --> 00:01:30,817
+At thirty-eight seconds, Etho says mount; the expert says attack.
+
+17
+00:01:30,817 --> 00:01:40,748
+The frame check actually answered "attack", but a rule in the cascade set it aside, and the trace shows exactly which step did it.
+
+18
+00:01:40,748 --> 00:01:42,817
+Nothing is a black box.
+
+19
+00:01:44,300 --> 00:01:44,714
+Disagree?
+
+20
+00:01:44,714 --> 00:01:46,369
+Mark a few bouts.
+
+21
+00:01:46,369 --> 00:01:50,507
+Etho rewrites the rule and shows you exactly what changed.
+
+22
+00:01:50,507 --> 00:01:52,576
+The researcher stays in control.
+
+23
+00:01:55,300 --> 00:02:00,679
+On the nineteen official test videos, scored once: 0.58 F1, with no training.
+
+24
+00:02:00,679 --> 00:02:06,472
+Supervised methods, trained on labeled data and given pose keypoints, reach 0.79 to 0.86.
+
+25
+00:02:06,472 --> 00:02:14,748
+Etho works from raw video, unattended, in about the video's own length, for about eleven dollars per hour of footage.
+
+26
+00:02:14,748 --> 00:02:25,921
+Our biggest surprise: Muse Spark Open, looking at six frames at low effort, added 0.2 F1, the biggest gain of any step on top of the rules.
+
+27
+00:02:27,300 --> 00:02:32,679
+Same pipeline, new animal: fruit flies, from a one-sentence definition, with no retraining.
+
+28
+00:02:32,679 --> 00:02:39,300
+It's a preview: it hasn't cleared the confidence bar we set, so there's no number here.
+
+29
+00:02:41,300 --> 00:02:46,679
+Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open.
+
+30
+00:02:46,679 --> 00:02:50,817
+It's for every lab that still scores behavior by hand.
+
+31
+00:02:50,817 --> 00:02:52,059
+It's open source.
+
+32
+00:02:52,059 --> 00:02:54,955
+Try it live at the link below.

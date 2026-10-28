@@ -149,6 +149,12 @@ Measured during the event. Each claim links to the committed evidence.
   - one joint classifier and a 5-way ensemble both did worse than independent rules on dev
     ([docs/DECISIONS.md](docs/DECISIONS.md)).
 
+## What's next (future work, not built)
+- **Ask your experiment.** A researcher would ask a plain-English question across scored videos; Muse Spark would
+  write the analysis code, a sandbox would run it, and the app would return a plot and a statistical test with
+  the code shown. It needs datasets with experimental conditions (CalMS21 has none), so it is not built and
+  nothing here claims it works.
+
 ## Data and licenses
 
 Etho is licensed under Apache-2.0 (`LICENSE`), except the SAM-derived decoder files noted below,
