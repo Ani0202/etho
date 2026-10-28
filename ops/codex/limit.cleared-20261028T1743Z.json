@@ -1,0 +1,9 @@
+{
+ "gpt-6.1-sol": {
+  "kind": "limit",
+  "message": "You\u2019ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/settings/usage to purchase more credits or try again at 9:55 PM.",
+  "reset": "2026-10-28T21:55:00+00:00",
+  "reset_parsed": true,
+  "seen": "2026-10-28T17:39:34+00:00"
+ }
+}
