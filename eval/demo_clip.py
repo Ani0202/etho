@@ -9,7 +9,8 @@ Selection rule (fixed here, before it runs):
   - windows of 120, 180, 240, 300 s, starting on multiples of 10 s, fully inside the sequence;
   - ground truth in the window must contain >= 3 attack bouts and >= 3 mount bouts of >= 15 frames (0.5 s)
     each (the default `--min-bouts attack=3,mount=3`; on CalMS21 test no window qualifies, because attack and
-    mount almost never occur in the same test video, so relaxed rules are run as separate, logged executions); bouts are maximal runs of one label, clipped to the window;
+    mount almost never occur in the same test video, so relaxed rules are run as separate, logged executions);
+    bouts are maximal runs of one label, clipped to the window;
   - among qualifying windows of a sequence, the one with the highest zs_t1 macro F1 inside the window
     (ties: more investigation bouts, then the earlier start) represents that sequence;
   - sequences are ranked by that window's macro F1. Because Etho's own F1 is a ranking criterion, the
@@ -46,7 +47,7 @@ def bouts(labels: np.ndarray, code: int, min_len: int = 1) -> list[tuple[int, in
     """Maximal runs [start, end) of `code` with length >= min_len."""
     m = np.concatenate([[False], labels == code, [False]])
     d = np.flatnonzero(np.diff(m.astype(np.int8)))
-    return [(int(a), int(b)) for a, b in zip(d[::2], d[1::2]) if b - a >= min_len]
+    return [(int(a), int(b)) for a, b in zip(d[::2], d[1::2], strict=True) if b - a >= min_len]
 
 
 def window_f1(gt: np.ndarray, pred: np.ndarray) -> dict:
@@ -152,7 +153,7 @@ def main(argv=None) -> int:
             if err:
                 e_rules = pz["zs_rules"][err["f0"]:err["f1"]]
                 err["zs_rules_labels_in_run"] = {CODE[k]: int(v) for k, v in
-                                                 zip(*np.unique(e_rules, return_counts=True))}
+                                                 zip(*np.unique(e_rules, return_counts=True), strict=True)}
                 vs = [json.loads(x) for x in (a.run_dir / "verdicts_test_zs_t1.jsonl").read_text().splitlines()
                       if x.strip()]
                 step = NATIVE_FPS // 10
