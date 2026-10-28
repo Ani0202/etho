@@ -87,18 +87,86 @@ def _outcome(fn, *a):
         return None
 
 
-@pytest.mark.parametrize("seed", range(12))
-def test_one_bit_random_streams_match_reference(seed):
-    """Random (non-canonical) streams drive every model path; skip the reference's re-encode check."""
-    rng = random.Random(seed)
-    w, h = rng.randrange(1, 90), rng.randrange(1, 70)
-    data = bytes(rng.randrange(256) for _ in range(max(8, w * h // 6)))
-    payload = "!" + ref._pack(data)
-    want = _outcome(lambda: np.frombuffer(ref._decode_raster(payload, w, h), np.uint8).reshape(h, w))
+def _public(encoding: str, payload: str, w: int, h: int):
+    """The reference's public, strict decoder (incl. its canonical re-encode check); None on rejection."""
+    try:
+        return _reference(encoding, payload, w, h)
+    except InvalidSegmentationMaskError:
+        return None
+
+
+def _encoded_one_bit(seed: int):
+    rng = np.random.default_rng(seed)
+    h, w = int(rng.integers(1, 30)), int(rng.integers(1, 30))
+    mask = (rng.random((h, w)) < rng.random()).astype(np.uint8)
+    return ref._encode_raster(mask.ravel().tolist(), w, h), w, h
+
+
+def _agree(payload: str, w: int, h: int) -> bool:
+    """Assert the fast decoder and the strict reference accept/reject identically. Returns accepted."""
+    want = _public("one_bit", payload, w, h)
     got = _outcome(decode_one_bit, payload, w, h)
-    assert (want is None) == (got is None)
+    assert (want is None) == (got is None), payload
     if want is not None:
         assert np.array_equal(want, got)
+    return want is not None
+
+
+def test_codex_example_trailing_zero_byte_is_rejected():
+    valid = "!!!!!&O.lVP"
+    assert _agree(valid, 1, 1)
+    corrupt = "!!!!!'O.lVP!!"  # the valid 1x1 payload with a packed zero byte appended
+    assert not _agree(corrupt, 1, 1)
+    with pytest.raises(MaskDecodeError):
+        decode_one_bit(corrupt, 1, 1)
+
+
+def test_one_bit_malformed_fuzz_matches_strict_reference():
+    """Mutate valid payloads (text- and byte-level) and require identical accept/reject + output."""
+    rng = random.Random(7)
+    accepted = rejected = 0
+    for seed in range(40):
+        payload, w, h = _encoded_one_bit(seed)
+        assert _agree(payload, w, h)
+        packed = ref._unpack(payload[1:])
+        variants = [
+            "!" + ref._pack(packed + b"\x00"),                       # trailing zero byte
+            "!" + ref._pack(packed + bytes([rng.randrange(256)])),    # trailing garbage
+            "!" + ref._pack(packed[:-1]),                             # dropped last byte
+        ]
+        for _ in range(6):
+            k = rng.randrange(len(packed))
+            mutated = bytearray(packed)
+            mutated[k] ^= 1 << rng.randrange(8)
+            variants.append("!" + ref._pack(bytes(mutated)))          # bit flip, repacked canonically
+        for _ in range(6):
+            i = rng.randrange(1, len(payload))
+            ch = rng.choice(payload)
+            variants.append(rng.choice([payload[:i] + ch + payload[i + 1:], payload[:i] + ch + payload[i:],
+                                        payload[:i] + payload[i + 1:]]))  # text-level edit
+        for v in variants:
+            if _agree(v, w, h):
+                accepted += 1
+            else:
+                rejected += 1
+    assert rejected > 200 and accepted > 0
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_base85_noncanonical_tail_matches_reference(seed):
+    """Sweep the last digit of payloads whose byte length is not a multiple of 4."""
+    n_checked = n_ok = 0
+    for s in range(seed * 40, seed * 40 + 400):
+        payload, w, h = _encoded_one_bit(s)
+        if len(ref._unpack(payload[1:])) % 4 == 0:
+            continue
+        alphabet = ref._ALPHABET[:85]
+        for d in alphabet:
+            n_checked += 1
+            n_ok += _agree(payload[:-1] + d, w, h)
+        if n_checked >= 85 * 3:
+            break
+    assert n_checked >= 85 and 0 < n_ok < n_checked  # both accept and reject paths were exercised
 
 
 def _lossless_random(seed: int):
@@ -266,6 +334,27 @@ def test_bad_dimensions(good_one_bit):
         decode_one_bit(payload, MAX_PIXELS, 2)
     with pytest.raises(MaskDecodeError, match="string"):
         decode_one_bit(None, 3, 3)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "dtype", [np.int8, np.uint8, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]
+)
+def test_numpy_integer_dims(dtype, good_one_bit):
+    payload, w, h = good_one_bit
+    got = decode_one_bit(payload, dtype(w), dtype(h))
+    assert np.array_equal(got, decode_one_bit(payload, w, h))
+    assert got.shape == (h, w)
+
+
+@pytest.mark.parametrize("dtype", [np.int32, np.uint32, np.int64, np.uint64, np.uint16])
+def test_numpy_integer_dims_cannot_overflow_the_cap(dtype, good_one_bit):
+    payload, _, _ = good_one_bit
+    big = dtype(65535) if dtype is np.uint16 else dtype(65536)  # 65536**2 wraps to 0 in int32/uint32
+    for fn in (decode_one_bit, decode_lossless):
+        with pytest.raises(MaskDecodeError, match="too large"):
+            fn(("!" if fn is decode_one_bit else "~") + payload[1:], big, big)
+    with pytest.raises(MaskDecodeError, match="too large"):
+        decode_one_bit(payload, dtype(1 << 14) if dtype is not np.uint16 else dtype(60000), dtype(60000))
 
 
 def test_error_is_value_error():

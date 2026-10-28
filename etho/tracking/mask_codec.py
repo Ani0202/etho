@@ -12,11 +12,12 @@ then range-coded with a context model. This module is bit-exact with
 ``meta_sam_parser.decode_mask_to_raster`` (lossless output thresholded at >= 129), but about two
 orders of magnitude faster, because the per-pixel loops run as compiled numba code.
 
-Differences from the reference, by design:
-  * No canonical re-encode check (the reference re-encodes every one_bit mask, doubling the cost)
-    and no canonical-form repack check of the base85 text. Structural checks are kept: length
-    prefix vs actual length, base85 digits, group range, truncated range-coder stream, invalid
-    predictor selector, and a pixel-count sanity cap.
+Validation matches the reference: base85 prefix/length/digit/group/canonical-tail checks, and for
+one_bit the reference's canonical re-encode check, done incrementally inside the decode loop (the
+decoder and a re-encoder hold identical range-coder state, so each byte the encoder would emit is
+compared against the stream as it is consumed, then the 4 flush bytes and the total length). That
+avoids the second pass that doubles the reference's cost. Extra: a pixel-count sanity cap
+(``MAX_PIXELS``).
   * The ``payload`` argument INCLUDES the leading ``!`` / ``~`` encoding marker, exactly as it
     appears after ``H,W,`` in the token (the marker cannot be dropped: ``!`` is also a valid base85
     digit, so the two cannot be told apart).
@@ -60,6 +61,7 @@ _SLOT = 257
 _OK = 0
 _E_SHORT, _E_CHAR, _E_LEN, _E_GROUP, _E_TAIL = 1, 2, 3, 4, 5
 _E_FINAL, _E_ENDED, _E_STATE, _E_PREDICTOR, _E_MALFORMED, _E_TRUNC = 6, 7, 8, 9, 10, 11
+_E_CANON, _E_NONCANON = 12, 13
 _MESSAGES = {
     _E_SHORT: "Mask payload is missing its length prefix.",
     _E_CHAR: "Mask payload contains an invalid character.",
@@ -72,6 +74,8 @@ _MESSAGES = {
     _E_PREDICTOR: "Lossless mask payload uses an invalid predictor.",
     _E_MALFORMED: "Lossless mask payload is malformed.",
     _E_TRUNC: "Lossless mask payload is truncated.",
+    _E_CANON: "Mask payload is not in canonical form.",
+    _E_NONCANON: "Mask payload is not canonical or has invalid finalization.",
 }
 
 
@@ -126,12 +130,27 @@ def _unpack(buf, start, lut):
             return _E_TAIL, empty
         for i in range(rem):
             out[dst + i] = (v >> (24 - i * 8)) & 0xFF
+        # canonical tail: re-encoding the zero-padded tail bytes must give back the same digits
+        v2 = 0
+        for i in range(rem):
+            v2 |= np.int64(out[dst + i]) << (24 - i * 8)
+        for i in range(4, -1, -1):
+            digit = v2 % 85
+            v2 //= 85
+            if i < rem + 1 and digit != lut[buf[src + i]]:
+                return _E_CANON, empty
     return _OK, out
 
 
 @njit(cache=True, nogil=True)
-def _renorm(low, rng, code, pos, buf, n):
-    """Range-coder normalisation. Returns (low, range, code, pos); pos == -1 means stream exhausted."""
+def _renorm(low, rng, code, pos, buf, n, strict):
+    """Range-coder normalisation. Returns (low, range, code, pos).
+
+    pos == -1 means the stream is exhausted. With ``strict`` (one_bit, buffer starts at the range-coder
+    data) the byte a re-encoder would emit at each shift, ``low >> 24``, must equal the stream byte at
+    that index; a mismatch returns pos == -2. That is the reference's canonical re-encode check, done
+    incrementally: the encoder and decoder keep identical low/range.
+    """
     while True:
         if (low ^ ((low + rng) & 0xFFFFFFFF)) < 16777216:
             pass
@@ -141,6 +160,8 @@ def _renorm(low, rng, code, pos, buf, n):
             break
         if pos >= n:
             return low, rng, code, -1
+        if strict and buf[pos - 4] != ((low >> 24) & 0xFF):
+            return low, rng, code, -2
         code = ((code << 8) | buf[pos]) & 0xFFFFFFFF
         pos += 1
         low = (low << 8) & 0xFFFFFFFF
@@ -203,9 +224,9 @@ def _one_bit_kernel(buf, start, width, height, out):
                 freq = one
             low = (low + scaled * cum) & 0xFFFFFFFF
             rng = scaled * freq
-            low, rng, code, pos = _renorm(low, rng, code, pos, buf, n)
+            low, rng, code, pos = _renorm(low, rng, code, pos, buf, n, True)
             if pos < 0:
-                return _E_ENDED
+                return _E_ENDED if pos == -1 else _E_NONCANON
             if bit:
                 pad[p] = 1
                 out[y, x] = 1
@@ -213,6 +234,13 @@ def _one_bit_kernel(buf, start, width, height, out):
             if counts[off] + counts[off + 1] >= 4096:
                 counts[off] = (counts[off] >> 1) or 1
                 counts[off + 1] = (counts[off + 1] >> 1) or 1
+    # finalization: the encoder flushes 4 bytes of ``low`` (already read as decoder look-ahead);
+    # nothing may follow them
+    if n != pos:
+        return _E_NONCANON
+    for i in range(4):
+        if buf[pos - 4 + i] != ((low >> (24 - 8 * i)) & 0xFF):
+            return _E_NONCANON
     return _OK
 
 
@@ -278,7 +306,7 @@ def _lossless_kernel(buf, width, height, out):
                 freq = nonzero
             low = (low + scaled * cum) & 0xFFFFFFFF
             rng = scaled * freq
-            low, rng, code, pos = _renorm(low, rng, code, pos, buf, n)
+            low, rng, code, pos = _renorm(low, rng, code, pos, buf, n, False)
             if pos < 0:
                 return _E_ENDED
             zc[zoff + bit] += 32
@@ -322,7 +350,7 @@ def _lossless_kernel(buf, width, height, out):
                     freq = np.int64(pool[b + symbol]) + o1[fo + symbol] + o0[symbol]
                 low = (low + scaled * cumulative) & 0xFFFFFFFF
                 rng = scaled * freq
-                low, rng, code, pos = _renorm(low, rng, code, pos, buf, n)
+                low, rng, code, pos = _renorm(low, rng, code, pos, buf, n, False)
                 if pos < 0:
                     return _E_ENDED
                 # order-2 update (u16 semantics via the uint16 pool)
@@ -402,10 +430,11 @@ def _lossless_kernel(buf, width, height, out):
 
 
 # ---- python wrappers -------------------------------------------------------------------------------
-def _prepare(payload, width, height, marker: str) -> np.ndarray:
+def _prepare(payload, width, height, marker: str) -> tuple[np.ndarray, int, int]:
     if isinstance(width, bool) or isinstance(height, bool) or not isinstance(width, (int, np.integer)) \
             or not isinstance(height, (int, np.integer)):
         raise MaskDecodeError("Mask dimensions must be integers.")
+    width, height = int(width), int(height)  # NumPy ints would overflow in width * height
     if width <= 0 or height <= 0:
         raise MaskDecodeError("Mask dimensions must be positive.")
     if width * height > MAX_PIXELS:
@@ -419,7 +448,7 @@ def _prepare(payload, width, height, marker: str) -> np.ndarray:
         raw = payload.encode("ascii")
     except UnicodeEncodeError as e:
         raise MaskDecodeError("Mask payload contains an invalid character.") from e
-    return np.frombuffer(raw, dtype=np.uint8)
+    return np.frombuffer(raw, dtype=np.uint8), width, height
 
 
 def _check(status: int) -> None:
@@ -429,7 +458,7 @@ def _check(status: int) -> None:
 
 def decode_one_bit(payload: str, width: int, height: int) -> np.ndarray:
     """Decode a ``one_bit`` mask (payload starts with ``!``) to a (height, width) uint8 0/1 array."""
-    buf = _prepare(payload, width, height, "!")
+    buf, width, height = _prepare(payload, width, height, "!")
     status, packed = _unpack(buf, 1, _LUT)
     _check(status)
     out = np.zeros((height, width), dtype=np.uint8)
@@ -442,7 +471,7 @@ def decode_lossless(payload: str, width: int, height: int) -> np.ndarray:
 
     Returns a (height, width) uint8 0/1 array.
     """
-    buf = _prepare(payload, width, height, "~")
+    buf, width, height = _prepare(payload, width, height, "~")
     status, packed = _unpack(buf, 1, _LUT)
     _check(status)
     out = np.zeros((height, width), dtype=np.uint8)

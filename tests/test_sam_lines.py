@@ -200,3 +200,34 @@ def test_parse_line_keep_rle_and_no_mask_by_default():
     line = _fixture_lines("sam_onebit_5lines.txt.gz")[0]
     ((of, mask),) = parse_line(line, frame_shape=(570, 1024), keep_rle=True)
     assert mask is None and of.rle is not None and of.rle["size"] == [570, 1024]
+
+
+def test_invalid_mask_size_skips_only_that_record_like_the_reference():
+    """A zero-height mask is diagnosed and skipped; later valid objects on the line are kept."""
+    valid_line = _fixture_lines("sam_onebit_5lines.txt.gz")[0]
+    body = valid_line[valid_line.index(">") + 1:]  # "0<|box..|><|mask..|>" for object 0
+    zero_height = _line(frame=0, oid=0, payload="!!!!)").replace("data=3,4,", "data=0,4,")
+    zero_height_body = zero_height[zero_height.index(">") + 1:]
+    line = "<0f>" + zero_height_body + ",1" + body[1:] + ",2" + zero_height_body[1:] + ",3" + body[1:]
+
+    diags: list[SamDiagnostic] = []
+    ours = parse_sam_line(line, diagnostics=diags)
+
+    p = video_segmentation_format().create_parser()
+    p.push(line + "\n", emit=False)
+    res = p.finish(CompletedOutcome()).result
+    theirs = [r for r in res.records if r.kind == "mask"]
+    assert [r.object_id for r in theirs] == ["1", "3"]  # the reference keeps both valid objects
+    assert [r.object_id for r in ours] == [r.object_id for r in theirs]
+    assert [d.code for d in diags] == [d.code for d in res.diagnostics] == ["invalid_mask_size"] * 2
+    # and parse_line, the path callers use, returns the same two objects with decoded masks
+    assert [of.object_id for of, _ in parse_line(line)] == ["1", "3"]
+
+
+def test_invalid_box_still_stops_the_line():
+    good = _line(frame=1, oid=0)
+    bad_box = "1" + BOX.format(c="").replace("x2=13", "x2=9") + MASK.format(payload=PAYLOAD, c="")
+    after = "2" + BOX.format(c="") + MASK.format(payload=PAYLOAD, c="")
+    diags: list[SamDiagnostic] = []
+    recs = parse_sam_line(good + bad_box + after, diagnostics=diags)
+    assert [r.object_id for r in recs] == ["0"] and [d.code for d in diags] == ["invalid_box"]

@@ -179,6 +179,9 @@ def parse_sam_line(
             return out
         if isinstance(rec, str):  # an error code from _read_record
             diag(rec, _MESSAGES[rec])
+            if rec == "invalid_mask_size":  # the reference drops only this mask and keeps parsing
+                position = end
+                continue
             return out
         out.append(rec)
         position = end
