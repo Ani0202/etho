@@ -64,3 +64,15 @@ adjudication (Muse Spark Open on Fireworks) on the test windows.
 **Blocking:** only the tier-1 arms. Meanwhile I'll run the SAM pass and the rules-only arms, which are
 approved and cost nothing extra. I won't start tier-1 on test until you reply; no fallback, since it's
 spend over $5.
+
+## 2026-10-28 ~09:00 UTC: headline wording ("zero-shot")
+The Codex eval-plan gate (Astra) says "zero-shot / no labeled training frames" overstates it:
+- no labeled example is ever shown to a model, and no model is trained;
+- but our prompts, thresholds and cascade rule were chosen by looking at F1 on labeled dev videos.
+
+*Recommend* wording like: **"No labeled examples in any prompt and no model training; pipeline settings
+were tuned on 13 labeled development videos (disclosed)."** In short form, "zero-shot behavior
+definitions, dev-tuned pipeline". The correction-loop arm is labeled "few-shot (18 corrections)".
+
+*Blocking:* no (it affects the README, demo and report wording, not the test run).
+*Fallback if no reply in 2 h:* use the precise wording above in all written material.

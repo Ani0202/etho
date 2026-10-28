@@ -50,6 +50,18 @@ def verify_frozen() -> dict:
     return cfg
 
 
+def verify_product_tree(cfg: dict) -> None:
+    """The code that runs must be the frozen code: etho/ unchanged since frozen_at_commit, same tier-1 prompt."""
+    from etho.adjudication import tier1
+    diff = subprocess.run(["git", "diff", "--stat", cfg["frozen_at_commit"], "--", "etho/"], capture_output=True,
+                          text=True).stdout.strip()
+    if diff:
+        raise SystemExit(f"etho/ differs from the frozen commit {cfg['frozen_at_commit']}:\n{diff}")
+    ph = hashlib.sha256(tier1.PROMPT.encode()).hexdigest()
+    if ph != cfg["zero_shot_arm"]["tier1"]["prompt_sha256"]:
+        raise SystemExit("tier-1 prompt hash differs from the frozen config")
+
+
 def video_for(seq: str, split: str) -> Path:
     return Path(f"data/calms21/videos/{'test' if split == 'test' else 'train'}/{seq}.mp4")
 
@@ -80,6 +92,8 @@ def main() -> None:
     ap.add_argument("--allow-t1", action="store_true", help="tier-1 spends on Fireworks; on test needs approval")
     a = ap.parse_args()
     cfg = verify_frozen()
+    verify_product_tree(cfg)
+    t_start_ledger = time.time()
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     seqs = json.loads(Path("eval/splits/calms21_v1.json").read_text())[a.split]
     run = Path("data/runs") / a.run
@@ -115,10 +129,12 @@ def main() -> None:
         for arm, dets in arms_dets.items():
             t0 = time.monotonic()
             for s in seqs:
+                ts = time.monotonic()
                 t = table(s)
                 n = log["seqs"][s].get("n_samples") or -(-log["seqs"][s]["src_frames"] // 3)
                 save(run / f"{arm}_rules", s, labels_from(dets, t) if t is not None else
                      np.full(n, CODES["other"], np.int8))
+                log["seqs"][s][f"{arm}_rules_wall_s"] = time.monotonic() - ts
             log[f"{arm}_rules_wall_s"] = time.monotonic() - t0
         log_path.write_text(json.dumps(log, indent=1, default=float))
 
@@ -136,6 +152,11 @@ def main() -> None:
                 v = adjudicate(run, s, make_windows(s, lab, t, CODES, 10.0), defs, gw=gw, effort="low") \
                     if t is not None else []
                 wall_by_seq[s] = time.monotonic() - ts
+                log["seqs"][s][f"{arm}_t1_wall_s"] = wall_by_seq[s]
+                log["seqs"][s][f"{arm}_t1_cost_usd"] = sum(x["cost_usd"] for x in v)
+                # uncached-equivalent tier-1 cost from token usage (cache hits keep their original usage)
+                log["seqs"][s][f"{arm}_t1_uncached_usd"] = sum(
+                    ((x.get("in_tok") or 0) * 1.25 + (x.get("out_tok") or 0) * 4.25) / 1e6 for x in v)
                 save(run / f"{arm}_t1", s, apply(lab, v, CODES, CONFIDENT, DEFAULT_ALLOW))
                 cost += sum(x["cost_usd"] for x in v)
                 calls += sum(not x["cache_hit"] for x in v)
@@ -145,24 +166,48 @@ def main() -> None:
                                 "windows": len(allv), "wall_by_seq": wall_by_seq}
         log_path.write_text(json.dumps(log, indent=1, default=float))
 
-    # Manifests (every arm, from whatever stages have run)
-    video_s = sum(v.get("video_s", 0) for v in log["seqs"].values())
+    # Failed / possibly billed calls during this invocation (gateway ledger)
+    led = [json.loads(x) for x in Path("ops/spend.jsonl").read_text().splitlines() if x.strip()]
+    from datetime import datetime
+    bad = [r for r in led if r.get("error") and datetime.fromisoformat(r["time"]).timestamp() >= t_start_ledger]
+    log.setdefault("failed_calls", []).extend({k: r.get(k) for k in ("time", "provider", "model", "cost_usd",
+                                                                       "maybe_billed", "error")} for r in bad)
+    log_path.write_text(json.dumps(log, indent=1, default=float))
+    # Manifests (every arm, from whatever stages have run). Denominator: every video's true duration.
+    video_s = sum(v["src_frames"] / 30.0 for v in log["seqs"].values())
     track_wall = sum(v.get("track_wall_s", 0) for v in log["seqs"].values())
     sam_cost = sum(v.get("sam_cost_usd", 0) for v in log["seqs"].values())
+    sam_uncached = sum(max(v.get("n_samples", 0), 50) * 0.0002 for v in log["seqs"].values())
     for arm in arms_dets:
         for kind in ("rules", "t1"):
             d = run / f"{arm}_{kind}"
             if not d.exists():
                 continue
+            per_video = {}
+            for s, v in log["seqs"].items():
+                parts = {"track_s": v.get("track_wall_s"), "rules_s": v.get(f"{arm}_rules_wall_s"),
+                         "tier1_s": v.get(f"{arm}_t1_wall_s") if kind == "t1" else 0.0}
+                tot = sum(x for x in parts.values() if x is not None)
+                per_video[s] = {**parts, "summed_s": tot, "video_s": v["src_frames"] / 30.0,
+                                "x_realtime": tot / (v["src_frames"] / 30.0), "ok": v.get("ok", False)}
+            xs = [p["x_realtime"] for p in per_video.values()]
             t1 = log.get(f"{arm}_t1", {}) if kind == "t1" else {}
             wall = {"track_s": track_wall, "rules_s": log.get(f"{arm}_rules_wall_s"), "tier1_s": t1.get("wall_s"),
                     "video_s": video_s}
             total = track_wall + (log.get(f"{arm}_rules_wall_s") or 0) + (t1.get("wall_s") or 0)
             wall |= {"total_s": total, "x_realtime": total / video_s if video_s else None,
-                     "note": "pooled over sequences run one after another; each video's chunks run in parallel"}
+                     "per_video": per_video, "median_x_realtime": float(np.median(xs)) if xs else None,
+                     "max_x_realtime": max(xs) if xs else None,
+                     "note": ("summed processing time per video: chunking+SAM+decode+features, then rules, then "
+                              "tier-1, each timed on that video; videos run one after another, each video's chunks "
+                              "and tier-1 calls run in parallel; denominator = all videos' true durations")}
             t1c = t1.get("cost_usd", 0.0)
-            cst = {"sam_usd": sam_cost, "tier1_usd": t1c, "total_usd": sam_cost + t1c}
+            t1u = sum(v.get(f"{arm}_t1_uncached_usd", 0.0) for v in log["seqs"].values()) if kind == "t1" else 0.0
+            cst = {"sam_usd": sam_cost, "tier1_usd": t1c, "total_usd": sam_cost + t1c,
+                   "uncached_equivalent_usd": {"sam": sam_uncached, "tier1": t1u, "total": sam_uncached + t1u},
+                   "failed_or_maybe_billed_calls": len(log.get("failed_calls", []))}
             cst["per_video_min_usd"] = cst["total_usd"] / (video_s / 60) if video_s else None
+            cst["uncached_per_video_min_usd"] = (sam_uncached + t1u) / (video_s / 60) if video_s else None
             (d / "manifest.json").write_text(json.dumps({
                 "sample_fps": 10, "arm": f"{arm}_{kind}",
                 "config": {"frozen_config": str(FROZEN), "frozen_sha256": sha(FROZEN),
