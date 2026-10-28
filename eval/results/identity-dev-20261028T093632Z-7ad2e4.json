@@ -1,0 +1,460 @@
+{
+ "run_id": "identity-dev-20261028T093632Z-7ad2e4",
+ "kind": "identity",
+ "split": "dev",
+ "purpose": "identity-check",
+ "git_commit": "48190ea8f37de4851ced811b65a731794ea4e24b",
+ "git_dirty": true,
+ "git_dirty_paths": [
+  "ops/spend.jsonl"
+ ],
+ "split_file": "eval/splits/calms21_v1.json",
+ "split_file_sha256": "59bfcd47f5801757efe73cbe7276d1990b15fa2f945cf96e5bf4f001ede2880b",
+ "sequences": [
+  "mouse016_task1_annotator1"
+ ],
+ "partial": true,
+ "missing_tracks": [],
+ "tracks_dir": "data/runs/R1/tracks_dev",
+ "tracks_sha256": "e821cc3669b9a81bf58278be85ba2ea24226aa50ac93f09dbc8788bc37adb642",
+ "tracks_files_sha256": {
+  "mouse016_task1_annotator1": "2120a106011f03360a9c60a092e496414312a99737cbbe35d308f6a1691cf844"
+ },
+ "params": {
+  "gate_px": 60.0,
+  "margin_px": 10.0,
+  "min_kp_score": 0.5,
+  "step": 3,
+  "centroid": "all7",
+  "lags": [
+   -10,
+   -9,
+   -8,
+   -7,
+   -6,
+   -5,
+   -4,
+   -3,
+   -2,
+   -1,
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
+  "min_speed_px": 1.0
+ },
+ "notes": "chunk-length check: R1 on mouse016 (R1=60 s chunks, C10=10 s chunks)",
+ "time_utc": "2026-10-28T09:36:32+00:00",
+ "status": "ok",
+ "labels_loaded": true,
+ "metrics": {
+  "overall": {
+   "n_samples": 1231,
+   "coverage_both_labeled": 0.9975629569455727,
+   "coverage_both_matched_correct": 0.9916267942583732,
+   "kp_both_eligible_rate": 0.6791226645004061,
+   "detections": {
+    "0": 0.0,
+    "1": 0.002437043054427295,
+    "2": 0.9975629569455727,
+    "3+": 0.0
+   },
+   "unknown_rate_tracks": 0.0,
+   "kp_eligible_rate": [
+    0.7148659626320065,
+    0.8960194963444355
+   ],
+   "matched_mouse_samples": 1975,
+   "matched_unknown": 0,
+   "identity_eval_samples": 1975,
+   "identity_errors": 0,
+   "identity_error_rate": 0.0,
+   "ambiguous_frac_of_evaluated": 0.0,
+   "identity_error_rate_unambiguous": 0.0,
+   "identity_errors_by_mouse": {
+    "resident": {
+     "errors": 0,
+     "evaluated": 875
+    },
+    "intruder": {
+     "errors": 0,
+     "evaluated": 1100
+    }
+   },
+   "median_match_dist_px": {
+    "resident": 20.952806201794147,
+    "intruder": 27.027251777257213
+   },
+   "swap_events": 0,
+   "swap_events_per_min": 0.0,
+   "swap_events_unambiguous": 0,
+   "swap_events_unambiguous_per_min": 0.0,
+   "video_minutes": 2.051111111111111
+  },
+  "by_behavior": {
+   "attack": {
+    "n_samples": 0,
+    "coverage_both_labeled": null,
+    "coverage_both_matched_correct": null,
+    "kp_both_eligible_rate": null,
+    "detections": {
+     "0": null,
+     "1": null,
+     "2": null,
+     "3+": null
+    },
+    "unknown_rate_tracks": null,
+    "kp_eligible_rate": [
+     null,
+     null
+    ],
+    "matched_mouse_samples": 0,
+    "matched_unknown": 0,
+    "identity_eval_samples": 0,
+    "identity_errors": 0,
+    "identity_error_rate": null,
+    "ambiguous_frac_of_evaluated": null,
+    "identity_error_rate_unambiguous": null,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 0
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 0
+     }
+    },
+    "median_match_dist_px": {
+     "resident": null,
+     "intruder": null
+    }
+   },
+   "investigation": {
+    "n_samples": 356,
+    "coverage_both_labeled": 0.9943820224719101,
+    "coverage_both_matched_correct": 0.9836065573770492,
+    "kp_both_eligible_rate": 0.5140449438202247,
+    "detections": {
+     "0": 0.0,
+     "1": 0.0056179775280898875,
+     "2": 0.9943820224719101,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.5842696629213483,
+     0.7219101123595506
+    ],
+    "matched_mouse_samples": 461,
+    "matched_unknown": 0,
+    "identity_eval_samples": 461,
+    "identity_errors": 0,
+    "identity_error_rate": 0.0,
+    "ambiguous_frac_of_evaluated": 0.0,
+    "identity_error_rate_unambiguous": 0.0,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 205
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 256
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 15.475536977701145,
+     "intruder": 27.98157443064496
+    }
+   },
+   "mount": {
+    "n_samples": 32,
+    "coverage_both_labeled": 1.0,
+    "coverage_both_matched_correct": 0.8333333333333334,
+    "kp_both_eligible_rate": 0.375,
+    "detections": {
+     "0": 0.0,
+     "1": 0.0,
+     "2": 1.0,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.375,
+     0.78125
+    ],
+    "matched_mouse_samples": 35,
+    "matched_unknown": 0,
+    "identity_eval_samples": 35,
+    "identity_errors": 0,
+    "identity_error_rate": 0.0,
+    "ambiguous_frac_of_evaluated": 0.0,
+    "identity_error_rate_unambiguous": 0.0,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 12
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 23
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 24.707557850336947,
+     "intruder": 16.249808236705633
+    }
+   },
+   "other": {
+    "n_samples": 843,
+    "coverage_both_labeled": 0.9988137603795967,
+    "coverage_both_matched_correct": 0.9968798751950078,
+    "kp_both_eligible_rate": 0.7603795966785291,
+    "detections": {
+     "0": 0.0,
+     "1": 0.0011862396204033216,
+     "2": 0.9988137603795967,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.7829181494661922,
+     0.9739027283511269
+    ],
+    "matched_mouse_samples": 1479,
+    "matched_unknown": 0,
+    "identity_eval_samples": 1479,
+    "identity_errors": 0,
+    "identity_error_rate": 0.0,
+    "ambiguous_frac_of_evaluated": 0.0,
+    "identity_error_rate_unambiguous": 0.0,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 658
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 821
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 22.520989486702796,
+     "intruder": 27.103676060458366
+    }
+   }
+  },
+  "per_sequence": {
+   "mouse016_task1_annotator1": {
+    "n_samples": 1231,
+    "coverage_both_labeled": 0.9975629569455727,
+    "coverage_both_matched_correct": 0.9916267942583732,
+    "kp_both_eligible_rate": 0.6791226645004061,
+    "detections": {
+     "0": 0.0,
+     "1": 0.002437043054427295,
+     "2": 0.9975629569455727,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.7148659626320065,
+     0.8960194963444355
+    ],
+    "matched_mouse_samples": 1975,
+    "matched_unknown": 0,
+    "identity_eval_samples": 1975,
+    "identity_errors": 0,
+    "identity_error_rate": 0.0,
+    "ambiguous_frac_of_evaluated": 0.0,
+    "identity_error_rate_unambiguous": 0.0,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 875
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 1100
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 20.952806201794147,
+     "intruder": 27.027251777257213
+    },
+    "swap_events": 0,
+    "swap_events_per_min": 0.0,
+    "swap_events_unambiguous": 0,
+    "swap_events_unambiguous_per_min": 0.0,
+    "video_minutes": 2.051111111111111,
+    "n_offgrid_rows": 0
+   }
+  },
+  "alignment": {
+   "mouse016_task1_annotator1": {
+    "lags": [
+     -10,
+     -9,
+     -8,
+     -7,
+     -6,
+     -5,
+     -4,
+     -3,
+     -2,
+     -1,
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "sign": "best lag L: track at video frame f matches keypoints at frame f+L",
+    "resident": {
+     "best_lag": -2,
+     "best_median_px": 16.88970395069633,
+     "lag0_median_px": 21.11283807196472,
+     "margin_px": 1.530566270132251,
+     "median_px_by_lag": [
+      25.33286661163632,
+      24.959857678021812,
+      22.55291552266356,
+      21.322468245459973,
+      20.992892262714864,
+      19.48664057470139,
+      18.927053163446296,
+      18.700118043218307,
+      16.88970395069633,
+      18.42027022082858,
+      21.11283807196472,
+      23.327866185256717,
+      25.645019505053895,
+      27.941678749655836,
+      29.24687107948352,
+      30.690136254523043,
+      32.5968025372287,
+      33.810486916116695,
+      34.63816945897211,
+      36.858206961900294,
+      39.30058301340556
+     ],
+     "n_used_by_lag": [
+      706,
+      701,
+      706,
+      707,
+      701,
+      706,
+      707,
+      702,
+      706,
+      708,
+      702,
+      705,
+      707,
+      702,
+      705,
+      707,
+      702,
+      704,
+      707,
+      702,
+      704
+     ]
+    },
+    "intruder": {
+     "best_lag": -3,
+     "best_median_px": 23.35329574691855,
+     "lag0_median_px": 27.134347869317388,
+     "margin_px": 0.8437545950188827,
+     "median_px_by_lag": [
+      30.576086888163303,
+      29.51912416867227,
+      29.51612673597887,
+      27.521254104346493,
+      26.553172446698255,
+      26.0747567366767,
+      24.21436124751195,
+      23.35329574691855,
+      24.197050341937434,
+      25.48400379294441,
+      27.134347869317388,
+      29.29091051044999,
+      29.637291386639404,
+      30.331647411175776,
+      32.03497830987159,
+      33.03242158680522,
+      33.11947370970015,
+      34.63721949189785,
+      34.782426407730945,
+      36.81206601028596,
+      38.06139736283568
+     ],
+     "n_used_by_lag": [
+      773,
+      740,
+      745,
+      773,
+      740,
+      745,
+      773,
+      740,
+      745,
+      773,
+      740,
+      745,
+      773,
+      740,
+      744,
+      773,
+      740,
+      744,
+      773,
+      740,
+      744
+     ]
+    }
+   }
+  },
+  "retained_output_diagnostics": {
+   "metrics": [
+    "unknown_rate_tracks",
+    "detections",
+    "coverage_both_labeled"
+   ],
+   "note": "Retained-output diagnostics (EVAL_PLAN 4.3, amendment A1): computed on the exported tracks table, which keeps only the resident/intruder assignments the pipeline retained. Unknown-labeled and extra raw SAM detections are not exported, so unknown_rate_tracks and detections['3+'] are zero by construction on that export, and coverage counts retained labels only. They describe the exported output, not raw SAM detection quality."
+  },
+  "centroid_definition_median_px": {
+   "mouse016_task1_annotator1": {
+    "all7": {
+     "resident": 20.98054565260188,
+     "intruder": 27.07074379577583
+    },
+    "no_tail": {
+     "resident": 35.71760066516898,
+     "intruder": 42.7536820700306
+    },
+    "torso": {
+     "resident": 20.97871819452211,
+     "intruder": 17.71098446531475
+    }
+   }
+  }
+ },
+ "scorer_wall_clock_s": 0.069
+}

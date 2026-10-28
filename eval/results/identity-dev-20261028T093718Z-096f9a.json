@@ -1,0 +1,463 @@
+{
+ "run_id": "identity-dev-20261028T093718Z-096f9a",
+ "kind": "identity",
+ "split": "dev",
+ "purpose": "identity-check",
+ "git_commit": "48190ea8f37de4851ced811b65a731794ea4e24b",
+ "git_dirty": true,
+ "git_dirty_paths": [
+  "eval/results/runs.jsonl",
+  "ops/spend.jsonl",
+  "eval/results/identity-dev-20261028T093632Z-7ad2e4.json",
+  "eval/results/identity-dev-20261028T093633Z-ddfc34.json"
+ ],
+ "split_file": "eval/splits/calms21_v1.json",
+ "split_file_sha256": "59bfcd47f5801757efe73cbe7276d1990b15fa2f945cf96e5bf4f001ede2880b",
+ "sequences": [
+  "mouse016_task1_annotator1"
+ ],
+ "partial": true,
+ "missing_tracks": [],
+ "tracks_dir": "data/runs/C30/tracks_dev",
+ "tracks_sha256": "1c34ff6d0a653364844e52fb82a80607d128e788fc970a18e8ebf46319280701",
+ "tracks_files_sha256": {
+  "mouse016_task1_annotator1": "074863097d91e267959d03191c45e04243ec65f5289e6a4114d7001a2da8b3fc"
+ },
+ "params": {
+  "gate_px": 60.0,
+  "margin_px": 10.0,
+  "min_kp_score": 0.5,
+  "step": 3,
+  "centroid": "all7",
+  "lags": [
+   -10,
+   -9,
+   -8,
+   -7,
+   -6,
+   -5,
+   -4,
+   -3,
+   -2,
+   -1,
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10
+  ],
+  "min_speed_px": 1.0
+ },
+ "notes": "chunk-length check: C30 (30 s chunks) on mouse016",
+ "time_utc": "2026-10-28T09:37:18+00:00",
+ "status": "ok",
+ "labels_loaded": true,
+ "metrics": {
+  "overall": {
+   "n_samples": 1231,
+   "coverage_both_labeled": 0.8545897644191714,
+   "coverage_both_matched_correct": 0.9150717703349283,
+   "kp_both_eligible_rate": 0.6791226645004061,
+   "detections": {
+    "0": 0.030056864337936636,
+    "1": 0.11535337124289195,
+    "2": 0.8545897644191714,
+    "3+": 0.0
+   },
+   "unknown_rate_tracks": 0.0,
+   "kp_eligible_rate": [
+    0.7148659626320065,
+    0.8960194963444355
+   ],
+   "matched_mouse_samples": 1877,
+   "matched_unknown": 0,
+   "identity_eval_samples": 1877,
+   "identity_errors": 38,
+   "identity_error_rate": 0.020245071923281833,
+   "ambiguous_frac_of_evaluated": 0.005860415556739478,
+   "identity_error_rate_unambiguous": 0.020364415862808145,
+   "identity_errors_by_mouse": {
+    "resident": {
+     "errors": 0,
+     "evaluated": 847
+    },
+    "intruder": {
+     "errors": 38,
+     "evaluated": 1030
+    }
+   },
+   "median_match_dist_px": {
+    "resident": 21.72798059183486,
+    "intruder": 28.90348383296826
+   },
+   "swap_events": 2,
+   "swap_events_per_min": 0.9750812567713976,
+   "swap_events_unambiguous": 2,
+   "swap_events_unambiguous_per_min": 0.9750812567713976,
+   "video_minutes": 2.051111111111111
+  },
+  "by_behavior": {
+   "attack": {
+    "n_samples": 0,
+    "coverage_both_labeled": null,
+    "coverage_both_matched_correct": null,
+    "kp_both_eligible_rate": null,
+    "detections": {
+     "0": null,
+     "1": null,
+     "2": null,
+     "3+": null
+    },
+    "unknown_rate_tracks": null,
+    "kp_eligible_rate": [
+     null,
+     null
+    ],
+    "matched_mouse_samples": 0,
+    "matched_unknown": 0,
+    "identity_eval_samples": 0,
+    "identity_errors": 0,
+    "identity_error_rate": null,
+    "ambiguous_frac_of_evaluated": null,
+    "identity_error_rate_unambiguous": null,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 0
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 0
+     }
+    },
+    "median_match_dist_px": {
+     "resident": null,
+     "intruder": null
+    }
+   },
+   "investigation": {
+    "n_samples": 356,
+    "coverage_both_labeled": 0.7303370786516854,
+    "coverage_both_matched_correct": 0.9016393442622951,
+    "kp_both_eligible_rate": 0.5140449438202247,
+    "detections": {
+     "0": 0.10393258426966293,
+     "1": 0.16573033707865167,
+     "2": 0.7303370786516854,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.5842696629213483,
+     0.7219101123595506
+    ],
+    "matched_mouse_samples": 427,
+    "matched_unknown": 0,
+    "identity_eval_samples": 427,
+    "identity_errors": 25,
+    "identity_error_rate": 0.0585480093676815,
+    "ambiguous_frac_of_evaluated": 0.01405152224824356,
+    "identity_error_rate_unambiguous": 0.05938242280285035,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 192
+     },
+     "intruder": {
+      "errors": 25,
+      "evaluated": 235
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 17.21012257029267,
+     "intruder": 35.42383053304512
+    }
+   },
+   "mount": {
+    "n_samples": 32,
+    "coverage_both_labeled": 1.0,
+    "coverage_both_matched_correct": 0.8333333333333334,
+    "kp_both_eligible_rate": 0.375,
+    "detections": {
+     "0": 0.0,
+     "1": 0.0,
+     "2": 1.0,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.375,
+     0.78125
+    ],
+    "matched_mouse_samples": 34,
+    "matched_unknown": 0,
+    "identity_eval_samples": 34,
+    "identity_errors": 0,
+    "identity_error_rate": 0.0,
+    "ambiguous_frac_of_evaluated": 0.0,
+    "identity_error_rate_unambiguous": 0.0,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 12
+     },
+     "intruder": {
+      "errors": 0,
+      "evaluated": 22
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 27.937786350524377,
+     "intruder": 16.396814388264822
+    }
+   },
+   "other": {
+    "n_samples": 843,
+    "coverage_both_labeled": 0.9015421115065243,
+    "coverage_both_matched_correct": 0.9204368174726989,
+    "kp_both_eligible_rate": 0.7603795966785291,
+    "detections": {
+     "0": 0.0,
+     "1": 0.09845788849347568,
+     "2": 0.9015421115065243,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.7829181494661922,
+     0.9739027283511269
+    ],
+    "matched_mouse_samples": 1416,
+    "matched_unknown": 0,
+    "identity_eval_samples": 1416,
+    "identity_errors": 13,
+    "identity_error_rate": 0.009180790960451978,
+    "ambiguous_frac_of_evaluated": 0.0035310734463276836,
+    "identity_error_rate_unambiguous": 0.009213323883770375,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 643
+     },
+     "intruder": {
+      "errors": 13,
+      "evaluated": 773
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 23.271866641259844,
+     "intruder": 28.311259785204474
+    }
+   }
+  },
+  "per_sequence": {
+   "mouse016_task1_annotator1": {
+    "n_samples": 1231,
+    "coverage_both_labeled": 0.8545897644191714,
+    "coverage_both_matched_correct": 0.9150717703349283,
+    "kp_both_eligible_rate": 0.6791226645004061,
+    "detections": {
+     "0": 0.030056864337936636,
+     "1": 0.11535337124289195,
+     "2": 0.8545897644191714,
+     "3+": 0.0
+    },
+    "unknown_rate_tracks": 0.0,
+    "kp_eligible_rate": [
+     0.7148659626320065,
+     0.8960194963444355
+    ],
+    "matched_mouse_samples": 1877,
+    "matched_unknown": 0,
+    "identity_eval_samples": 1877,
+    "identity_errors": 38,
+    "identity_error_rate": 0.020245071923281833,
+    "ambiguous_frac_of_evaluated": 0.005860415556739478,
+    "identity_error_rate_unambiguous": 0.020364415862808145,
+    "identity_errors_by_mouse": {
+     "resident": {
+      "errors": 0,
+      "evaluated": 847
+     },
+     "intruder": {
+      "errors": 38,
+      "evaluated": 1030
+     }
+    },
+    "median_match_dist_px": {
+     "resident": 21.72798059183486,
+     "intruder": 28.90348383296826
+    },
+    "swap_events": 2,
+    "swap_events_per_min": 0.9750812567713976,
+    "swap_events_unambiguous": 2,
+    "swap_events_unambiguous_per_min": 0.9750812567713976,
+    "video_minutes": 2.051111111111111,
+    "n_offgrid_rows": 0
+   }
+  },
+  "alignment": {
+   "mouse016_task1_annotator1": {
+    "lags": [
+     -10,
+     -9,
+     -8,
+     -7,
+     -6,
+     -5,
+     -4,
+     -3,
+     -2,
+     -1,
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "sign": "best lag L: track at video frame f matches keypoints at frame f+L",
+    "resident": {
+     "best_lag": -2,
+     "best_median_px": 18.644891294484076,
+     "lag0_median_px": 22.77436550837682,
+     "margin_px": 0.3770434116330108,
+     "median_px_by_lag": [
+      26.229776493724042,
+      25.69336783486366,
+      23.81141785235486,
+      22.433767063566822,
+      21.214763146002355,
+      19.93023946432094,
+      19.021934706117086,
+      19.051593534628907,
+      18.644891294484076,
+      19.52444651438697,
+      22.77436550837682,
+      24.879019995959286,
+      27.78713570362776,
+      30.196002554686824,
+      32.901730720970605,
+      35.00841547372573,
+      36.94827589376834,
+      38.63476776672794,
+      39.629815877874336,
+      41.023441082915184,
+      43.86672093814456
+     ],
+     "n_used_by_lag": [
+      699,
+      694,
+      702,
+      700,
+      694,
+      702,
+      700,
+      695,
+      702,
+      701,
+      694,
+      701,
+      699,
+      693,
+      701,
+      699,
+      692,
+      699,
+      698,
+      692,
+      699
+     ]
+    },
+    "intruder": {
+     "best_lag": -3,
+     "best_median_px": 23.572650566295877,
+     "lag0_median_px": 28.008396492516766,
+     "margin_px": 0.9650988009465742,
+     "median_px_by_lag": [
+      31.245433022254012,
+      31.18271722609906,
+      30.423493543054533,
+      28.355679953886657,
+      27.909529260570814,
+      26.847276756464254,
+      24.877843986885974,
+      23.572650566295877,
+      24.53774936724245,
+      26.046075768037344,
+      28.008396492516766,
+      29.996428427736838,
+      30.806115432258295,
+      31.699243710222433,
+      33.524084625280835,
+      33.77340295422759,
+      34.464219135718444,
+      36.5805775456668,
+      37.06810976392683,
+      38.58056386984471,
+      40.024517696732
+     ],
+     "n_used_by_lag": [
+      724,
+      693,
+      700,
+      724,
+      693,
+      700,
+      724,
+      692,
+      699,
+      723,
+      691,
+      698,
+      722,
+      690,
+      697,
+      722,
+      689,
+      697,
+      722,
+      689,
+      697
+     ]
+    }
+   }
+  },
+  "retained_output_diagnostics": {
+   "metrics": [
+    "unknown_rate_tracks",
+    "detections",
+    "coverage_both_labeled"
+   ],
+   "note": "Retained-output diagnostics (EVAL_PLAN 4.3, amendment A1): computed on the exported tracks table, which keeps only the resident/intruder assignments the pipeline retained. Unknown-labeled and extra raw SAM detections are not exported, so unknown_rate_tracks and detections['3+'] are zero by construction on that export, and coverage counts retained labels only. They describe the exported output, not raw SAM detection quality."
+  },
+  "centroid_definition_median_px": {
+   "mouse016_task1_annotator1": {
+    "all7": {
+     "resident": 22.366768142371633,
+     "intruder": 28.568923889676675
+    },
+    "no_tail": {
+     "resident": 36.763203996774365,
+     "intruder": 44.23197716757261
+    },
+    "torso": {
+     "resident": 22.107289485288,
+     "intruder": 17.20694848649799
+    }
+   }
+  }
+ },
+ "scorer_wall_clock_s": 0.071
+}

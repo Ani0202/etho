@@ -203,9 +203,9 @@ def test_revision_keeps_provenance_and_marks_revised_detectors(tmp_path, monkeyp
 
 # ---- chunk length and overlapped preparation -------------------------------------------------------------
 
-@pytest.mark.parametrize("duration,expected", [(1, 10), (6, 10), (60, 10), (79, 10), (100, 12), (300, 38), (480, 60),
-                                               (600, 60), (3600, 60)])
-def test_chunk_s_is_duration_over_8_clamped_to_10_and_60(duration, expected):
+@pytest.mark.parametrize("duration,expected", [(1, 60), (60, 60), (300, 60), (3600, 60)])
+def test_chunk_s_is_fixed_at_the_benchmark_60s(duration, expected):
+    # shorter chunks lost two-animal coverage on dev (DECISIONS 2026-10-28), so the floor equals the ceiling
     assert tuning.choose_chunk_s(duration) == expected
     assert isinstance(tuning.choose_chunk_s(duration), int)
 
@@ -240,11 +240,11 @@ def test_chunks_are_cut_while_the_planner_runs_and_track_uses_identical_argument
     assert len(seen["prep"]) == 2                                # the cut, then the overlay's lookup
     # identical arguments, so track_video's own prepare_chunks call is a cache hit in the real pipeline
     assert prep[0] == tsrc and prep[2] == {"stride": tkw["stride"], "fps": tkw["fps"], "chunk_s": tkw["chunk_s"]}
-    assert prep[1] == str(tkw["chunk_dir"]) and tkw["stride"] is None and tkw["fps"] == 10 and tkw["chunk_s"] == 10
+    assert prep[1] == str(tkw["chunk_dir"]) and tkw["stride"] is None and tkw["fps"] == 10 and tkw["chunk_s"] == 60
     # the overlay asks for the same chunk length (it reads the cache the cut filled)
-    assert seen["prep"][1][2]["chunk_s"] == 10 and seen["prep"][1][2]["stride"] is None
+    assert seen["prep"][1][2]["chunk_s"] == 60 and seen["prep"][1][2]["stride"] is None
     info = json.loads((c.cfg.jobs_dir / jid / "run" / "video" / "tracking.json").read_text())
-    assert info["app_chunk_s"] == 10
+    assert info["app_chunk_s"] == 60
     p = client.get(f"/api/projects/{jid}").json()
     plan_row = next(s for s in p["stages"] if s["name"] == "plan")
     sub, = plan_row["substeps"]
