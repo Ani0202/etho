@@ -56,6 +56,7 @@ const STAGE_LABEL = {
   validate: "Validate", plan: "Plan", track: "Track", synthesize: "Write detectors", predict: "Score",
   tier1: "Tier-1 check", report: "Report", overlay: "Overlay video", revise: "Revise rules",
 };
+const SRC_LABEL = { seed: "reused: benchmark detector", cache: "reused: earlier upload", fresh: "written now", revised: "revised" };
 
 /* Live progress for a job: stage list, elapsed, running cost. Calls onEnd(snapshot) when the job ends. */
 function progressCard(jobId, onEnd, opts) {
@@ -67,7 +68,7 @@ function progressCard(jobId, onEnd, opts) {
   function render(sn) {
     head.replaceChildren(
       h("span", { class: "big" }, sn.status === "queued" ? `Queued (position ${sn.queue_position})` :
-        sn.status === "running" ? `${STAGE_LABEL[sn.stage] || sn.stage || "Working"}  (${sn.stage_index}/${sn.n_stages})` :
+        sn.status === "running" ? `${(sn.running_stages && sn.running_stages.length ? sn.running_stages : [sn.stage]).map(n => STAGE_LABEL[n] || n || "Working").join(" + ")}  (${sn.stage_index}/${sn.n_stages})` :
         sn.status === "done" ? "Done" : sn.status === "cancelled" ? "Cancelled" : "Failed"),
       h("span", { class: "m" }, `elapsed ${fmt.time(sn.elapsed_s)}`),
       h("span", { class: "m" }, `cost so far ${fmt.usd(sn.cost_usd)} (est. ${fmt.usd(sn.est_cost_usd)})`),

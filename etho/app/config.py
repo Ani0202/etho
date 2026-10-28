@@ -25,6 +25,14 @@ class AppConfig:
     max_upload_mb: float = field(default_factory=lambda: _env("ETHO_APP_MAX_UPLOAD_MB", 200.0, float))
     max_duration_s: float = field(default_factory=lambda: _env("ETHO_APP_MAX_DURATION_S", 300.0, float))
     max_behaviors: int = 8
+    # Speed. SAM bills at least 50 frames per request, so at 10 fps a chunk is never shorter than 10 s; the target is
+    # about `chunk_target` chunks per video so that they track in parallel (chunk_s = clamp(duration / 8, 10, 60)).
+    chunk_target: int = 8
+    chunk_min_s: int = 10
+    chunk_max_s: int = 60
+    # Fireworks calls in flight for tier 1 (the benchmark default is 6; 40 at once returned HTTP 429).
+    tier1_concurrency: int = field(default_factory=lambda: _env("ETHO_APP_TIER1_CONCURRENCY", 8, int))
+    synth_workers: int = 8                     # detector-writing calls in flight (at most one per behavior)
     # Per-day app spend cap (UTC day) and the pre-estimate used to refuse a job that would cross it. Rates are
     # measured costs with margin: SAM $0.002/s of video at 10 fps, tier-1 $0.0012/s (docs/STATE.md).
     daily_cap_usd: float = field(default_factory=lambda: _env("ETHO_APP_DAILY_CAP_USD", 5.0, float))
@@ -53,6 +61,10 @@ class AppConfig:
     tile_value: str = field(default_factory=lambda: _env("ETHO_APP_TILE_VALUE", "0"))
     tile_sub: str = field(default_factory=lambda: _env(
         "ETHO_APP_TILE_SUB", "Definitions in English only; corrections below are optional"))
+
+    @property
+    def detector_cache_dir(self) -> Path:
+        return self.data_dir / "detector_cache"
 
     @property
     def data_dir(self) -> Path:
