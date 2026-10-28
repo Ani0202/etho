@@ -41,7 +41,7 @@ in reading order (left to right, top to bottom).
 Behavior definitions (from the dataset authors; all are performed BY THE RESIDENT toward the intruder):
 {defs}
 
-Which ONE label best describes what the resident is doing during most of this interval?
+{features}Which ONE label best describes what the resident is doing during most of this interval?
 Labels: {labels}, none.
 Answer with ONLY a JSON object: {{"label": "<one label>", "confidence": <0 to 1>, "reason": "<one short sentence>"}}"""
 
@@ -103,9 +103,27 @@ def parse_verdict(text: str, labels: list[str]) -> tuple[str, float, str]:
     return "unsure", 0.0, "unparsed"
 
 
+TILE_FEATURES = (("gap", "gap px", "{:.0f}"), ("r_head_to_i", "resident head->intruder px", "{:.0f}"),
+                 ("i_visible_ratio", "intruder visible ratio", "{:.2f}"), ("r_speed", "resident speed px/s", "{:.0f}"),
+                 ("i_speed", "intruder speed px/s", "{:.0f}"), ("r_facing", "resident facing angle rad", "{:.2f}"))
+
+
+def tile_features(table: dict, idx: list[int], fps: float) -> str:
+    """Tracker measurements per tile, as text the model can read alongside the image."""
+    lines = []
+    for k, s in enumerate(idx, 1):
+        parts = []
+        for key, name, fmt in TILE_FEATURES:
+            v = table[key][s] if key in table else float("nan")
+            parts.append(f"{name} {fmt.format(v)}" if np.isfinite(v) else f"{name} n/a")
+        lines.append(f"  tile {k} (t={s / fps:.1f}s): " + ", ".join(parts))
+    return ("Tracker measurements for each tile (gap 0 = bodies touching; intruder visible ratio < 1 means the "
+            "intruder is partly hidden, e.g. under the resident):\n" + "\n".join(lines) + "\n\n")
+
+
 def adjudicate(run_dir: Path, seq: str, windows: list[Window], definitions: dict, *, gw: Gateway, fps: float = 10.0,
                effort: str = "low", tag: str = "eval-llm", out_dir: Path | None = None,
-               concurrency: int = 8) -> list[dict]:
+               concurrency: int = 8, table: dict | None = None) -> list[dict]:
     if not windows:
         return []
     info = json.loads((run_dir / seq / "tracking.json").read_text())
@@ -128,7 +146,9 @@ def adjudicate(run_dir: Path, seq: str, windows: list[Window], definitions: dict
             out_dir.mkdir(parents=True, exist_ok=True)
             (out_dir / f"{seq}_{w.s0}_{w.s1}.jpg").write_bytes(jpg.tobytes())
         url = "data:image/jpeg;base64," + base64.b64encode(jpg.tobytes()).decode()
-        prompt = PROMPT.format(n=len(idx), t0=w.s0 / fps, t1=w.s1 / fps, defs=defs, labels=", ".join(labels))
+        feats = tile_features(table, idx, fps) if table is not None else ""
+        prompt = PROMPT.format(n=len(idx), t0=w.s0 / fps, t1=w.s1 / fps, defs=defs, labels=", ".join(labels),
+                               features=feats)
         msgs = [{"role": "user", "content": [{"type": "text", "text": prompt},
                                              {"type": "image_url", "image_url": {"url": url}}]}]
         with _FW_SLOTS:

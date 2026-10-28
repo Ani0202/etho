@@ -85,7 +85,8 @@ fps = float(data.pop("__fps__"))
 src = open(sys.argv[2]).read()
 ns = {}
 exec(compile(src, "<detector>", "exec"), ns)
-out = ns["detect"](data, fps)
+fn = ns.get("detect") or ns.get("classify")
+out = fn(data, fps)
 try:
     out = np.asarray(out, dtype=float) if np.asarray(out).dtype == object else np.asarray(out)
 except (TypeError, ValueError) as e:
@@ -120,15 +121,16 @@ def check_source(code: str) -> None:
                 raise SandboxError(f"attribute {node.attr!r} is not allowed")
             if node.attr in FORBIDDEN_NP_ATTRS:
                 raise SandboxError(f"np.{node.attr} is not allowed")
-        if isinstance(node, ast.FunctionDef) and node.name == "detect":
+        if isinstance(node, ast.FunctionDef) and node.name in ("detect", "classify"):
             has_detect = True
     if not has_detect:
-        raise SandboxError("code must define detect(t, fps)")
+        raise SandboxError("code must define detect(t, fps) (or classify(t, fps) for a joint classifier)")
 
 
 def run_detector(code: str, table: dict[str, np.ndarray], fps: float, cpu_s: int = 30,
-                 timeout_s: float = 60.0) -> np.ndarray:
-    """Execute `detect(t, fps)` in a sandboxed subprocess; returns a bool array of len n."""
+                 timeout_s: float = 60.0, labels: int | None = None) -> np.ndarray:
+    """Execute `detect(t, fps)` in a sandboxed subprocess; returns a bool array of len n.
+    With `labels=K`, the code is a joint `classify(t, fps)` returning ints in 0..K-1 (one label per sample)."""
     check_source(code)
     n = len(next(iter(table.values())))
     with tempfile.TemporaryDirectory() as d:
@@ -150,6 +152,13 @@ def run_detector(code: str, table: dict[str, np.ndarray], fps: float, cpu_s: int
             raise SandboxError(f"detect() output unreadable: {e}") from e
     if out.shape != (n,):
         raise SandboxError(f"detect() must return one value per sample: got shape {out.shape}, need ({n},)")
+    if labels is not None:
+        if not np.issubdtype(out.dtype, np.number):
+            raise SandboxError(f"classify() returned dtype {out.dtype}")
+        v = np.nan_to_num(out.astype(float), nan=labels - 1)
+        if not np.all((v >= 0) & (v <= labels - 1) & (v == np.round(v))):
+            raise SandboxError(f"classify() must return integer labels in 0..{labels - 1}")
+        return v.astype(np.int8)
     if out.dtype != bool:
         if not np.issubdtype(out.dtype, np.number):
             raise SandboxError(f"detect() returned dtype {out.dtype}")

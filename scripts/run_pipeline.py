@@ -117,7 +117,8 @@ def cmd_adjudicate(a) -> None:
         ws = make_windows(seq, lab, tables[seq], CODES, 10.0)
         t0 = time.monotonic()
         v = adjudicate(run_dir, seq, ws, defs, gw=gw, effort=a.effort_t1,
-                       out_dir=run_dir / "strips" / a.split)  # same strips for every effort
+                       out_dir=run_dir / "strips" / a.split,  # same strips for every effort
+                       table=tables[seq] if a.t1_features else None)
         return seq, lab, v, time.monotonic() - t0
 
     t0 = time.monotonic()
@@ -201,6 +202,7 @@ def main() -> None:
     ap.add_argument("--effort-t2", default="high")
     ap.add_argument("--corrections")
     ap.add_argument("--pred-in")
+    ap.add_argument("--t1-features", action="store_true", help="add per-tile tracker numbers to the tier-1 prompt")
     ap.add_argument("--pred-out")
     ap.add_argument("--pred-name", help="output dir name for predict (default pred_<split>)")
     a = ap.parse_args()
