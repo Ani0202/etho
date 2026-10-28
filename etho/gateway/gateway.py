@@ -15,6 +15,7 @@ import mimetypes
 import random
 import sys
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -134,10 +135,21 @@ def _count_media(obj: Any) -> tuple[int, int, int]:
     return chars, images, videos
 
 
-def estimate_llm_cost(provider: str, model: str, messages: Any, max_tokens: int) -> float:
-    chars, images, videos = _count_media(messages)
+def estimate_llm_cost(provider: str, model: str, body: Any, max_tokens: int) -> float:
+    """Worst-case cost of a request: every text field of the body (tools, instructions, ...) at
+    ~3 chars/token, fixed per-image/per-video token bounds, and the full output budget."""
+    chars, images, videos = _count_media(body)
     in_tok = chars / 3 + images * EST_TOKENS_PER_IMAGE + videos * EST_TOKENS_PER_VIDEO + 50
     return prices.token_cost(provider, model, int(in_tok), max_tokens)
+
+
+MAX_OUTPUT_TOKENS = 200_000
+
+
+def _check_limit(n: int) -> int:
+    if not isinstance(n, int) or isinstance(n, bool) or not 0 < n <= MAX_OUTPUT_TOKENS:
+        raise PolicyError(f"max tokens must be an int in 1..{MAX_OUTPUT_TOKENS}, got {n!r}")
+    return n
 
 
 def _retry_after(resp: httpx.Response) -> float | None:
@@ -198,11 +210,17 @@ class Gateway:
                     resp = self.http.send(req, stream=True)
                 else:
                     resp = self.http.request(method, url, headers=headers, **kw)
-            except httpx.TransportError as e:
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as e:
+                # The request never reached the provider: safe to retry, nothing billed.
                 if attempt > self.cfg.max_retries:
-                    raise ProviderError(0, f"transport error: {e}", provider, model) from e
+                    raise ProviderError(0, f"connect error: {e}", provider, model) from e
                 self.sleep(min(60.0, 2 ** attempt + random.random()))
                 continue
+            except httpx.TransportError as e:
+                # Read timeout / dropped connection after sending: the provider may have done (and
+                # billed) the work. Never retry blindly; the caller books the estimate.
+                raise ProviderError(0, f"ambiguous transport error: {e!r}", provider, model,
+                                    ambiguous=True) from e
             if resp.status_code < 400:
                 return resp
             if stream:
@@ -238,7 +256,7 @@ class Gateway:
         else:
             body["reasoning_effort"] = effort
         return self._llm(provider, model, "/chat/completions", body, tag, caller, use_cache,
-                         estimate_llm_cost(provider, model, messages, max_tokens), api="chat")
+                         estimate_llm_cost(provider, model, body, _check_limit(max_tokens)), api="chat")
 
     def responses(self, model: str, input: list[dict] | str, *, effort: str, tag: str,
                   max_output_tokens: int = DEFAULT_MAX_TOKENS, public_data: bool = False,
@@ -253,13 +271,20 @@ class Gateway:
         body = {"model": model, "input": input, "reasoning": {"effort": effort},
                 "max_output_tokens": max_output_tokens, **extra}
         return self._llm(provider, model, "/responses", body, tag, caller, use_cache,
-                         estimate_llm_cost(provider, model, input, max_output_tokens), api="responses")
+                         estimate_llm_cost(provider, model, body, _check_limit(max_output_tokens)),
+                         api="responses")
 
     def _llm(self, provider, model, endpoint, body, tag, caller, use_cache, est, api) -> LLMResult:
         key = request_key(provider, endpoint, body)
         base_row = {"provider": provider, "model": model, "endpoint": endpoint, "tag": tag,
                     "caller": caller, "request_key": key, "effort": body.get("reasoning_effort")
                     or body.get("reasoning", {}).get("effort") or "system-prompt"}
+        with self.cache.lock(key):  # identical concurrent requests pay once
+            return self._llm_locked(provider, model, endpoint, body, tag, caller, use_cache, est, api,
+                                    key, base_row)
+
+    def _llm_locked(self, provider, model, endpoint, body, tag, caller, use_cache, est, api, key,
+                    base_row) -> LLMResult:
         if use_cache and (hit := self.cache.get_json(key)) is not None:
             usage = _norm_usage(hit.get("usage") or {}, api)
             self.ledger.settle(None, {**base_row, "units": usage, "cost_usd": 0.0, "cache_hit": True,
@@ -267,12 +292,20 @@ class Gateway:
             return LLMResult(_extract_text(hit, api), usage, 0.0, True, 0.0, usage["reasoning_tokens"], hit)
         rid = self.ledger.reserve(provider, tag, est)
         t0 = time.monotonic()
+        got_2xx = False
         try:
             resp = self._request(provider, model, "POST", endpoint, json=body)
+            got_2xx = True
             data = resp.json()
+            if not isinstance(data, dict):
+                raise ValueError("response body is not a JSON object")
         except Exception as e:
-            self.ledger.settle(rid, {**base_row, "units": {}, "cost_usd": 0.0, "cache_hit": False,
-                                     "error": str(e)[:300], "latency_s": round(time.monotonic() - t0, 3)})
+            # Book the estimate when the provider may have billed (2xx with a broken body, or an
+            # ambiguous transport failure); $0 only for clean HTTP errors and connect failures.
+            maybe_billed = got_2xx or getattr(e, "ambiguous", False)
+            self.ledger.settle(rid, {**base_row, "units": {}, "cost_usd": round(est if maybe_billed else 0.0, 6),
+                                     "cache_hit": False, "error": str(e)[:300], "maybe_billed": maybe_billed,
+                                     "latency_s": round(time.monotonic() - t0, 3)})
             raise
         latency = time.monotonic() - t0
         usage = _norm_usage(data.get("usage") or {}, api)
@@ -298,17 +331,18 @@ class Gateway:
         key = request_key("meta", "/files", {"sha256": digest, "purpose": purpose})
         row = {"provider": "meta", "model": "files", "endpoint": "/files", "tag": tag, "caller": caller,
                "request_key": key, "units": {"bytes": path.stat().st_size}, "cost_usd": 0.0}
-        if use_cache and (hit := self.cache.get_json(key)) is not None:
-            self.ledger.settle(None, {**row, "cache_hit": True})
-            return hit["id"]
-        with open(path, "rb") as f:
-            resp = self._request("meta", "files", "POST", "/files", data={"purpose": purpose},
-                                 files={"file": (path.name, f, mimetypes.guess_type(path.name)[0]
-                                                 or "application/octet-stream")})
-        data = resp.json()
-        self.ledger.settle(None, {**row, "cache_hit": False})
-        self.cache.put_json(key, data)
-        return data["id"]
+        with self.cache.lock(key):
+            if use_cache and (hit := self.cache.get_json(key)) is not None:
+                self.ledger.settle(None, {**row, "cache_hit": True})
+                return hit["id"]
+            with open(path, "rb") as f:
+                resp = self._request("meta", "files", "POST", "/files", data={"purpose": purpose},
+                                     files={"file": (path.name, f, mimetypes.guess_type(path.name)[0]
+                                                     or "application/octet-stream")})
+            data = resp.json()
+            self.ledger.settle(None, {**row, "cache_hit": False})
+            self.cache.put_json(key, data)
+            return data["id"]
 
     # ---- SAM 3.1 --------------------------------------------------------------------------
     def sam(self, phrase: str, *, tag: str, image: str | Path | None = None,
@@ -349,6 +383,10 @@ class Gateway:
         key = request_key("meta", "/responses", body)
         base_row = {"provider": "meta", "model": prices.SAM_MODEL, "endpoint": "/responses", "tag": tag,
                     "caller": caller, "request_key": key, "sam_kind": kind, "phrase": phrase}
+        with self.cache.lock(key):
+            return self._sam_locked(key, base_row, kind, est, n_frames, body, on_line, use_cache)
+
+    def _sam_locked(self, key, base_row, kind, est, n_frames, body, on_line, use_cache) -> SamResult:
         out_path = self.cache.text_path(key)
         meta_hit = self.cache.get_json(key) if use_cache else None
         if meta_hit is not None and out_path.exists():
@@ -360,23 +398,26 @@ class Gateway:
                 for line in res.lines():
                     on_line(line)
             return res
-        rid = self.ledger.reserve("meta", tag, est)
+        rid = self.ledger.reserve("meta", base_row["tag"], est)
         t0 = time.monotonic()
         usage: dict = {}
-        tmp = out_path.with_suffix(".partial")
+        tmp = out_path.with_suffix(f".partial-{uuid.uuid4().hex}")
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        got_2xx = False
         try:
             resp = self._request("meta", prices.SAM_MODEL, "POST", "/responses", stream=True, json=body,
                                  headers={"Accept": "text/event-stream"})
+            got_2xx = True
             try:
                 usage = _consume_sam_stream(resp, tmp, on_line)
             finally:
                 resp.close()
         except Exception as e:
-            # A stream that failed after starting may still bill; book the estimate to stay safe.
-            started = tmp.exists()
-            self.ledger.settle(rid, {**base_row, "units": {}, "cost_usd": round(est if started else 0.0, 6),
-                                     "cache_hit": False, "error": str(e)[:300],
+            # Once the stream started (or the failure is ambiguous) the work may be billed: book the
+            # estimate. Partial output is discarded, never cached.
+            maybe_billed = got_2xx or getattr(e, "ambiguous", False)
+            self.ledger.settle(rid, {**base_row, "units": {}, "cost_usd": round(est if maybe_billed else 0.0, 6),
+                                     "cache_hit": False, "error": str(e)[:300], "maybe_billed": maybe_billed,
                                      "latency_s": round(time.monotonic() - t0, 3)})
             tmp.unlink(missing_ok=True)
             raise
@@ -415,6 +456,8 @@ def _sse_events(resp: httpx.Response):
 def _consume_sam_stream(resp: httpx.Response, out_tmp: Path, on_line) -> dict:
     """Write output_text deltas to a gzip file, return usage from response.completed."""
     usage: dict = {}
+    events: dict[str, int] = {}
+    streamed, final_len = 0, None
     buf = ""
     ctype = resp.headers.get("content-type", "")
     with gzip.open(out_tmp, "wt") as out:
@@ -438,16 +481,26 @@ def _consume_sam_stream(resp: httpx.Response, out_tmp: Path, on_line) -> dict:
                     break
                 ev = json.loads(data)
                 t = ev.get("type", _event)
+                events[t] = events.get(t, 0) + 1
                 if t == "response.output_text.delta":
+                    streamed += len(ev.get("delta", ""))
                     emit(ev.get("delta", ""))
                 elif t == "response.completed":
-                    usage = (ev.get("response") or {}).get("usage") or {}
+                    final = ev.get("response") or {}
+                    usage = final.get("usage") or {}
+                    final_len = len(_extract_text(final, "responses"))
                 elif t in ("response.failed", "response.error", "error", "response.incomplete"):
                     raise ProviderError(200, json.dumps(ev)[:1000], "meta", prices.SAM_MODEL)
+            if "response.completed" not in events:
+                raise ProviderError(200, f"SAM stream ended without response.completed: {events}",
+                                    "meta", prices.SAM_MODEL, ambiguous=True)
         if buf:
             out.write("\n")
             if on_line:
                 on_line(buf)
+    if events:
+        # Stream diagnostics ride along with usage (cached with the result, never billed).
+        usage = {**usage, "_stream": {"events": events, "streamed_chars": streamed, "final_chars": final_len}}
     return usage
 
 

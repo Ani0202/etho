@@ -79,6 +79,30 @@ def _count_frames(path: Path) -> int:
     return int(out)
 
 
+def _probe_fps(path: Path) -> float:
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                          "stream=avg_frame_rate", "-of", "csv=p=0", str(path)],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    num, _, den = out.partition("/")
+    return float(num) / float(den or 1)
+
+
+def subsample(path: Path, fps: int, cache_dir: Path) -> Path:
+    """Re-encode to `fps` (H.264, faststart) unless already at or below it. Cached by content hash."""
+    if _probe_fps(path) <= fps + 0.01:
+        return path
+    from .cache import file_sha256
+    out = cache_dir / "clips" / f"{file_sha256(path)[:16]}_{fps}fps.mp4"
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".part.mp4")
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(path), "-vf", f"fps={fps}",
+                        "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                        "-an", str(tmp)], check=True)
+        tmp.replace(out)
+    return out
+
+
 def sam_main(argv: list[str]) -> None:
     p = argparse.ArgumentParser(prog="sam")
     p.add_argument("--phrase", required=True)
@@ -90,16 +114,26 @@ def sam_main(argv: list[str]) -> None:
     p.add_argument("--confidence", action="store_true")
     p.add_argument("--out", type=Path, help="copy raw SAM output text here")
     p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--fps", type=int, default=10, help="subsample video to this rate first (CLAUDE.md: 10-15)")
+    p.add_argument("--keep-fps", action="store_true", help="send the video at its native rate")
     a = p.parse_args(argv)
     gw = Gateway()
+    if a.video and not a.keep_fps:
+        a.video = subsample(a.video, a.fps, gw.cfg.cache_dir)
     n_frames = _count_frames(a.video) if a.video else None
     md = {"include_confidence": "true"} if a.confidence else None
     res = gw.sam(a.phrase, tag=a.tag, image=a.image, video=a.video, n_frames=n_frames,
                  public_data=a.public, metadata=md, caller="bin/sam", use_cache=not a.no_cache)
-    lines = list(res.lines())
-    if a.out:
-        a.out.write_text("\n".join(lines) + "\n")
-    print(json.dumps({"frames_with_output": len(lines), "frames_billed": res.frames_billed,
+    n_lines = 0
+    out = a.out.open("w") if a.out else None
+    for line in res.lines():  # streamed: never holds the whole video's masks in memory
+        n_lines += 1
+        if out:
+            out.write(line + "\n")
+    if out:
+        out.close()
+    sent = str(a.video) if a.video else None
+    print(json.dumps({"frames_with_output": n_lines, "video_sent": sent, "frames_billed": res.frames_billed,
                       "usage": res.usage, "cost_usd": res.cost_usd, "cache_hit": res.cache_hit,
                       "latency_s": round(res.latency_s, 2), "raw": str(res.text_path)}, indent=2))
 

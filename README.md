@@ -25,6 +25,15 @@ FIREWORKS_API_KEY=...
 All model calls go through `etho/gateway/`, which enforces per-provider spending caps, caches every
 response on disk, and logs each call to `ops/spend.jsonl`. `bin/spend` prints totals.
 
+## Data and licenses
+
+- **CalMS21** (Caltech Mouse Social Interactions), CC BY 4.0. Sun et al., "The Multi-Agent Behavior
+  Dataset: Mouse Dyadic Social Interactions", arXiv:2104.02710 (2021).
+  https://data.caltech.edu/records/s0vdx-0k302. Raw data is never committed; fetch it with the
+  scripts in `etho/datasets/` (individual videos are range-read from the 28 GB archive).
+- **SAM 3.1** output is decoded with Meta's `meta-sam-parser` (SAM License). This project uses
+  SAM Materials (Segment Anything Model 3.1, Meta).
+
 ## How this was built
 
 Developed with AI coding tools: Claude Code (lead engineer and subagents) and OpenAI Codex CLI

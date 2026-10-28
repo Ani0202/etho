@@ -32,3 +32,22 @@ Requirements this creates:
   Manual-scoring time comes from a cited source, never from invented numbers.
 - The demo video names "Push the Frontier" in its first 15 seconds and shows the time/cost
   comparison and the accuracy number on screen.
+
+---
+
+## Lead's fit note (2026-10-28, Phase 1)
+
+Etho fits **Push the Frontier** via "accelerate a scientific experiment": behavior scoring is the
+manual bottleneck of rodent social-behavior experiments. The cited baseline is *"Scoring for social
+behaviors often takes human annotators 3–4× the video's duration to annotate"* (Segalin et al.,
+MARS, eLife 2021, Introduction; the paper gives no further source for the figure). The spike
+measured SAM 3.1 tracking at about 1x real time and $0.04 per 20 s clip (`docs/SPIKE.md`), so the
+time and cost comparison can be measured rather than asserted.
+
+Meta models are central at every stage: SAM 3.1 (tracking), Muse Spark (planner, rule synthesis,
+report), and Muse Spark Open on Fireworks and Baseten (adjudication). The second statement phrase,
+"a better way to understand ... a physical system", is covered by turning raw video into measured
+trajectories, distances, and contact from plain-English definitions.
+
+Still to be measured, not claimed: accuracy (CalMS21 test F1), end-to-end time and cost per video,
+and the second species.

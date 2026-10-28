@@ -14,8 +14,9 @@ class PolicyError(GatewayError):
 
 
 class ProviderError(GatewayError):
-    def __init__(self, status: int, body: str, provider: str, model: str):
+    def __init__(self, status: int, body: str, provider: str, model: str, ambiguous: bool = False):
         super().__init__(f"{provider}/{model} HTTP {status}: {body[:500]}")
+        self.ambiguous = ambiguous  # the provider may have done (and billed) the work
         self.status = status
         self.body = body
         self.provider = provider

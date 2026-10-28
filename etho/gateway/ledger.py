@@ -3,7 +3,8 @@
 Every model call reserves its worst-case cost before it is sent (an "in-flight" file under
 ops/inflight/), then settles with the actual cost from the provider's usage. Cap checks count
 settled spend plus all live reservations, under an exclusive file lock, so parallel workers can't
-jointly overshoot a cap.
+jointly overshoot a cap. A reservation whose process died without settling may still have been
+billed, so it is booked at its estimate ("abandoned"), never silently dropped.
 """
 
 from __future__ import annotations
@@ -22,7 +23,15 @@ from pathlib import Path
 from .errors import CapExceeded
 from .prices import ALERT_FRACTIONS, HARD_CAPS, META_TAG_BUDGETS
 
-STALE_RESERVATION_S = 2 * 3600
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def utcnow() -> str:
@@ -65,17 +74,24 @@ class Ledger:
 
     def _inflight(self) -> list[dict]:
         out = []
-        now = time.time()
         for p in self.inflight_dir.glob("*.json"):
             try:
-                d = json.loads(p.read_text())
+                out.append(json.loads(p.read_text()))
             except (OSError, json.JSONDecodeError):
                 continue
-            if now - d.get("ts", now) > STALE_RESERVATION_S:
-                p.unlink(missing_ok=True)
-                continue
-            out.append(d)
         return out
+
+    def _reap_abandoned(self) -> None:
+        """Book reservations of dead processes at their estimate (call with the lock held)."""
+        for d in self._inflight():
+            if _pid_alive(int(d.get("pid", -1))):
+                continue
+            row = {"time": utcnow(), "provider": d["provider"], "model": "?", "tag": d["tag"],
+                   "caller": "ledger:abandoned-reservation", "cost_usd": round(float(d["est"]), 6),
+                   "cache_hit": False, "abandoned_reservation": d["id"], "maybe_billed": True}
+            with self.path.open("a") as f:
+                f.write(json.dumps(row, sort_keys=True) + "\n")
+            (self.inflight_dir / f"{d['id']}.json").unlink(missing_ok=True)
 
     @contextmanager
     def _locked(self):
@@ -89,7 +105,10 @@ class Ledger:
 
     # ---- reserve / settle -----------------------------------------------------------------
     def reserve(self, provider: str, tag: str, est_cost: float) -> str:
+        if not (est_cost >= 0 and est_cost < float("inf")):
+            raise CapExceeded(f"invalid cost estimate {est_cost!r}")
         with self._locked():
+            self._reap_abandoned()
             by_provider, by_tag = self.totals()
             inflight = self._inflight()
             pending_p = sum(d["est"] for d in inflight if d["provider"] == provider)

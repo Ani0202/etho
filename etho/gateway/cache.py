@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import fcntl
 import gzip
 import hashlib
 import json
-import os
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -41,10 +43,22 @@ class DiskCache:
     def put_json(self, key: str, value: dict) -> None:
         p = self._path(key, ".json.gz")
         p.parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_suffix(f".tmp{os.getpid()}")
+        tmp = p.with_suffix(f".tmp-{uuid.uuid4().hex}")
         with gzip.open(tmp, "wt") as f:
             json.dump(value, f)
         tmp.replace(p)
+
+    @contextmanager
+    def lock(self, key: str):
+        """Exclusive cross-process lock for one request key (lookup, call, publish)."""
+        p = self.root / "locks" / f"{key}.lock"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "a") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
 
     def text_path(self, key: str) -> Path:
         """Location for streamed text payloads (SAM output), stored gzipped."""
