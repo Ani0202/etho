@@ -1,0 +1,366 @@
+{
+ "version": 1,
+ "name": "F1_flies",
+ "definitions": "configs/flies_definitions.json",
+ "definitions_sha256": "d7a1e96c6ba928b6e0acd52482f9aae11068b0654976ef0d161564b1166649e4",
+ "behaviors": {
+  "wing_threat": {
+   "extras": true,
+   "variant": "simple2",
+   "model": "muse-spark-1.3-contributor",
+   "effort": "high",
+   "public_data": true,
+   "tag": "ablation",
+   "n_candidates_synthesized": 6,
+   "selection": {
+    "rule": "medoid by pooled frame-F1 agreement, label-free",
+    "agreement": [
+     0.659861327917503,
+     0.6450592482944821,
+     0.6849201226092108,
+     0.6990980313060551,
+     0.6794544078214281,
+     0.6295936621045544
+    ],
+    "chosen": 3
+   },
+   "candidates": [
+    {
+     "code": "def detect(t, fps):\n    # wing_threat: both wings quickly raised -> wide/spiky silhouette held in place, directed at opponent.\n    n = t['dist'].shape[0]\n    # smoothing for sustained posture: ~0.15 s bridges translucent-wing flicker, not a snap\n    k = max(3, int(round(0.15 * fps)))\n\n    # --- primary posture signal per fly: widened body (minor_len vs own median) ---\n    # on=1.18 ~ p90-95 of individual minor_ratio (rare strong widening = both wings out)\n    # off=1.08 ~ just above typical wobble (p75~1.05) to hold through mask flicker\n    a_min_s = smooth(t['a_minor_ratio'], k)\n    b_min_s = smooth(t['b_minor_ratio'], k)\n    a_area_s = smooth(t['a_area_ratio'], k)\n    b_area_s = smooth(t['b_area_ratio'], k)\n    hyst_a = hysteresis(a_min_s, 1.18, 1.08)\n    hyst_b = hysteresis(b_min_s, 1.18, 1.08)\n    # corroborating wing-in-mask cue: added area (>p75, wing adds pixels) OR thin spurs\n    # 1.05 ~ above typical area fluctuation; thin 0.05 ~ above p75 (~0.045), thin wings/legs raise it\n    # NaN comparisons are False, so missing -> no detection\n    conf_a = (a_area_s > 1.05) | (t['a_thin_frac'] > 0.05)\n    conf_b = (b_area_s > 1.05) | (t['b_thin_frac'] > 0.05)\n    wing_a = hyst_a & conf_a\n    wing_b = hyst_b & conf_b\n    pair_wing = wing_a | wing_b  # symmetric OR, labels exchangeable\n\n    # --- support 1: holding posture rather than running (label-free, valid while touching) ---\n    # min over flies = quieter fly (the displayer); 25 px/s ~ 1 body length/s (~27px)\n    # separates stationary display from running (min_speed_raw p75~7, p95~47)\n    min_raw = t['min_speed_raw']\n    slow = np.isfinite(min_raw) & (min_raw < 25.0)\n\n    # --- support 2: directed at opponent: nearby + body axis points at other fly ---\n    # dist_bl<2.5 BL permissive (p95~2.5), ensures opponent in range; both_present required\n    # min_axis_align<0.8 rad (~46deg, ~p75) ensures one fly points at/away, no heading sign needed\n    near = np.isfinite(t['dist_bl']) & (t['dist_bl'] < 2.5) & (t['both_present'] == 1)\n    aligned = np.isfinite(t['min_axis_align']) & (t['min_axis_align'] < 0.8)\n    geo = near & aligned\n\n    mask = pair_wing & slow & geo\n    # posture hold ~ >=0.15s, fill <=0.2s dropout from intermittent translucent wings in mask\n    mask = bouts_clean(mask, fps, min_s=0.15, max_gap_s=0.2)\n    return mask",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "126229bdf8e1e68a",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0015569000000000002,
+       "usage": {
+        "input_tokens": 5367,
+        "output_tokens": 5101,
+        "reasoning_tokens": 4356,
+        "cached_tokens": 0,
+        "billed_output_tokens": 5101
+       },
+       "cache_hit": false,
+       "latency_s": 55.56124024100427
+      }
+     ],
+     "source_index": 0
+    },
+    {
+     "code": "def detect(t, fps):\n    # Wing threat = both wings held out sideways -> wider/spikier silhouette\n    # while the displaying fly holds posture (not running) near opponent.\n    # Symmetric pair-level test (max_/min_ columns, either fly).\n    max_minor = t['max_minor_ratio']      # 1 = typical width; wide wings raise it\n    max_area = t['max_area_ratio']        # 1 = typical area; wings add area\n    min_sol = t['min_solidity']           # compact ~0.86-0.93; spur lowers it\n    max_thin = t['max_thin_frac']         # compact ~0.02; thin wings raise it\n    max_reach = t['max_reach_ratio']      # compact ~1.0; spur >1.2\n    min_elong = t['min_elong']            # compact ~2.6; wide wings lower it\n    min_spd = t['min_speed_raw']          # quieter fly speed (label-free, valid in contact)\n    dist_bl = t['dist_bl']                # pair distance in body lengths (~27px = 1 BL)\n    both = t['both_present']\n\n    # Light smoothing to bridge single-frame translucent-wing flicker,\n    # windows expressed in seconds: 0.1 s shape, ~0.15 s speed.\n    k_shape = max(3, int(round(0.1 * fps)))\n    k_spd = max(3, int(round(0.15 * fps)))\n    sm_minor = smooth(max_minor, k_shape)  # NaN-aware; NaN stays NaN -> False below\n    sm_area = smooth(max_area, k_shape)\n    sm_spd = smooth(min_spd, k_spd)\n\n    # PRIMARY: distinctly wider than own typical body (both wings out).\n    # on=1.25 (~25% wider, near p95=1.38, top decile) to trigger; off=1.12\n    # (just above p75=1.11) to hold posture while wings flicker in mask.\n    wide = hysteresis(sm_minor, 1.25, 1.12)\n\n    # Corroborating wing-area / spikiness: wing adds ~7%+ area or makes\n    # silhouette spikier. Thresholds vs own typical: area 1.07 (p75~1.09),\n    # solidity 0.82 (compact ~0.87), thin 0.06 (median 0.034, p75 0.077),\n    # reach 1.15 (compact ~1.0, spur >1.2), elong 2.2 (~15% below ~2.6).\n    big = sm_area >= 1.07\n    spiky = (min_sol <= 0.82) | (max_thin >= 0.06) | (max_reach >= 1.15) | (min_elong <= 2.2)\n    wing_shape = wide & (big | spiky)  # NaN comparisons -> False\n\n    # SUPPORT 1: posture not running \u2014 quieter fly nearly still.\n    # 20 px/s ~0.7 BL/s, below chase/run (~40+ px/s) but above centroid jitter.\n    still = sm_spd <= 20.0  # NaN -> False (missing fly = no threat)\n\n    # SUPPORT 2: toward opponent \u2014 needs opponent nearby.\n    # 2.5 BL (~68 px, p95=2.51) only vetoes far-apart grooming-like widening.\n    close = (both == 1) & (dist_bl <= 2.5)  # NaN -> False\n\n    cand = wing_shape & still & close\n\n    # Sustained posture (~0.2 s min) with flicker bridging (~0.3 s gap):\n    # quickly raised then held; single-frame segmentation spikes removed.\n    out = bouts_clean(cand, fps, min_s=0.2, max_gap_s=0.3)\n    return out",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "5d08261252a2104d",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0015794000000000001,
+       "usage": {
+        "input_tokens": 5388,
+        "output_tokens": 5203,
+        "reasoning_tokens": 4316,
+        "cached_tokens": 113,
+        "billed_output_tokens": 5203
+       },
+       "cache_hit": false,
+       "latency_s": 56.186186292005004
+      }
+     ],
+     "source_index": 1
+    },
+    {
+     "code": "def detect(t, fps):\n    # wing_threat: both wings raised sideways -> wider (+bigger/spikier) silhouette\n    # while holding posture (not running) near opponent. Pair unit -> use max_/min_.\n    n = len(t['max_minor_ratio'])\n    # ~0.1 s smoothing to bridge translucent-wing flicker without smoothing posture away\n    k = int(round(0.1 * fps))\n    if k < 3:\n        k = 3\n    if k % 2 == 0:\n        k += 1  # keep centered window odd\n\n    w = smooth(t['max_minor_ratio'], k)  # 1=own median; median max~1.04, p75~1.11, p95~1.38\n    a = smooth(t['max_area_ratio'], k)   # 1=own median; median max~1.03, p75~1.09, p95~1.20\n\n    # PRIMARY (composite silhouette): wings out sideways widen body ~20%.\n    # on=1.20 (~p85-90, well above typical jitter) hysteresis off=1.12 to hold posture.\n    wide = hysteresis(w, 1.20, 1.12)\n    # wing adds mask area (~6% over median); <1.5 rejects merged double-masks (~2x) when touching.\n    big = (a >= 1.06) & (a < 1.50)\n    primary = wide & big & np.isfinite(w) & np.isfinite(a)  # explicit NaN -> False\n\n    # SUPPORT 1: holds posture rather than running. Quieter fly slow.\n    # 20 px/s ~0.7 body lengths/s (BL~27px); median quieter ~1.6, p75~7.3, so only vetoes running.\n    # Use *_raw: stays valid while flies touch (vel_ok hides normal speed there).\n    slow = np.isfinite(t['min_speed_raw']) & (t['min_speed_raw'] < 20.0)\n\n    # SUPPORT 2: towards opponent -> opponent nearby. 3 BL ~80px; median dist~1.34BL,\n    # p95~2.5BL, so only vetoes far-apart frames where display cannot be directed.\n    close = np.isfinite(t['dist_bl']) & (t['dist_bl'] < 3.0)\n\n    both = (t['both_present'] == 1)\n\n    cand = primary & slow & close & both\n    # sustained posture >=0.2s, bridge <0.2s flicker gaps from translucent wings\n    out = bouts_clean(cand, fps, min_s=0.2, max_gap_s=0.2)\n    return out",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "3993337ea218100d",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0018846000000000004,
+       "usage": {
+        "input_tokens": 5388,
+        "output_tokens": 6729,
+        "reasoning_tokens": 6122,
+        "cached_tokens": 0,
+        "billed_output_tokens": 6729
+       },
+       "cache_hit": false,
+       "latency_s": 78.64807363
+      }
+     ],
+     "source_index": 2
+    },
+    {
+     "code": "def detect(t, fps):\n    # wing_threat: both wings raised ~45 deg -> seen from above as bilateral\n    # widening (minor_len up) held while opponent is near, actor not running.\n    n = len(t['dist'])\n    mmr = np.asarray(t['max_minor_ratio'], dtype=float)  # pair-level => symmetric, no A/B bias\n    dist_bl = np.asarray(t['dist_bl'], dtype=float)\n    gap = np.asarray(t['gap'], dtype=float)\n    both = np.asarray(t['both_present'], dtype=float)\n    min_spd = np.asarray(t['min_speed_raw'], dtype=float)  # quieter fly; label-free, valid in contact\n    a_maj = np.asarray(t['a_major_len'], dtype=float)\n    b_maj = np.asarray(t['b_major_len'], dtype=float)\n\n    # body size for relative speed threshold (~25-30 px here)\n    bl = np.nanmedian(np.concatenate([a_maj, b_maj]))\n    if not np.isfinite(bl) or bl <= 0:\n        bl = 27.0\n\n    # PRIMARY: sustained bilateral widening. Stats: max_minor_ratio median 1.04,\n    # p75 1.11, p95 1.38. ON=1.18 is top decile (~18% wider than own median =\n    # both wings out); OFF=1.08 holds the posture through flicker.\n    k = max(3, int(round(fps * 0.15)))  # ~0.15 s smoothing bridges translucent-wing dropout\n    sm = smooth(mmr, k)\n    sm_f = np.where(np.isfinite(sm), sm, 0.0)  # NaN (missing) = no posture\n    wing = hysteresis(sm_f, 1.18, 1.08)\n\n    # SUPPORT 1: opponent near but masks not merged. dist_bl median 1.34, p95 2.51,\n    # so <3.0 BL is generous proximity (vetoes only far-apart false widenings);\n    # gap>1 px excludes touching/merged masks where width is two bodies.\n    near = np.isfinite(dist_bl) & np.isfinite(gap) & (dist_bl < 3.0) & (gap > 1.0)\n    near = near & np.isfinite(both) & (both == 1)\n\n    # SUPPORT 2: holder pauses rather than runs. Threshold ~1 body-length/s\n    # (~bl px/s); stats min_speed_raw median 1.6, p75 7.3, so this is generous\n    # and only vetoes running bouts. Use raw (valid while touching).\n    quiet = np.isfinite(min_spd) & (min_spd < 1.0 * bl)\n\n    raw = wing & near & quiet\n    raw = np.where(np.isfinite(mmr), raw, False)\n\n    # posture is sustained (~0.2 s+); join <0.25 s dropouts from intermittent mask\n    out = bouts_clean(raw, fps, min_s=0.2, max_gap_s=0.25)\n    return np.asarray(out, dtype=bool)",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "c6297ec8fdc8c386",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0013536000000000002,
+       "usage": {
+        "input_tokens": 5388,
+        "output_tokens": 4074,
+        "reasoning_tokens": 3379,
+        "cached_tokens": 0,
+        "billed_output_tokens": 4074
+       },
+       "cache_hit": false,
+       "latency_s": 46.15561808199709
+      }
+     ],
+     "source_index": 3
+    },
+    {
+     "code": "def detect(t, fps):\n    # Wing threat = quick bilateral wing raise -> unusually wide silhouette\n    # held briefly while near opponent, not fast running.\n    # Symmetric pair test via max_* / pair columns.\n    n = len(t['max_minor_ratio'])\n    fps = float(fps)\n\n    # --- primary widening signal (pair-symmetric) ---\n    # max_minor_ratio: median ~1.04, p75 ~1.11, p95 ~1.38. Bilateral wings\n    # add ~25-30% width, so ON=1.25 is rare/strong, OFF=1.12 just above\n    # typical variation to hold the posture while wings stay out.\n    w_raw = t['max_minor_ratio']\n    k_fast = max(3, int(round(0.1 * fps)))  # ~0.1 s smoothing, preserves quick raise\n    w = smooth(w_raw, k_fast)\n    wide = hysteresis(w, on=1.25, off=1.12)\n    wide = wide & np.isfinite(w)\n\n    # --- \"quickly raises\": >=12% width gain within last 0.3 s ---\n    # Expected bilateral raise ~30% in ~0.1-0.15 s; 0.12 in 0.3 s passes\n    # true raises but rejects slow drift / baseline differences.\n    K = max(2, int(round(0.3 * fps)))  # 0.3 s lookback\n    past_min = np.full(n, np.nan)\n    for k in range(1, K + 1):\n        r = np.roll(w, k)\n        r[:k] = np.nan\n        # NaN-aware min: fmin ignores NaN\n        past_min = r if k == 1 else np.fmin(past_min, r)\n    rise = w - past_min\n    quick_here = np.isfinite(rise) & (rise >= 0.12)\n\n    # keep whole wide bout if onset was quick (not just first 0.3 s)\n    filt = np.zeros(n, dtype=bool)\n    if np.any(wide):\n        iw = wide.astype(int)\n        d = np.diff(iw)\n        starts = list(np.where(d == 1)[0] + 1)\n        ends = list(np.where(d == -1)[0] + 1)\n        if wide[0]:\n            starts = [0] + starts\n        if wide[-1]:\n            ends = ends + [n]\n        for s, e in zip(starts, ends):\n            if np.any(quick_here[s:e]):\n                filt[s:e] = True\n\n    # --- context: near opponent, not merged, not fast run ---\n    # dist_bl median ~1.34, p95 ~2.5: <3.0 BL keeps all plausible threats,\n    # vetoes far-apart false widenings. gap>1 vetoes merged/touching masks\n    # where minor_len is unreliable. both_present required.\n    both = t['both_present'] == 1\n    dist_bl = t['dist_bl']\n    gap = t['gap']\n    prox = (\n        both\n        & np.isfinite(dist_bl) & (dist_bl < 3.0)\n        & np.isfinite(gap) & (gap > 1)\n    )\n\n    # Stillness: reject fast runs/flights that distort shape.\n    # 80 px/s ~ 3 body lengths/s (body ~27 px); median max_speed_raw ~7.6,\n    # p75 ~35, p95 ~143, so this only vetoes fast locomotion. NaN = allow.\n    msr = t['max_speed_raw']\n    still_ok = ~np.isfinite(msr) | (msr < 80.0)\n\n    cand = filt & prox & still_ok\n\n    # Bridge flicker (translucent wings intermittently in mask) and drop\n    # single-sample spikes: hold ~>=0.15 s, bridge gaps <=0.2 s.\n    out = bouts_clean(cand, fps, min_s=0.15, max_gap_s=0.2)\n    return out.astype(bool)",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "998682dbf5b8fb66",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0017868000000000003,
+       "usage": {
+        "input_tokens": 5388,
+        "output_tokens": 6240,
+        "reasoning_tokens": 5297,
+        "cached_tokens": 0,
+        "billed_output_tokens": 6240
+       },
+       "cache_hit": false,
+       "latency_s": 73.1522535969998
+      },
+      {
+       "attempt": 1,
+       "cost_usd": 0.0008766000000000002,
+       "usage": {
+        "input_tokens": 6368,
+        "output_tokens": 1199,
+        "reasoning_tokens": 295,
+        "cached_tokens": 0,
+        "billed_output_tokens": 1199
+       },
+       "cache_hit": false,
+       "latency_s": 8.57304235900665
+      }
+     ],
+     "source_index": 4
+    },
+    {
+     "code": "def detect(t, fps):\n    # wing_threat: both wings raised ~45deg -> wider, larger, spikier silhouette\n    # held as posture while fairly still and close to opponent.\n    n = len(t['dist_bl'])\n    # smoothing window 0.1 s to ride mask flicker without erasing posture\n    k = max(1, int(round(0.1 * fps)))\n\n    a_min = t['a_minor_ratio']\n    b_min = t['b_minor_ratio']\n    # NaN-aware smooth; missing -> not wing\n    a_min_s = smooth(a_min, k)\n    b_min_s = smooth(b_min, k)\n    a_min_s = np.where(np.isfinite(a_min_s), a_min_s, 0)\n    b_min_s = np.where(np.isfinite(b_min_s), b_min_s, 0)\n\n    # PRIMARY: ~18% wider than own median (~2 px each side = wings out).\n    # p95 of minor_ratio ~1.19-1.37, so 1.18 is selective; off 1.08 holds bout.\n    wide_a = hysteresis(a_min_s, 1.18, 1.08)\n    wide_b = hysteresis(b_min_s, 1.18, 1.08)\n\n    # SUPPORT 1 (wing shape): area added (~7% ~15 px2 wing fragment, p75~1.05,\n    # p95~1.16) OR concave notch (solidity<0.82, median~0.87) OR thin spur\n    # (thin_frac>0.06, p75~0.045, p95~0.12). Any one confirms wide = wing.\n    ar_a = t['a_area_ratio']\n    sol_a = t['a_solidity']\n    th_a = t['a_thin_frac']\n    c1_a = np.isfinite(ar_a) & (ar_a >= 1.07)\n    c2_a = np.isfinite(sol_a) & (sol_a <= 0.82)\n    c3_a = np.isfinite(th_a) & (th_a >= 0.06)\n    spk_a = c1_a | c2_a | c3_a\n\n    ar_b = t['b_area_ratio']\n    sol_b = t['b_solidity']\n    th_b = t['b_thin_frac']\n    c1_b = np.isfinite(ar_b) & (ar_b >= 1.07)\n    c2_b = np.isfinite(sol_b) & (sol_b <= 0.82)\n    c3_b = np.isfinite(th_b) & (th_b >= 0.06)\n    spk_b = c1_b | c2_b | c3_b\n\n    # SUPPORT 2 (posture + context): holder is slow (<20 px/s ~0.7 BL/s;\n    # running/lunge p95~42 px/s) and pair is close. Speed NaN occurs exactly\n    # on abrupt wing-appearance (vel_ok=0), so NaN must pass, not veto.\n    s_a = t['a_speed']\n    slow_a = (~np.isfinite(s_a)) | (s_a < 20.0)\n    s_b = t['b_speed']\n    slow_b = (~np.isfinite(s_b)) | (s_b < 20.0)\n\n    wing_a = wide_a & spk_a & slow_a\n    wing_b = wide_b & spk_b & slow_b\n    pair_wing = wing_a | wing_b\n\n    dist = t['dist_bl']\n    close = np.isfinite(dist) & (dist < 2.0)  # <2 body lengths (~54 px), threat range\n    present = t['both_present'] == 1  # need opponent to threaten\n\n    raw = pair_wing & close & present\n    # sustained posture ~0.2 s min, fill flicker gaps 0.3 s\n    out = bouts_clean(raw, fps, min_s=0.2, max_gap_s=0.3)\n    return out.astype(bool)",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "65a63ad8f1a7a947",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0014722000000000003,
+       "usage": {
+        "input_tokens": 5388,
+        "output_tokens": 4667,
+        "reasoning_tokens": 3885,
+        "cached_tokens": 4081,
+        "billed_output_tokens": 4667
+       },
+       "cache_hit": false,
+       "latency_s": 51.740781112996046
+      },
+      {
+       "attempt": 1,
+       "cost_usd": 0.0008611000000000001,
+       "usage": {
+        "input_tokens": 6207,
+        "output_tokens": 1202,
+        "reasoning_tokens": 313,
+        "cached_tokens": 5361,
+        "billed_output_tokens": 1202
+       },
+       "cache_hit": false,
+       "latency_s": 8.754046214999107
+      }
+     ],
+     "source_index": 5
+    }
+   ],
+   "use": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "min_votes": 3,
+   "post": {
+    "min_s": 2.0
+   }
+  },
+  "lunge": {
+   "extras": true,
+   "variant": "physics",
+   "model": "muse-spark-1.3-contributor",
+   "effort": "high",
+   "public_data": true,
+   "tag": "ablation",
+   "n_candidates_synthesized": 5,
+   "selection": {
+    "rule": "medoid by pooled frame-F1 agreement, label-free",
+    "agreement": [
+     0.3905185021912254,
+     0.41724215119710745,
+     0.4163020024152716,
+     0.32020060379957804,
+     0.3741957780049224
+    ],
+    "chosen": 1
+   },
+   "candidates": [
+    {
+     "code": "def detect(t, fps):\n    # Lunge: one fly rears (shortens in top view) and snaps fast down onto other.\n    # Pair unit: test symmetrically, OR over flies. Use raw (label-free) speeds\n    # so the burst stays valid while masks touch (vel_ok hides close range).\n    n = len(np.asarray(t[\"src_frame\"]))\n    both = np.asarray(t[\"both_present\"]) == 1  # NaN -> False\n\n    a_maj = np.asarray(t[\"a_major_len\"], dtype=float)\n    b_maj = np.asarray(t[\"b_major_len\"], dtype=float)\n    med_a = np.nanmedian(a_maj)  # own typical length (~27px)\n    if np.isnan(med_a):\n        med_a = 27.0\n    med_b = np.nanmedian(b_maj)\n    if np.isnan(med_b):\n        med_b = 27.0\n    bl = np.nanmedian(np.concatenate([a_maj, b_maj]))  # body length scale px\n    if np.isnan(bl) or bl <= 0:\n        bl = 27.0\n\n    dist_bl = np.asarray(t[\"dist_bl\"], dtype=float)\n    gap = np.asarray(t[\"gap\"], dtype=float)\n    align = np.asarray(t[\"min_axis_align\"], dtype=float)\n    maxSpd = np.asarray(t[\"max_speed_raw\"], dtype=float)  # 0.1s, valid in contact\n    maxTow = np.asarray(t[\"max_toward_speed_raw\"], dtype=float)  # + = closing\n    minSpd = np.asarray(t[\"min_speed_raw\"], dtype=float)  # quieter fly\n    peak = np.asarray(t[\"peak_toward_raw\"], dtype=float)  # max over next 0.3s\n\n    # Proximity: lunge only at contact range. 1.5 BL centre-centre keeps\n    # touching pairs (median dist 1.34 BL); gap <0.4*BL (~11px, <half body)\n    # keeps edge-to-edge touching (p25 gap=11px). NaN comparison -> False.\n    close = (dist_bl < 1.5) & (gap < 0.4 * bl)\n\n    # Orientation: attacker points at victim. Needs no heading sign.\n    # median min_axis_align 0.41 rad; 0.7 rad (~40deg) keeps roughly-aimed.\n    aimed = align < 0.7\n\n    # Rearing shortens top-view length. Smooth 0.1s to ride SAM flicker,\n    # require 8% below own median (p25 ~0.96, p5 ~0.75, so selective).\n    k = int(round(0.1 * fps))  # 0.1 s smoothing window\n    if k < 1:\n        k = 1\n    a_s = smooth(a_maj, k)\n    b_s = smooth(b_maj, k)\n    rear = (a_s < 0.92 * med_a) | (b_s < 0.92 * med_b)  # NaN -> False\n\n    # Fast snap: speeds relative to body length/s.\n    # Walking max_speed_raw median 7.6, p75 35; 1 BL/s ~27px/s.\n    # Strong burst needs no shape (covers mask-merge where length spikes).\n    strong = (peak > 1.5 * bl) & (maxSpd > 1.0 * bl) & (maxTow > 0.5 * bl)\n    # Moderate burst needs rearing evidence.\n    moder = (peak > 0.8 * bl) & (maxSpd > 0.5 * bl) & (maxTow > 0.3 * bl) & rear\n\n    # Victim usually not sprinting: veto mutual high-speed chase.\n    # min_speed_raw p75 7.3, p95 46.8; 1.2*BL ~32px/s drops top ~10%.\n    # NaN -> do not veto (explicit).\n    quiet = (~np.isfinite(minSpd)) | (minSpd < 1.2 * bl)\n\n    cand = both & close & aimed & (strong | moder) & quiet\n\n    # Snap is few samples: keep >=0.06s (~2 frames), fill <=0.1s flicker.\n    clean = bouts_clean(cand, fps, min_s=0.06, max_gap_s=0.1)\n\n    # Drop sustained running (chase): lunge+0.3s peak lookahead <0.6s.\n    max_len = int(round(0.6 * fps))  # 0.6 s max bout\n    if np.any(clean):\n        idx = np.where(clean)[0]\n        brk = np.where(np.diff(idx) > 1)[0]\n        starts = np.concatenate([[idx[0]], idx[brk + 1]])\n        ends = np.concatenate([idx[brk], [idx[-1]]])\n        out = np.zeros(n, dtype=bool)\n        for s, e in zip(starts, ends):\n            if (e - s + 1) <= max_len:\n                out[s:e + 1] = True\n        clean = out\n    else:\n        clean = np.zeros(n, dtype=bool)\n    return clean",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "3ef295d99128ad78",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0021714,
+       "usage": {
+        "input_tokens": 5298,
+        "output_tokens": 8208,
+        "reasoning_tokens": 7049,
+        "cached_tokens": 0,
+        "billed_output_tokens": 8208
+       },
+       "cache_hit": false,
+       "latency_s": 77.91134849700029
+      }
+     ],
+     "source_index": 0
+    },
+    {
+     "code": "def detect(t, fps):\n    # Lunge: one fly rears (foreshortened from above) and snaps fast toward\n    # the other at very close range. Pair-level OR: test symmetrically.\n    N = t[\"dist\"].shape[0]\n    both = (t[\"both_present\"] == 1) & np.isfinite(t[\"dist_bl\"]) & np.isfinite(t[\"gap\"])\n\n    # Body-size scale for this video (fly ~25-30 px long).\n    med_a = np.nanmedian(t[\"a_major_len\"])\n    med_b = np.nanmedian(t[\"b_major_len\"])\n    if not np.isfinite(med_a):\n        med_a = 27.0\n    if not np.isfinite(med_b):\n        med_b = 27.0\n    bl = (med_a + med_b) / 2.0  # px per body length\n    if not np.isfinite(bl) or bl <= 0:\n        bl = 27.0\n\n    dist_bl = t[\"dist_bl\"]\n    gap = t[\"gap\"]\n    axis = t[\"min_axis_align\"]\n    peak = t[\"peak_toward_raw\"]          # max of toward over next 0.3 s: whole-burst envelope\n    toward = t[\"max_toward_speed_raw\"]   # instantaneous toward burst, label-free, valid in contact\n    spd = t[\"max_speed_raw\"]             # instantaneous speed, label-free, valid in contact\n    closing = t[\"closing_speed_raw\"]     # + = approaching, label-free\n\n    # Close range: must snap DOWN ON the other, not chase from afar.\n    # dist_bl<1.5 BL (~40 px) excludes distant approaches; gap<0.4 BL (~11 px)\n    # requires masks nearly touching. Both NaN -> False explicitly.\n    close = np.isfinite(dist_bl) & np.isfinite(gap) & (dist_bl < 1.5) & (gap < 0.4 * bl)\n\n    # Attacker points at target. Axis needs no heading sign, so valid in contact\n    # where heading/facing are NaN. 0.7 rad ~40 deg allows slight angle.\n    aligned = np.isfinite(axis) & (axis < 0.7)\n\n    # Fast snap: >~1-1.5 BL/s. p75 of max_toward_raw ~10 px/s, p95 ~60 px/s,\n    # so 1.5*bl (~40 px/s) is an explosive outlier, not walking (~few px/s).\n    fast_peak = np.isfinite(peak) & (peak >= 1.5 * bl)\n    fast_inst = np.isfinite(toward) & (toward >= 0.9 * bl)   # ~1 BL/s currently toward\n    moving = np.isfinite(spd) & (spd >= 1.2 * bl)            # real displacement, not noise\n    strict = fast_peak & fast_inst & moving\n\n    # Rearing up foreshortens body seen from above. Normal IQR of major_len is\n    # <3%, so <0.92*median (~8% shorter, ~25 px) is significant foreshortening.\n    a_short = np.isfinite(t[\"a_major_len\"]) & np.isfinite(med_a) & (t[\"a_major_len\"] < 0.92 * med_a)\n    b_short = np.isfinite(t[\"b_major_len\"]) & np.isfinite(med_b) & (t[\"b_major_len\"] < 0.92 * med_b)\n    pair_short = (a_short | b_short)\n    # Rearing slightly precedes the snap: dilate by 0.15 s window.\n    k_short = int(round(0.15 * fps))\n    if k_short < 3:\n        k_short = 3\n    if k_short % 2 == 0:\n        k_short += 1\n    short_dil = smooth(pair_short.astype(float), k_short) > 0.05\n    # Looser speed allowed if rearing seen (catches brief foreshortened lunges).\n    loose = (np.isfinite(peak) & (peak >= 1.0 * bl)\n             & np.isfinite(toward) & (toward >= 0.6 * bl)\n             & np.isfinite(spd) & (spd >= 0.8 * bl)\n             & short_dil)\n\n    # Not rapidly separating: closing > -0.5 BL/s rejects retreats/escapes\n    # while allowing contact lunges where dist cannot fall further. NaN -> False.\n    not_leaving = np.isfinite(closing) & (closing > -0.5 * bl)\n\n    burst = both & close & aligned & (strict | loose) & not_leaving\n\n    # Snap is a few samples: keep short bouts, don't smooth away.\n    # min 0.06 s (~2 frames at 30 fps), bridge 0.12 s gaps.\n    mask = bouts_clean(burst, fps, min_s=0.06, max_gap_s=0.12)\n    mask = np.asarray(mask, dtype=bool)\n\n    # Long fast-close runs are chases/wrestling, not a snap: drop bouts >0.5 s.\n    max_len = int(round(0.5 * fps))\n    if max_len < 1:\n        max_len = 1\n    if np.any(mask):\n        m = mask.astype(np.int8)\n        d = np.diff(m)\n        starts = list(np.where(d == 1)[0] + 1)\n        ends = list(np.where(d == -1)[0] + 1)\n        if m[0] == 1:\n            starts = [0] + starts\n        if m[-1] == 1:\n            ends = ends + [N]\n        for s, e in zip(starts, ends):\n            if (e - s) > max_len:\n                mask[s:e] = False\n    return mask",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "0e79a5a97ff866c7",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0017635,
+       "usage": {
+        "input_tokens": 5319,
+        "output_tokens": 6158,
+        "reasoning_tokens": 4856,
+        "cached_tokens": 0,
+        "billed_output_tokens": 6158
+       },
+       "cache_hit": false,
+       "latency_s": 61.412508531997446
+      }
+     ],
+     "source_index": 1
+    },
+    {
+     "code": "def detect(t, fps):\n    # Lunge = one fly rears (foreshortened body) then snaps fast toward the other\n    # from close range. Pair-level: test with max/min (symmetric), allow NaN explicitly.\n    n = len(t[\"dist\"])\n    def G(k):\n        v = t.get(k, None)\n        if v is None:\n            return np.full(n, np.nan, dtype=float)\n        return np.asarray(v, dtype=float)\n\n    both = G(\"both_present\") == 1\n    dist_bl = G(\"dist_bl\")\n    gap = G(\"gap\")\n    axis = G(\"min_axis_align\")\n    peak = G(\"peak_toward_raw\")  # max toward-speed in next 0.3 s: marks whole burst incl. pre-peak rear\n    mx_spd = G(\"max_speed_raw\")  # label-free fast speed, valid while touching\n    mn_spd = G(\"min_speed_raw\")  # quieter fly: separates lunge (one moves) from chase (both run)\n    mx_spd_s = G(\"max_speed_s\")  # 0.5 s smoothed speed: sustained running vs brief snap\n    a_maj = G(\"a_major_len\")\n    b_maj = G(\"b_major_len\")\n\n    # body length scale from this video (~25-30 px): all speeds relative to it\n    all_maj = np.concatenate([a_maj[np.isfinite(a_maj)], b_maj[np.isfinite(b_maj)]])\n    bl = float(np.median(all_maj)) if all_maj.size > 0 else 27.0  # px per body length\n    if not np.isfinite(bl) or bl < 10 or bl > 50:\n        bl = 27.0\n\n    # Close range: within ~1.5 BL centroid distance or masks within ~8 px (~0.3 BL).\n    # Lunge is launched only when essentially touching; median dist is 1.34 BL / gap 18 px.\n    close = both & ((np.isfinite(dist_bl) & (dist_bl <= 1.5)) | (np.isfinite(gap) & (gap <= 8)))\n\n    # Pointing: one fly's body axis within ~0.6 rad (~34 deg) of direction to other.\n    # Median min_axis_align ~0.41 rad; random ~0.78 rad.\n    aligned = np.isfinite(axis) & (axis <= 0.6)\n\n    # Burst: snap is >~1 BL/s; strong lunge >~1.75 BL/s (~47 px/s, top ~10% of toward bursts).\n    # Weak path >~1.0 BL/s (~27 px/s) only if rearing dip seen nearby.\n    thr_strong = 1.75 * bl\n    thr_weak = 1.0 * bl\n    burst_strong = np.isfinite(peak) & (peak >= thr_strong)\n    burst_weak = np.isfinite(peak) & (peak >= thr_weak)\n\n    # Attacker must actually dart: max raw speed >= ~0.9 BL/s.\n    attacker = np.isfinite(mx_spd) & (mx_spd >= 0.9 * bl)\n\n    # Snap is brief: slow (0.5 s) speed stays low (<~1.2 BL/s); sustained chase stays high.\n    # NaN (vel hidden near touch/area jump) is allowed because raw columns stay valid there.\n    slow_ok = (~np.isfinite(mx_spd_s)) | (mx_spd_s <= 1.2 * bl)\n\n    # Asymmetry: quieter fly not also dashing (<~1.5 BL/s); rejects mutual chase.\n    quiet = (~np.isfinite(mn_spd)) | (mn_spd <= 1.5 * bl)\n\n    # Rearing shortens top-view body length: major_len < ~88% of that fly's own median.\n    # p25 major_len ~27 px ~ median, so 0.88*median (~24 px) is rare foreshortening, not normal.\n    med_a = float(np.median(a_maj[np.isfinite(a_maj)])) if np.any(np.isfinite(a_maj)) else bl\n    med_b = float(np.median(b_maj[np.isfinite(b_maj)])) if np.any(np.isfinite(b_maj)) else bl\n    dip_a = np.isfinite(a_maj) & np.isfinite(np.array(med_a)) & (a_maj <= 0.88 * med_a)\n    dip_b = np.isfinite(b_maj) & np.isfinite(np.array(med_b)) & (b_maj <= 0.88 * med_b)\n    dip = dip_a | dip_b\n    # rear precedes snap peak by up to 0.3 s, so dilate dip by +-0.3 s (total 0.6 s window)\n    W = int(round(0.3 * float(fps)))\n    if W < 1:\n        W = 1\n    k = 2 * W + 1\n    if k < 3:\n        k = 3\n    dip_near = smooth(dip.astype(float), k) > 0  # any dip within +-0.3 s\n\n    cand_strong = close & burst_strong & aligned & attacker & slow_ok & quiet\n    cand_weak = close & burst_weak & aligned & attacker & slow_ok & quiet & dip_near\n    cand = cand_strong | cand_weak\n\n    # Snap is only a few samples: keep >=~0.09 s (>=2-3 samples at 30 Hz), fill <=0.12 s gaps.\n    mask = bouts_clean(cand, fps, min_s=0.09, max_gap_s=0.12)\n\n    # Drop long bouts (>0.6 s): those are chases/charges, not a snap-down.\n    out = mask.astype(bool).copy()\n    if np.any(out):\n        idx = np.where(out)[0]\n        # find run boundaries without exceptions\n        breaks = np.where(np.diff(idx) > 1)[0]\n        starts = np.concatenate([[idx[0]], idx[breaks + 1]])\n        ends = np.concatenate([idx[breaks], [idx[-1]]])\n        max_len = int(round(0.6 * float(fps))) + 1\n        for s, e in zip(starts, ends):\n            if (e - s + 1) > max_len:\n                out[s:e + 1] = False\n    return out",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "423c074ca405c026",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0017331,
+       "usage": {
+        "input_tokens": 5319,
+        "output_tokens": 6006,
+        "reasoning_tokens": 4582,
+        "cached_tokens": 1521,
+        "billed_output_tokens": 6006
+       },
+       "cache_hit": false,
+       "latency_s": 58.08809639700485
+      }
+     ],
+     "source_index": 2
+    },
+    {
+     "code": "def detect(t, fps):\n    # Lunge = rear-up (shortened top-view body) + fast snap down onto other fly.\n    # Body length ~27 px, so 1 body-length/s ~27 px/s. Walking median max_speed_raw\n    # ~7.6 px/s, p75 ~35 px/s; lunge covers ~0.5-1 BL in ~0.1 s => 50-100 px/s.\n    n = t[\"dist\"].shape[0]\n\n    # Typical body length per fly for rear-shortening test (robust to video scale).\n    med_a = np.nanmedian(t[\"a_major_len\"])\n    if not np.isfinite(med_a):\n        med_a = 27.0  # fallback body length px\n    med_b = np.nanmedian(t[\"b_major_len\"])\n    if not np.isfinite(med_b):\n        med_b = 27.0\n\n    # Rear-up: top-view major axis shortens well beyond stride wobble\n    # (IQR only ~1 px / ~4%); 10% shortening = clear rear, still above p5 dips.\n    rear_a = np.isfinite(t[\"a_major_len\"]) & (t[\"a_major_len\"] < 0.90 * med_a)\n    rear_b = np.isfinite(t[\"b_major_len\"]) & (t[\"b_major_len\"] < 0.90 * med_b)\n    rear = rear_a | rear_b  # symmetric pair test\n\n    # Close range: launched within ~2 BL and masks nearly touching.\n    # dist_bl median 1.34, gap median 17.9 px; this keeps closest ~half of frames.\n    close = (\n        np.isfinite(t[\"dist_bl\"]) & np.isfinite(t[\"gap\"])\n        & (t[\"dist_bl\"] <= 2.0) & (t[\"gap\"] <= 15.0)\n    )\n\n    # Attacker axis points at target (no heading sign needed).\n    # min_axis_align median 0.41 rad; 0.7 rad (~40 deg) keeps aligned ~2/3.\n    aligned = np.isfinite(t[\"min_axis_align\"]) & (t[\"min_axis_align\"] < 0.7)\n\n    # Fast snap toward other fly. Use peak_toward_raw (max over next 0.3 s) so the\n    # whole burst including pre-peak wind-up is marked; raw column stays valid\n    # while flies touch (vel_ok hides standard columns there).\n    # ON 45 px/s ~1.6 BL/s (between p75 26 and p95 117, rare burst);\n    # OFF 25 px/s ~1 BL/s (above walking, keeps burst shoulders).\n    peak = t[\"peak_toward_raw\"]\n    peak_f = np.where(np.isfinite(peak), peak, -1e9)  # NaN explicitly not burst\n    burst = hysteresis(peak_f, 45.0, 25.0)\n\n    # Partner relatively still: rejects joint sprints (chase). min_speed_raw\n    # p75 7.3, p95 46.8; 35 px/s allows normal walking, rejects both-fast.\n    quiet = np.isfinite(t[\"min_speed_raw\"]) & (t[\"min_speed_raw\"] <= 35.0)\n\n    both = t[\"both_present\"] == 1\n    candidate = burst & close & aligned & both & quiet\n\n    # Require rear-up nearby (+-0.25 s) to reject chases/runs without rearing.\n    k_rear = int(round(0.5 * fps))\n    if k_rear < 3:\n        k_rear = 3\n    rear_near = smooth(rear.astype(float), k_rear) > 0  # any rear in window\n    gated = candidate & rear_near\n\n    # Include the rear frames themselves: rear + close + aligned adjacent to snap.\n    k_dil = int(round(0.4 * fps))  # +-0.2 s around snap\n    if k_dil < 3:\n        k_dil = 3\n    dil_gated = smooth(gated.astype(float), k_dil) > 0\n    include_rear = rear & close & aligned & both & dil_gated\n    pre = gated | include_rear\n\n    # Snap is few samples: fill tiny gaps, drop single-frame noise.\n    cleaned = bouts_clean(pre, fps, min_s=0.12, max_gap_s=0.15)\n\n    # Lunge total (rear+snap via 0.3 s peak lookahead) < ~0.6 s; drop long\n    # sustained toward-running (courtship chase) that passed gates.\n    max_len = int(round(0.6 * fps))\n    if np.any(cleaned):\n        idx = np.where(cleaned)[0]\n        brk = np.where(np.diff(idx) > 1)[0]\n        starts = np.concatenate(([idx[0]], idx[brk + 1]))\n        ends = np.concatenate((idx[brk], [idx[-1]]))\n        out = cleaned.copy()\n        for s, e in zip(starts, ends):\n            if (e - s + 1) > max_len:\n                out[s:e + 1] = False\n        cleaned = out\n    return cleaned.astype(bool)",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "96da784698d6b902",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0024813,
+       "usage": {
+        "input_tokens": 5319,
+        "output_tokens": 9747,
+        "reasoning_tokens": 8598,
+        "cached_tokens": 0,
+        "billed_output_tokens": 9747
+       },
+       "cache_hit": false,
+       "latency_s": 97.34832343599555
+      }
+     ],
+     "source_index": 3
+    },
+    {
+     "code": "def detect(t, fps):\n    # Lunge = one fly rears up (foreshortened body seen from above) and snaps\n    # down on the other: requires CLOSE + ALIGNED + FAST closing burst.\n    # Pair-level OR over a/b for symmetry. All speeds in px/s, body ~27px,\n    # so 1 body-length/s ~ 27 px/s. Durations use fps.\n    n = t[\"dist\"].shape[0]\n    both = t[\"both_present\"] == 1\n\n    # --- typical body length per fly for relative rear threshold ---\n    med_a = np.nanmedian(t[\"a_major_len\"])\n    med_b = np.nanmedian(t[\"b_major_len\"])\n    # fallback ~27px body length if median not finite\n    if not np.isfinite(med_a):\n        med_a = 27.0\n    if not np.isfinite(med_b):\n        med_b = 27.0\n\n    # --- rearing: apparent major_len shortened (hind-leg rear, top view) ---\n    # smooth over 0.1s to reject single-sample glitches but keep ~0.1-0.2s dip\n    k3 = max(1, int(round(0.1 * fps)))\n    sm_a = smooth(t[\"a_major_len\"], k3)\n    sm_b = smooth(t[\"b_major_len\"], k3)\n    # <0.9*own median ~ <24-25px vs typical 27px; p25/median=0.98, p5/median~0.75\n    rear_a = np.isfinite(sm_a) & (sm_a < 0.90 * med_a)\n    rear_b = np.isfinite(sm_b) & (sm_b < 0.90 * med_b)\n\n    # --- alignment needs no heading sign; 0.7 rad ~40deg, median min_align ~0.41 ---\n    align_a = np.isfinite(t[\"a_axis_align\"]) & (t[\"a_axis_align\"] < 0.7)\n    align_b = np.isfinite(t[\"b_axis_align\"]) & (t[\"b_axis_align\"] < 0.7)\n    posture = (rear_a & align_a) | (rear_b & align_b)  # symmetric OR\n    pair_align = np.isfinite(t[\"min_axis_align\"]) & (t[\"min_axis_align\"] < 0.6)\n\n    # --- proximity: lunge only at close range ---\n    # dist_bl median 1.34, gap median 17.9px; lunge ~within reach\n    close = both & ((np.isfinite(t[\"dist_bl\"]) & (t[\"dist_bl\"] < 1.5)) | (np.isfinite(t[\"gap\"]) & (t[\"gap\"] <= 8.0)))\n    # very close / touching for snap without clear length dip (masks may merge)\n    very_close = both & ((np.isfinite(t[\"gap\"]) & (t[\"gap\"] <= 2.0)) | (np.isfinite(t[\"dist_bl\"]) & (t[\"dist_bl\"] < 1.0)))\n\n    # --- fast snap burst: use *_raw (valid while touching, swap-robust) ---\n    # max_toward_raw p75~9.6 p95~60; closing p75~2.3 p95~35; 30-45px/s ~1.1-1.7 BL/s\n    peak = t[\"peak_toward_raw\"]  # max of toward over next 0.3s, marks whole burst incl. onset\n    mtow = t[\"max_toward_speed_raw\"]\n    clos = t[\"closing_speed_raw\"]\n    mspd = t[\"max_speed_raw\"]\n    burst_mod = np.isfinite(peak) & (peak >= 30.0)  # moderate burst incl. pre-peak samples\n    burst_strong = (np.isfinite(mtow) & (mtow >= 45.0)) | (np.isfinite(clos) & (clos >= 35.0))\n    fast = np.isfinite(mspd) & (mspd >= 30.0)  # must actually move ~1 BL/s, not posture noise\n\n    cand1 = close & burst_mod & fast & posture  # rear evidence + burst + close\n    cand2 = very_close & burst_strong & fast & pair_align  # strong snap at touch w/o length dip\n    raw = cand1 | cand2\n\n    # --- snap is a few samples: drop 1-sample spikes, join rear+snap gap ---\n    out = bouts_clean(raw, fps, min_s=0.08, max_gap_s=0.15)\n    # bouts_clean may return int; force bool, ensure length n, NaN-safe\n    out = np.asarray(out, dtype=bool)\n    if out.shape[0] != n:\n        tmp = np.zeros(n, dtype=bool)\n        m = min(n, out.shape[0])\n        tmp[:m] = out[:m]\n        out = tmp\n    # require both present in output sample (no detection on missing fly)\n    out = out & both\n    return out",
+     "model": "muse-spark-1.3-contributor",
+     "prompt_hash": "e2453aa492495257",
+     "calls": [
+      {
+       "attempt": 0,
+       "cost_usd": 0.0014985,
+       "usage": {
+        "input_tokens": 5319,
+        "output_tokens": 4833,
+        "reasoning_tokens": 3722,
+        "cached_tokens": 0,
+        "billed_output_tokens": 4833
+       },
+       "cache_hit": false,
+       "latency_s": 46.09837194500142
+      }
+     ],
+     "source_index": 4
+    }
+   ],
+   "use": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "min_votes": 2,
+   "post": {
+    "bridge_s": 0.1,
+    "min_s": 0.1
+   }
+  }
+ },
+ "sources": {
+  "wing_threat": {
+   "file": "detectors.json",
+   "name": "xsimple2_6",
+   "file_sha256": "846458078935081f833df435840b60ab291133e2a0adc8b2eec7c950a1247e93",
+   "stats_from": {
+    "run": "F1",
+    "movies": [
+     1,
+     2
+    ],
+    "labels": false
+   }
+  },
+  "lunge": {
+   "file": "detectors.json",
+   "name": "xphysics5",
+   "file_sha256": "4f20e9f62ad09693a770f52224dba531dfd99a767eda61e0bac865968a400a2c",
+   "stats_from": {
+    "run": "F1",
+    "movies": [
+     1,
+     2
+    ],
+    "labels": false
+   }
+  }
+ },
+ "synthesis_cost_usd_all_candidates": {
+  "wing_threat": 0.011371,
+  "lunge": 0.009648
+ }
+}

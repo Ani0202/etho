@@ -27,7 +27,7 @@ import numpy as np
 
 from etho.rules.sandbox import run_detector
 
-from .extras import add_extras
+from .extras import add_extras, per_fly_toward_raw
 
 WINDOWS = {"mid5": (22500, 31500), "mid10": (18000, 36000)}
 NATIVE_FPS = 30
@@ -88,11 +88,16 @@ def detect_pair(spec: dict, table: dict[str, np.ndarray], fps: float, post_overr
     return postprocess(mask, fps, post_override if post_override is not None else spec.get("post"))
 
 
-def assign_actor(behavior: str, pair: np.ndarray, table: dict[str, np.ndarray]) -> np.ndarray:
-    """uint8 [2, K]: per bout, the Etho track (0 = a, 1 = b) that is the actor; zero where the pair mask is zero."""
+def assign_actor(behavior: str, pair: np.ndarray, table: dict[str, np.ndarray], fps: float | None = None
+                 ) -> np.ndarray:
+    """uint8 [2, K]: per bout, the Etho track (0 = a, 1 = b) that is the actor; zero where the pair mask is zero.
+    With `fps`, a lunge's actor uses the unmasked toward-speed (the guarded `toward_speed` is NaN in most strikes)."""
     feat = ACTOR_FEATURE[behavior]
-    xa = np.nan_to_num(np.asarray(table[f"a_{feat}"], float), nan=0.0)
-    xb = np.nan_to_num(np.asarray(table[f"b_{feat}"], float), nan=0.0)
+    if behavior == "lunge" and fps:
+        xa, xb = (np.nan_to_num(x, nan=0.0) for x in per_fly_toward_raw(table, fps))
+    else:
+        xa = np.nan_to_num(np.asarray(table[f"a_{feat}"], float), nan=0.0)
+        xb = np.nan_to_num(np.asarray(table[f"b_{feat}"], float), nan=0.0)
     by = np.zeros((2, len(pair)), np.uint8)
     for s, e in runs(pair):
         if behavior == "lunge":  # the peak, not the mean: the 4-frame strike is the signal
@@ -113,11 +118,14 @@ def predict_movie(table: dict[str, np.ndarray], spec: dict, window: str, fps: fl
     if not np.array_equal(src, want):
         raise ValueError(f"features do not cover window {window} at {fps:g} fps (src_frame {src[:2]}..{src[-2:]})")
     out: dict[str, np.ndarray] = {"window": np.array(w), "sample_fps": np.array(float(fps))}
-    feats = add_extras(table, fps) if spec.get("extras") else table  # the detectors may use the *_raw columns
+    with_extras = add_extras(table, fps) if any(b.get("extras", spec.get("extras")) for b in
+                                                spec["behaviors"].values()) else table
     for b, bspec in spec["behaviors"].items():
+        # a detector written with the *_raw columns in its prompt gets them; one written without keeps the plain table
+        feats = with_extras if bspec.get("extras", spec.get("extras")) else table
         pair = detect_pair(bspec, feats, fps, (post_override or {}).get(b))
         out[b] = pair.astype(np.uint8)
-        out[f"{b}_by_track"] = assign_actor(b, pair, feats)
+        out[f"{b}_by_track"] = assign_actor(b, pair, feats, fps)
     xy = np.stack([np.stack([table["a_cx"], table["a_cy"]], 1), np.stack([table["b_cx"], table["b_cy"]], 1)], 1)
     xy[~(np.asarray(table["a_present"]) > 0), 0] = np.nan
     xy[~(np.asarray(table["b_present"]) > 0), 1] = np.nan

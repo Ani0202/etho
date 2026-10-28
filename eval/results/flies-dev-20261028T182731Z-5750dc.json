@@ -1,0 +1,1083 @@
+{
+ "run_id": "flies-dev-20261028T182731Z-5750dc",
+ "kind": "flies-score",
+ "dataset": "flyvsfly",
+ "split": "flies-dev",
+ "purpose": "tune",
+ "git_commit": "e36515e217b9e2522889f361d677a5c0c3133143",
+ "git_dirty": true,
+ "git_dirty_paths": [
+  "eval/results/runs.jsonl",
+  "etho/flies/",
+  "eval/results/flies-dev-20261028T182615Z-73f606.json",
+  "eval/results/flies-dev-20261028T182708Z-419657.json",
+  "eval/results/flies-dev-20261028T182726Z-bc4432.json",
+  "eval/results/flies-dev-20261028T182729Z-ed979d.json",
+  "scripts/run_fly_etho.py"
+ ],
+ "window": "mid5",
+ "window_frames": [
+  22500,
+  31500
+ ],
+ "behaviors": [
+  "wing_threat",
+  "lunge"
+ ],
+ "movies": [
+  1,
+  2
+ ],
+ "partial": false,
+ "pred_dir": "/home/ubuntu/work/etho/data/runs/F1_etho/plain3_c2/pred",
+ "predictions_sha256": "7adc5627ff0da415612e212d0397dd33cf48f17114cf4c20518a9017b1b11f72",
+ "predictions_files_sha256": {
+  "movie1.npz": "5e495ae2b13568e78389d8ee3ad07c52bc11d00e7a5433696820ca6d6789074d",
+  "movie2.npz": "2979aca863f58ebfb1e21ea726daf388aedaaf1294a362298ed72239334d6d14",
+  "manifest.json": "9a578ca77caaea0c28ccd9c0628334dbd72df1e88804d2eb79aac7614dfb9c8a"
+ },
+ "sample_fps": [
+  "30.0"
+ ],
+ "config": {
+  "pipeline": "etho.flies",
+  "detectors": "/home/ubuntu/work/etho/data/runs/F1_etho/plain3/detectors.json",
+  "detectors_sha256": "46725b2fe96859b1986862a191032e67e4bd886510edafb2907c3e3a4a692b29",
+  "override": {
+   "wing_threat": {
+    "use": [
+     2
+    ]
+   },
+   "lunge": {
+    "use": [
+     2
+    ]
+   }
+  },
+  "post": {
+   "wing_threat": {},
+   "lunge": {}
+  },
+  "window": [
+   22500,
+   31500
+  ],
+  "window_name": "mid5",
+  "tracking_run": "F1",
+  "variant": "plain",
+  "model": "muse-spark-1.3-contributor",
+  "effort": "high",
+  "use": {
+   "wing_threat": [
+    2
+   ],
+   "lunge": [
+    2
+   ]
+  },
+  "min_votes": {
+   "wing_threat": 1,
+   "lunge": 1
+  },
+  "run_commit": "e36515e217b9e2522889f361d677a5c0c3133143",
+  "run_dirty_paths": [
+   "eval/results/runs.jsonl",
+   "etho/flies/",
+   "eval/results/flies-dev-20261028T182615Z-73f606.json",
+   "eval/results/flies-dev-20261028T182708Z-419657.json",
+   "eval/results/flies-dev-20261028T182726Z-bc4432.json",
+   "eval/results/flies-dev-20261028T182729Z-ed979d.json",
+   "scripts/run_fly_etho.py"
+  ]
+ },
+ "config_sha256": "95c34c742ba8969b497d94906c63f99b1f76f2a6f151b109f342f7d175fdb245",
+ "frozen_config": null,
+ "decision_record_sha256": null,
+ "baselines": {
+  "lunge_speed": {
+   "dir": "/home/ubuntu/work/etho/data/runs/F1_baselines/lunge_speed",
+   "files_sha256": {
+    "movie1.npz": "49ec737cf3a88b2b905d5e7218b6b6a6986ffca4dc919808037c9bd8cbe93220",
+    "movie2.npz": "7478bcbc0bf8cfeffa6367de238c20c88b832cdd2534873037e3d13bdd86ac98"
+   }
+  },
+  "wing_proxy": {
+   "dir": "/home/ubuntu/work/etho/data/runs/F1_baselines/wing_proxy",
+   "files_sha256": {
+    "movie1.npz": "62fce976649a1210808b498bf638eded81ef37b92ac3352a05a2c80cd281455a",
+    "movie2.npz": "37f2c001ec6b88d4757365ac5adb082d96ffdc369cb5c2d8a81510e2d4206ad5"
+   }
+  }
+ },
+ "criteria_file": "eval/flies_criteria_v1.json",
+ "criteria_sha256": "af68c109793ddaafc13c30f10e50d57fe1be8fc9a602dd3d1fd6afe022aa94b9",
+ "scorer": {
+  "reps": 10000,
+  "ref_reps": 200,
+  "shift_reps": 1000,
+  "seed": 20261028,
+  "bout_thresholds": [
+   "any",
+   "0.3",
+   "0.5"
+  ],
+  "bout_matching": "censored maximum-cardinality one-to-one, IoU tie-break"
+ },
+ "cost": {
+  "usd": 0.0
+ },
+ "wall_clock_s": 0.7942459889964084,
+ "calls": 0,
+ "notes": "R5 plain3 candidate 2 only",
+ "time_utc": "2026-10-28T18:27:32+00:00",
+ "status": "ok",
+ "labels_loaded": true,
+ "scorer_wall_clock_s": 0.937,
+ "verdicts": {
+  "lunge": {
+   "setup_ok": true,
+   "evidence": {
+    "gt_bouts_observable": 77,
+    "movies_with_behavior": 2,
+    "min_gt_bouts": 30,
+    "min_movies_with_behavior": 1,
+    "sufficient": true
+   },
+   "both_localized_frac": 0.9966666666666667,
+   "coverage_ok": true,
+   "bout_recall": 0.06493506493506493,
+   "recall_ok": false,
+   "bout_f1": {
+    "point": 0.07042253521126761,
+    "point_bar": 0.2068831168831169,
+    "ci_lower": 0.06015037593984963,
+    "ci_lower_bar": 0.05688311688311689,
+    "reference": 0.05688311688311689,
+    "ci_undefined_frac": 0.0,
+    "ci_informative": true,
+    "pass": false
+   },
+   "frame_f1": {
+    "point": 0.03430079155672823,
+    "point_bar": 0.16727777777777778,
+    "ci_lower": 0.031654676258992806,
+    "ci_lower_bar": 0.017277777777777777,
+    "reference": 0.017277777777777777,
+    "ci_undefined_frac": 0.0,
+    "ci_informative": true,
+    "pass": false
+   },
+   "false_positive_bouts_per_min": 6.0,
+   "decision": "NO-GO"
+  },
+  "note": "informational: not a gate execution"
+ },
+ "metrics": {
+  "convention": "pair-level frame F1 at 30 fps, pooled over all scored frames of all movies; frames where either fly is 'unknown' excluded",
+  "movies": [
+   1,
+   2
+  ],
+  "behaviors": {
+   "wing_threat": {
+    "frame": {
+     "tp": 487,
+     "fp": 1332,
+     "fn": 699,
+     "gt_frames": 1186,
+     "pred_frames": 1819,
+     "precision": 0.2677295217152281,
+     "recall": 0.4106239460370995,
+     "f1": 0.324126455906822
+    },
+    "frame_ci95": {
+     "precision": [
+      0.0,
+      0.2806916426512968
+     ],
+     "recall": [
+      0.4106239460370995,
+      0.4106239460370995
+     ],
+     "f1": [
+      0.0,
+      0.3334474495035947
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true,
+     "no_gt_resample_frac": 0.2498
+    },
+    "bouts": {
+     "any": {
+      "n_gt": 6,
+      "n_pred": 106,
+      "matched": 5,
+      "precision": 0.04716981132075472,
+      "recall": 0.8333333333333334,
+      "f1": 0.0892857142857143
+     },
+     "0.3": {
+      "n_gt": 6,
+      "n_pred": 106,
+      "matched": 5,
+      "precision": 0.04716981132075472,
+      "recall": 0.8333333333333334,
+      "f1": 0.0892857142857143
+     },
+     "0.5": {
+      "n_gt": 6,
+      "n_pred": 106,
+      "matched": 4,
+      "precision": 0.03773584905660377,
+      "recall": 0.6666666666666666,
+      "f1": 0.07142857142857142
+     }
+    },
+    "bout_any_ci95": {
+     "precision": [
+      0.0,
+      0.05
+     ],
+     "recall": [
+      0.8333333333333334,
+      0.8333333333333334
+     ],
+     "f1": [
+      0.0,
+      0.09433962264150944
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true
+    },
+    "bout_iou0.3_ci95": {
+     "precision": [
+      0.0,
+      0.05
+     ],
+     "recall": [
+      0.8333333333333334,
+      0.8333333333333334
+     ],
+     "f1": [
+      0.0,
+      0.09433962264150944
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true
+    },
+    "movies_with_behavior": [
+     2
+    ],
+    "false_positive_bouts_per_min": 10.1,
+    "negative_movies": [
+     1
+    ],
+    "pred_bouts_per_min_on_negative_movies": 1.2,
+    "leave_one_movie_out_f1": {
+     "movie1": 0.3334474495035947,
+     "movie2": 0.0
+    },
+    "circular_shift_test": {
+     "reps": 1000,
+     "seed": 20261028,
+     "shift_range": "[W/10, 9W/10] per movie",
+     "mean_f1": 0.15098369384359397,
+     "p95_f1": 0.2302828618968386,
+     "p_value": 0.000999000999000999
+    },
+    "actor_unassigned_samples": 0,
+    "random_reference": {
+     "n_frames_kept": 18000,
+     "prevalence": 0.06588888888888889,
+     "iid_expected_f1": 0.06588888888888889,
+     "iid_sim_mean_f1": 0.06629439326696923,
+     "always_positive_f1": 0.12363181486500573,
+     "oracle_bout_placement_mean_frame_f1": 0.1383389544688027,
+     "oracle_bout_placement_mean_bout_f1": 0.2333333333333333,
+     "oracle_bout_placement_bout_f1_p95": 0.5,
+     "oracle_bout_placement_realized": {
+      "mean_observable_bouts": 6.0,
+      "mean_kept_prevalence": 0.06588888888888889
+     },
+     "reps": 200,
+     "seed": 20261028,
+     "dev_prior_rate": 0.06588888888888889,
+     "dev_prior_expected_f1": 0.06588888888888889
+    },
+    "per_fly_baseline_copy_to_both": {
+     "tp": 487,
+     "fp": 3151,
+     "fn": 699,
+     "gt_frames": 1186,
+     "pred_frames": 3638,
+     "precision": 0.13386476085761406,
+     "recall": 0.4106239460370995,
+     "f1": 0.20190713101160862
+    },
+    "per_fly_frame": {
+     "tp": 256,
+     "fp": 1563,
+     "fn": 930,
+     "gt_frames": 1186,
+     "pred_frames": 1819,
+     "precision": 0.14073666849917538,
+     "recall": 0.21585160202360876,
+     "f1": 0.17038269550748752
+    },
+    "per_fly_frame_ci95": {
+     "precision": [
+      0.0,
+      0.14755043227665707
+     ],
+     "recall": [
+      0.21585160202360876,
+      0.21585160202360876
+     ],
+     "f1": [
+      0.0,
+      0.17528243752139677
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true,
+     "no_gt_resample_frac": 0.2498
+    },
+    "per_fly_baseline_persistent_actor": {
+     "tp": 0,
+     "fp": 1819,
+     "fn": 1186,
+     "gt_frames": 1186,
+     "pred_frames": 1819,
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0
+    }
+   },
+   "lunge": {
+    "frame": {
+     "tp": 13,
+     "fp": 434,
+     "fn": 298,
+     "gt_frames": 311,
+     "pred_frames": 447,
+     "precision": 0.029082774049217,
+     "recall": 0.04180064308681672,
+     "f1": 0.03430079155672823
+    },
+    "frame_ci95": {
+     "precision": [
+      0.02806122448979592,
+      0.03636363636363636
+     ],
+     "recall": [
+      0.036303630363036306,
+      0.25
+     ],
+     "f1": [
+      0.031654676258992806,
+      0.06349206349206349
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true,
+     "no_gt_resample_frac": 0.0
+    },
+    "bouts": {
+     "any": {
+      "n_gt": 77,
+      "n_pred": 65,
+      "matched": 5,
+      "precision": 0.07692307692307693,
+      "recall": 0.06493506493506493,
+      "f1": 0.07042253521126761
+     },
+     "0.3": {
+      "n_gt": 77,
+      "n_pred": 65,
+      "matched": 3,
+      "precision": 0.046153846153846156,
+      "recall": 0.03896103896103896,
+      "f1": 0.04225352112676056
+     },
+     "0.5": {
+      "n_gt": 77,
+      "n_pred": 65,
+      "matched": 2,
+      "precision": 0.03076923076923077,
+      "recall": 0.025974025974025976,
+      "f1": 0.028169014084507043
+     }
+    },
+    "bout_any_ci95": {
+     "precision": [
+      0.06896551724137931,
+      0.14285714285714285
+     ],
+     "recall": [
+      0.05333333333333334,
+      0.5
+     ],
+     "f1": [
+      0.06015037593984963,
+      0.22222222222222224
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true
+    },
+    "bout_iou0.3_ci95": {
+     "precision": [
+      0.0,
+      0.05172413793103448
+     ],
+     "recall": [
+      0.0,
+      0.04
+     ],
+     "f1": [
+      0.0,
+      0.04511278195488722
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true
+    },
+    "movies_with_behavior": [
+     1,
+     2
+    ],
+    "false_positive_bouts_per_min": 6.0,
+    "negative_movies": [],
+    "pred_bouts_per_min_on_negative_movies": null,
+    "leave_one_movie_out_f1": {
+     "movie1": 0.031654676258992806,
+     "movie2": 0.06349206349206349
+    },
+    "circular_shift_test": {
+     "reps": 1000,
+     "seed": 20261028,
+     "shift_range": "[W/10, 9W/10] per movie",
+     "mean_f1": 0.03301846965699209,
+     "p95_f1": 0.06068601583113457,
+     "p_value": 0.4745254745254745
+    },
+    "actor_unassigned_samples": 0,
+    "random_reference": {
+     "n_frames_kept": 18000,
+     "prevalence": 0.017277777777777777,
+     "iid_expected_f1": 0.017277777777777777,
+     "iid_sim_mean_f1": 0.018243791675797746,
+     "always_positive_f1": 0.033968652722407296,
+     "oracle_bout_placement_mean_frame_f1": 0.033086816720257234,
+     "oracle_bout_placement_mean_bout_f1": 0.05688311688311689,
+     "oracle_bout_placement_bout_f1_p95": 0.1038961038961039,
+     "oracle_bout_placement_realized": {
+      "mean_observable_bouts": 77.0,
+      "mean_kept_prevalence": 0.017277777777777777
+     },
+     "reps": 200,
+     "seed": 20261028,
+     "dev_prior_rate": 0.017277777777777777,
+     "dev_prior_expected_f1": 0.017277777777777777
+    },
+    "per_fly_baseline_copy_to_both": {
+     "tp": 13,
+     "fp": 881,
+     "fn": 298,
+     "gt_frames": 311,
+     "pred_frames": 894,
+     "precision": 0.0145413870246085,
+     "recall": 0.04180064308681672,
+     "f1": 0.021576763485477178
+    },
+    "per_fly_frame": {
+     "tp": 12,
+     "fp": 435,
+     "fn": 299,
+     "gt_frames": 311,
+     "pred_frames": 447,
+     "precision": 0.026845637583892617,
+     "recall": 0.03858520900321544,
+     "f1": 0.0316622691292876
+    },
+    "per_fly_frame_ci95": {
+     "precision": [
+      0.025510204081632654,
+      0.03636363636363636
+     ],
+     "recall": [
+      0.033003300330033,
+      0.25
+     ],
+     "f1": [
+      0.02877697841726619,
+      0.06349206349206349
+     ],
+     "f1_undefined_frac": 0.0,
+     "informative": true,
+     "no_gt_resample_frac": 0.0
+    },
+    "per_fly_baseline_persistent_actor": {
+     "tp": 0,
+     "fp": 447,
+     "fn": 311,
+     "gt_frames": 311,
+     "pred_frames": 447,
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0
+    }
+   }
+  },
+  "per_movie": {
+   "movie1": {
+    "wing_threat": {
+     "frame": {
+      "tp": 0,
+      "fp": 84,
+      "fn": 0,
+      "gt_frames": 0,
+      "pred_frames": 84,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "bout_any": {
+      "n_gt": 0,
+      "n_pred": 6,
+      "matched": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "bout_iou0.3": {
+      "n_gt": 0,
+      "n_pred": 6,
+      "matched": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "per_fly_frame": {
+      "tp": 0,
+      "fp": 84,
+      "fn": 0,
+      "gt_frames": 0,
+      "pred_frames": 84,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     }
+    },
+    "lunge": {
+     "frame": {
+      "tp": 2,
+      "fp": 53,
+      "fn": 6,
+      "gt_frames": 8,
+      "pred_frames": 55,
+      "precision": 0.03636363636363636,
+      "recall": 0.25,
+      "f1": 0.06349206349206349
+     },
+     "bout_any": {
+      "n_gt": 2,
+      "n_pred": 7,
+      "matched": 1,
+      "precision": 0.14285714285714285,
+      "recall": 0.5,
+      "f1": 0.22222222222222224
+     },
+     "bout_iou0.3": {
+      "n_gt": 2,
+      "n_pred": 7,
+      "matched": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "per_fly_frame": {
+      "tp": 2,
+      "fp": 53,
+      "fn": 6,
+      "gt_frames": 8,
+      "pred_frames": 55,
+      "precision": 0.03636363636363636,
+      "recall": 0.25,
+      "f1": 0.06349206349206349
+     }
+    }
+   },
+   "movie2": {
+    "wing_threat": {
+     "frame": {
+      "tp": 487,
+      "fp": 1248,
+      "fn": 699,
+      "gt_frames": 1186,
+      "pred_frames": 1735,
+      "precision": 0.2806916426512968,
+      "recall": 0.4106239460370995,
+      "f1": 0.3334474495035947
+     },
+     "bout_any": {
+      "n_gt": 6,
+      "n_pred": 100,
+      "matched": 5,
+      "precision": 0.05,
+      "recall": 0.8333333333333334,
+      "f1": 0.09433962264150944
+     },
+     "bout_iou0.3": {
+      "n_gt": 6,
+      "n_pred": 100,
+      "matched": 5,
+      "precision": 0.05,
+      "recall": 0.8333333333333334,
+      "f1": 0.09433962264150944
+     },
+     "per_fly_frame": {
+      "tp": 256,
+      "fp": 1479,
+      "fn": 930,
+      "gt_frames": 1186,
+      "pred_frames": 1735,
+      "precision": 0.14755043227665707,
+      "recall": 0.21585160202360876,
+      "f1": 0.17528243752139677
+     }
+    },
+    "lunge": {
+     "frame": {
+      "tp": 11,
+      "fp": 381,
+      "fn": 292,
+      "gt_frames": 303,
+      "pred_frames": 392,
+      "precision": 0.02806122448979592,
+      "recall": 0.036303630363036306,
+      "f1": 0.031654676258992806
+     },
+     "bout_any": {
+      "n_gt": 75,
+      "n_pred": 58,
+      "matched": 4,
+      "precision": 0.06896551724137931,
+      "recall": 0.05333333333333334,
+      "f1": 0.06015037593984963
+     },
+     "bout_iou0.3": {
+      "n_gt": 75,
+      "n_pred": 58,
+      "matched": 3,
+      "precision": 0.05172413793103448,
+      "recall": 0.04,
+      "f1": 0.04511278195488722
+     },
+     "per_fly_frame": {
+      "tp": 10,
+      "fp": 382,
+      "fn": 293,
+      "gt_frames": 303,
+      "pred_frames": 392,
+      "precision": 0.025510204081632654,
+      "recall": 0.033003300330033,
+      "f1": 0.02877697841726619
+     }
+    }
+   }
+  },
+  "n_frames_scored": 18000,
+  "n_frames_excluded": 0,
+  "identity": {
+   "per_movie": {
+    "movie1": {
+     "n_samples": 9000,
+     "n_evaluable": 6681,
+     "permutation": "swap",
+     "majority_tie": false,
+     "identity_accuracy": 0.9535997605148929,
+     "identity_accuracy_unambiguous": 0.9535997605148929,
+     "n_unambiguous": 6681,
+     "switches_per_min": 0.2,
+     "error_episodes_per_min": 0.2,
+     "n_switches": 1,
+     "n_error_episodes": 1,
+     "pct_unknown_or_missing": 0.25766666666666665,
+     "pct_declared_unknown": 0.2571111111111111,
+     "pct_track_missing": 0.0005555555555555556,
+     "both_tracks_present_frac": 0.9994444444444445,
+     "both_localized_frac": 0.9994444444444445,
+     "both_localized_frac_close_contact": 1.0,
+     "n_close_contact_samples": 41,
+     "median_matched_centroid_dist_px": 3.9787642808609904,
+     "both_localized_frac_during_wing_threat": null,
+     "both_localized_frac_during_lunge": 1.0,
+     "identity_accuracy_per_epoch_permutation": 1.0,
+     "n_epochs": 2
+    },
+    "movie2": {
+     "n_samples": 9000,
+     "n_evaluable": 7305,
+     "permutation": "swap",
+     "majority_tie": false,
+     "identity_accuracy": 0.5162217659137577,
+     "identity_accuracy_unambiguous": 0.5162217659137577,
+     "n_unambiguous": 7305,
+     "switches_per_min": 1.2,
+     "error_episodes_per_min": 0.6,
+     "n_switches": 6,
+     "n_error_episodes": 3,
+     "pct_unknown_or_missing": 0.18833333333333332,
+     "pct_declared_unknown": 0.18366666666666667,
+     "pct_track_missing": 0.004666666666666667,
+     "both_tracks_present_frac": 0.9953333333333333,
+     "both_localized_frac": 0.9938888888888889,
+     "both_localized_frac_close_contact": 0.85,
+     "n_close_contact_samples": 280,
+     "median_matched_centroid_dist_px": 4.6170777164759675,
+     "both_localized_frac_during_wing_threat": 0.9991568296795953,
+     "both_localized_frac_during_lunge": 0.976897689768977,
+     "identity_accuracy_per_epoch_permutation": 0.8379192334017797,
+     "n_epochs": 7
+    }
+   },
+   "pooled": {
+    "identity_accuracy": 0.7251537251537251,
+    "switches_per_min": 0.7,
+    "error_episodes_per_min": 0.4,
+    "pct_unknown_or_missing": 0.22299999999999998,
+    "identity_accuracy_per_epoch_permutation": 0.9189596167008898,
+    "both_tracks_present_frac": 0.9973888888888889,
+    "both_localized_frac": 0.9966666666666667,
+    "both_localized_frac_close_contact": 0.925,
+    "both_localized_frac_during_wing_threat": 0.9991568296795953,
+    "both_localized_frac_during_lunge": 0.9884488448844885,
+    "note": "accuracy pooled over evaluable samples; other entries are means over equal-length windows"
+   }
+  },
+  "baselines": {
+   "lunge_speed": {
+    "wing_threat": {
+     "frame": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 1186,
+      "gt_frames": 1186,
+      "pred_frames": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "frame_ci95": {
+      "precision": null,
+      "recall": [
+       0.0,
+       0.0
+      ],
+      "f1": [
+       0.0,
+       0.0
+      ],
+      "f1_undefined_frac": 0.2498,
+      "informative": false,
+      "no_gt_resample_frac": 0.2498
+     },
+     "bouts": {
+      "any": {
+       "n_gt": 6,
+       "n_pred": 0,
+       "matched": 0,
+       "precision": 0.0,
+       "recall": 0.0,
+       "f1": 0.0
+      },
+      "0.3": {
+       "n_gt": 6,
+       "n_pred": 0,
+       "matched": 0,
+       "precision": 0.0,
+       "recall": 0.0,
+       "f1": 0.0
+      },
+      "0.5": {
+       "n_gt": 6,
+       "n_pred": 0,
+       "matched": 0,
+       "precision": 0.0,
+       "recall": 0.0,
+       "f1": 0.0
+      }
+     },
+     "bout_any_ci95": {
+      "precision": null,
+      "recall": [
+       0.0,
+       0.0
+      ],
+      "f1": [
+       0.0,
+       0.0
+      ],
+      "f1_undefined_frac": 0.2498,
+      "informative": false
+     },
+     "false_positive_bouts_per_min": 0.0,
+     "pred_bouts_per_min_on_negative_movies": 0.0,
+     "paired_diff_frame_f1_main_minus_baseline": {
+      "point": 0.324126455906822,
+      "ci95": [
+       0.324126455906822,
+       0.3334474495035947
+      ],
+      "undefined_frac": 0.2498,
+      "reps": 10000,
+      "unit": "movie (paired)"
+     }
+    },
+    "lunge": {
+     "frame": {
+      "tp": 32,
+      "fp": 104,
+      "fn": 279,
+      "gt_frames": 311,
+      "pred_frames": 136,
+      "precision": 0.23529411764705882,
+      "recall": 0.10289389067524116,
+      "f1": 0.14317673378076062
+     },
+     "frame_ci95": {
+      "precision": [
+       0.21212121212121213,
+       1.0
+      ],
+      "recall": [
+       0.0924092409240924,
+       0.5
+      ],
+      "f1": [
+       0.12873563218390804,
+       0.6666666666666666
+      ],
+      "f1_undefined_frac": 0.0,
+      "informative": true,
+      "no_gt_resample_frac": 0.0
+     },
+     "bouts": {
+      "any": {
+       "n_gt": 77,
+       "n_pred": 34,
+       "matched": 9,
+       "precision": 0.2647058823529412,
+       "recall": 0.11688311688311688,
+       "f1": 0.16216216216216217
+      },
+      "0.3": {
+       "n_gt": 77,
+       "n_pred": 34,
+       "matched": 9,
+       "precision": 0.2647058823529412,
+       "recall": 0.11688311688311688,
+       "f1": 0.16216216216216217
+      },
+      "0.5": {
+       "n_gt": 77,
+       "n_pred": 34,
+       "matched": 9,
+       "precision": 0.2647058823529412,
+       "recall": 0.11688311688311688,
+       "f1": 0.16216216216216217
+      }
+     },
+     "bout_any_ci95": {
+      "precision": [
+       0.24242424242424243,
+       1.0
+      ],
+      "recall": [
+       0.10666666666666667,
+       0.5
+      ],
+      "f1": [
+       0.14814814814814817,
+       0.6666666666666666
+      ],
+      "f1_undefined_frac": 0.0,
+      "informative": true
+     },
+     "false_positive_bouts_per_min": 2.5,
+     "pred_bouts_per_min_on_negative_movies": null,
+     "paired_diff_frame_f1_main_minus_baseline": {
+      "point": -0.1088759422240324,
+      "ci95": [
+       -0.6031746031746031,
+       -0.09708095592491524
+      ],
+      "undefined_frac": 0.0,
+      "reps": 10000,
+      "unit": "movie (paired)"
+     }
+    }
+   },
+   "wing_proxy": {
+    "wing_threat": {
+     "frame": {
+      "tp": 1177,
+      "fp": 17,
+      "fn": 9,
+      "gt_frames": 1186,
+      "pred_frames": 1194,
+      "precision": 0.9857621440536013,
+      "recall": 0.9924114671163575,
+      "f1": 0.9890756302521009
+     },
+     "frame_ci95": {
+      "precision": [
+       0.9857621440536013,
+       0.9857621440536013
+      ],
+      "recall": [
+       0.9924114671163575,
+       0.9924114671163575
+      ],
+      "f1": [
+       0.9890756302521009,
+       0.9890756302521009
+      ],
+      "f1_undefined_frac": 0.2498,
+      "informative": false,
+      "no_gt_resample_frac": 0.2498
+     },
+     "bouts": {
+      "any": {
+       "n_gt": 6,
+       "n_pred": 7,
+       "matched": 5,
+       "precision": 0.7142857142857143,
+       "recall": 0.8333333333333334,
+       "f1": 0.7692307692307692
+      },
+      "0.3": {
+       "n_gt": 6,
+       "n_pred": 7,
+       "matched": 5,
+       "precision": 0.7142857142857143,
+       "recall": 0.8333333333333334,
+       "f1": 0.7692307692307692
+      },
+      "0.5": {
+       "n_gt": 6,
+       "n_pred": 7,
+       "matched": 5,
+       "precision": 0.7142857142857143,
+       "recall": 0.8333333333333334,
+       "f1": 0.7692307692307692
+      }
+     },
+     "bout_any_ci95": {
+      "precision": [
+       0.7142857142857143,
+       0.7142857142857143
+      ],
+      "recall": [
+       0.8333333333333334,
+       0.8333333333333334
+      ],
+      "f1": [
+       0.7692307692307692,
+       0.7692307692307692
+      ],
+      "f1_undefined_frac": 0.2498,
+      "informative": false
+     },
+     "false_positive_bouts_per_min": 0.2,
+     "pred_bouts_per_min_on_negative_movies": 0.0,
+     "paired_diff_frame_f1_main_minus_baseline": {
+      "point": -0.6649491743452789,
+      "ci95": [
+       -0.6649491743452789,
+       -0.6556281807485063
+      ],
+      "undefined_frac": 0.2498,
+      "reps": 10000,
+      "unit": "movie (paired)"
+     }
+    },
+    "lunge": {
+     "frame": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 311,
+      "gt_frames": 311,
+      "pred_frames": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+     },
+     "frame_ci95": {
+      "precision": null,
+      "recall": [
+       0.0,
+       0.0
+      ],
+      "f1": [
+       0.0,
+       0.0
+      ],
+      "f1_undefined_frac": 0.0,
+      "informative": true,
+      "no_gt_resample_frac": 0.0
+     },
+     "bouts": {
+      "any": {
+       "n_gt": 77,
+       "n_pred": 0,
+       "matched": 0,
+       "precision": 0.0,
+       "recall": 0.0,
+       "f1": 0.0
+      },
+      "0.3": {
+       "n_gt": 77,
+       "n_pred": 0,
+       "matched": 0,
+       "precision": 0.0,
+       "recall": 0.0,
+       "f1": 0.0
+      },
+      "0.5": {
+       "n_gt": 77,
+       "n_pred": 0,
+       "matched": 0,
+       "precision": 0.0,
+       "recall": 0.0,
+       "f1": 0.0
+      }
+     },
+     "bout_any_ci95": {
+      "precision": null,
+      "recall": [
+       0.0,
+       0.0
+      ],
+      "f1": [
+       0.0,
+       0.0
+      ],
+      "f1_undefined_frac": 0.0,
+      "informative": true
+     },
+     "false_positive_bouts_per_min": 0.0,
+     "pred_bouts_per_min_on_negative_movies": null,
+     "paired_diff_frame_f1_main_minus_baseline": {
+      "point": 0.03430079155672823,
+      "ci95": [
+       0.031654676258992806,
+       0.06349206349206349
+      ],
+      "undefined_frac": 0.0,
+      "reps": 10000,
+      "unit": "movie (paired)"
+     }
+    }
+   }
+  }
+ }
+}

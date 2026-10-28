@@ -86,6 +86,24 @@ HINTS = {
 }
 
 
+# "simple" = "physics" plus a parsimony instruction (added after the first dev runs showed that detectors with five
+# or six stacked conditions were the ones that missed long, clear events; the wording stays generic).
+_SIMPLE = """- Prefer a simple, interpretable rule: one primary signal for the posture or movement the definition
+  names, a distance gate, and at most two supporting conditions. Every extra condition you stack can silently veto true
+  events when the masks are noisy, so add one only if the definition clearly needs it.
+"""
+HINTS["simple"] = HINTS["physics"] + _SIMPLE
+# "simple2" drops "a distance gate" from the sentence above: the dev diagnosis of the 'simple' wing detectors showed
+# that the clearest long wing bout was missed because every candidate gated on proximity, which our own hint had
+# suggested and the definition does not ask for.
+_SIMPLE2 = """- Prefer a simple, interpretable rule: one primary signal for the posture or movement the definition
+  names and at most two supporting conditions. Every extra condition you stack, including a distance or
+  orientation gate, can silently veto true events when the masks are noisy, so add one only if the definition
+  clearly needs it.
+"""
+HINTS["simple2"] = HINTS["physics"] + _SIMPLE2
+
+
 @dataclass
 class Candidate:
     code: str

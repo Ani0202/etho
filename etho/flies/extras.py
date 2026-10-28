@@ -39,13 +39,10 @@ def _pos(t: dict, p: str) -> tuple[np.ndarray, np.ndarray]:
         np.where(np.isfinite(y), y, np.asarray(t[f"{p}_cy"], float))
 
 
-def add_extras(t: dict[str, np.ndarray], fps: float) -> dict[str, np.ndarray]:
-    """Return a copy of the feature table with the EXTRA_DOC columns added."""
-    out = dict(t)
+def _matched_motion(t: dict[str, np.ndarray], fps: float):
+    """Per-sample speed and toward-partner speed of each label (a, b), re-matching the flies between samples."""
     ax, ay = _pos(t, "a")
     bx, by = _pos(t, "b")
-    n = len(ax)
-    k = max(1, int(round(0.1 * fps)))
     ident = np.hypot(ax[1:] - ax[:-1], ay[1:] - ay[:-1]) + np.hypot(bx[1:] - bx[:-1], by[1:] - by[:-1])
     swap = np.hypot(ax[1:] - bx[:-1], ay[1:] - by[:-1]) + np.hypot(bx[1:] - ax[:-1], by[1:] - ay[:-1])
     sw = swap < ident
@@ -63,8 +60,23 @@ def add_extras(t: dict[str, np.ndarray], fps: float) -> dict[str, np.ndarray]:
     def lead(x: np.ndarray) -> np.ndarray:
         return np.concatenate([[np.nan], x])
 
-    sa, sb = lead(np.hypot(va[:, 0], va[:, 1])), lead(np.hypot(vb[:, 0], vb[:, 1]))
-    ta, tb = lead(tow_a), lead(tow_b)
+    return (lead(np.hypot(va[:, 0], va[:, 1])), lead(np.hypot(vb[:, 0], vb[:, 1])), lead(tow_a), lead(tow_b),
+            ax, ay, bx, by)
+
+
+def per_fly_toward_raw(t: dict[str, np.ndarray], fps: float) -> tuple[np.ndarray, np.ndarray]:
+    """Unmasked, swap-robust toward-partner speed of fly a and fly b (0.1 s smoothing); used to name the actor."""
+    k = max(1, int(round(0.1 * fps)))
+    _, _, ta, tb, *_ = _matched_motion(t, fps)
+    return smooth(ta, k), smooth(tb, k)
+
+
+def add_extras(t: dict[str, np.ndarray], fps: float) -> dict[str, np.ndarray]:
+    """Return a copy of the feature table with the EXTRA_DOC columns added."""
+    out = dict(t)
+    sa, sb, ta, tb, ax, ay, bx, by = _matched_motion(t, fps)
+    n = len(ax)
+    k = max(1, int(round(0.1 * fps)))
     out["max_speed_raw"] = smooth(np.fmax(sa, sb), k)
     out["min_speed_raw"] = smooth(np.fmin(sa, sb), k)
     tw = smooth(np.fmax(ta, tb), k)

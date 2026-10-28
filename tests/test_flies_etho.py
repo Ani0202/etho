@@ -259,3 +259,16 @@ def test_tracking_config_matches_the_frozen_tree_and_the_dev_tracks():
     assert (nogo["start"], nogo["stop"], nogo["stride"]) == (*P.WINDOWS["mid10"], 3)
     from etho.tracking.fly_pipeline import PHRASE
     assert tc["phrase"] == PHRASE
+
+
+def test_lunge_actor_uses_the_unmasked_toward_speed():
+    t = table(60)
+    t["a_toward_speed"][:] = np.nan  # the guarded column is NaN during strikes
+    t["b_toward_speed"][:] = np.nan
+    t["b_bx"][20:24] = t["b_bx"][19] - 6.0 * np.arange(1, 5)  # fly b darts toward a (a is at x = 30, b at x = 90)
+    t["b_bx"][24:] = t["b_bx"][23]
+    t["b_cx"] = t["b_bx"].copy()
+    pair = np.zeros(60, np.uint8)
+    pair[20:25] = 1
+    by = P.assign_actor("lunge", pair, t, FPS)
+    assert by[1, 20:25].all() and not by[0].any()
