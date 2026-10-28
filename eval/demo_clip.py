@@ -8,7 +8,8 @@ a "started" record (prediction hashes) is written before any label file is opene
 Selection rule (fixed here, before it runs):
   - windows of 120, 180, 240, 300 s, starting on multiples of 10 s, fully inside the sequence;
   - ground truth in the window must contain >= 3 attack bouts and >= 3 mount bouts of >= 15 frames (0.5 s)
-    each; bouts are maximal runs of one label, clipped to the window;
+    each (the default `--min-bouts attack=3,mount=3`; on CalMS21 test no window qualifies, because attack and
+    mount almost never occur in the same test video, so relaxed rules are run as separate, logged executions); bouts are maximal runs of one label, clipped to the window;
   - among qualifying windows of a sequence, the one with the highest zs_t1 macro F1 inside the window
     (ties: more investigation bouts, then the earlier start) represents that sequence;
   - sequences are ranked by that window's macro F1. Because Etho's own F1 is a ranking criterion, the
@@ -60,15 +61,16 @@ def window_f1(gt: np.ndarray, pred: np.ndarray) -> dict:
     return out
 
 
-def best_window(gt: np.ndarray, pred: np.ndarray, fps: int = NATIVE_FPS) -> dict | None:
+def best_window(gt: np.ndarray, pred: np.ndarray, fps: int = NATIVE_FPS, min_bouts: dict | None = None) -> dict | None:
     """Best qualifying window of one sequence under the module's selection rule, or None."""
+    min_bouts = MIN_BOUTS if min_bouts is None else min_bouts
     best = None
     for w in WINDOWS_S:
         n = w * fps
         for f0 in range(0, len(gt) - n + 1, STEP_S * fps):
             g = gt[f0:f0 + n]
             nb = {b: len(bouts(g, VOCAB[b], MIN_BOUT_FRAMES)) for b in BEHAVIORS}
-            if any(nb[b] < k for b, k in MIN_BOUTS.items()):
+            if any(nb[b] < k for b, k in min_bouts.items()):
                 continue
             f1 = window_f1(g, pred[f0:f0 + n])
             key = (f1["macro"], nb["investigation"], -f0)
@@ -95,7 +97,11 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", type=Path, default=Path("data/demo"))
     ap.add_argument("--n-candidates", type=int, default=3)
     ap.add_argument("--log", type=Path, default=common.RUNS_LOG)
+    ap.add_argument("--min-bouts", default="attack=3,mount=3",
+                    help="behavior=k[,behavior=k]: minimum >=0.5 s GT bouts in the window (default: the strict rule)")
+    ap.add_argument("--notes", default="")
     a = ap.parse_args(argv)
+    min_bouts = {k: int(v) for k, v in (x.split("=") for x in a.min_bouts.split(",") if x)}
     seqs, _ = common.load_split("test")
     arms = {k: a.run_dir / k for k in ("zs_t1", "zs_rules")}
     files = {k: {s: score.find_pred_file(d, s) for s in seqs} for k, d in arms.items()}
@@ -106,7 +112,7 @@ def main(argv=None) -> int:
             "notes": "presentation-only analysis of existing test-1 predictions after the no-test-2 decision "
                      "(EVAL_PLAN A3); not a test result",
             "rule": {"windows_s": WINDOWS_S, "step_s": STEP_S, "min_bout_frames": MIN_BOUT_FRAMES,
-                     "min_bouts": MIN_BOUTS}}
+                     "min_bouts": min_bouts}, "user_notes": a.notes}
     common.append_run({**base, "time_utc": common.now_utc(), "status": "started"}, a.log)
     try:
         man = {k: score.read_manifest(d) for k, d in arms.items()}
@@ -115,7 +121,7 @@ def main(argv=None) -> int:
             gt = common.load_sequence("test", s)["labels"]
             pz = {k: score.load_prediction(files[k][s], len(gt), man[k])[0] for k in arms}
             data[s] = (gt, pz)
-            bw = best_window(gt, pz["zs_t1"])
+            bw = best_window(gt, pz["zs_t1"], min_bouts=min_bouts)
             if bw:
                 cands.append({"seq": s, **bw})
         cands.sort(key=lambda c: (-c["f1_window"]["macro"], c["seq"]))
