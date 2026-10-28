@@ -1,24 +1,32 @@
 #!/usr/bin/env bash
-# Independent second-opinion code review by Codex (GPT), read-only sandbox.
-# Usage: bin/codex-review [base-ref=main] ["extra focus"]
-# Output: ops/codex/review-<timestamp>.md (path printed at the end; first line = model that ran)
-# Model: gpt-6-astra at xhigh, falling back once to gpt-6.1-sol on a model error.
-# Override with CODEX_MODEL / CODEX_EFFORT (CODEX_EFFORT=max only for the three gates in CLAUDE.md).
+# Independent code review by Codex (GPT), read-only sandbox. Budget policy: bin/codex_run.py, CLAUDE.md.
+# Usage: bin/codex-review [--gate test-results|pre-submission] [--head SHA] [base-ref=main] ["extra focus"]
+#   routine: gpt-6.1-sol high; only diffs touching gateway/tracking/scoring/eval; 1/day; none from Nov 1.
+#            If skipped/queued (exit 75) the merge is NOT blocked: mark it "Codex second opinion pending".
+#   --gate:  gpt-6-astra xhigh, falls back to gpt-6.1-sol max on a usage limit. Gates wait for Codex.
+# The reviewed range is pinned to SHAs, so a queued review replays the same diff later.
+# Output: ops/codex/review-<timestamp>.md (path printed; first line = model, effort, tokens)
 set -euo pipefail
+gate=(); [ "${1:-}" = "--gate" ] && { gate=(--gate "$2"); shift 2; }
+head=HEAD; [ "${1:-}" = "--head" ] && { head=$2; shift 2; }
 base=${1:-main}; focus=${2:-}
 root=$(git rev-parse --show-toplevel); cd "$root"
-source "$root/bin/codex-lib.sh"
+head_sha=$(git rev-parse "$head"); base_sha=$(git rev-parse "$base")
 mkdir -p ops/codex
-ts=$(date +%Y%m%d-%H%M%S)
-git diff "$base"...HEAD > "ops/codex/diff-$ts.patch"
+ts=$(date +%Y%m%d-%H%M%S)-$$
+git diff "$base_sha...$head_sha" > "ops/codex/diff-$ts.patch"
 [ -s "ops/codex/diff-$ts.patch" ] || { echo "no diff vs $base"; exit 0; }
+git diff --name-only "$base_sha...$head_sha" > "ops/codex/diff-$ts.files"
+argv=$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${gate[@]}" --head "$head_sha" "$base_sha" "$focus")
 rc=0
-codex_run gpt-6-astra gpt-6.1-sol xhigh read-only "ops/codex/review-$ts.md" "ops/codex/review-$ts.log" \
-"Read AGENTS.md, then review the change in ops/codex/diff-$ts.patch (diff vs $base).
+python3 "$root/bin/codex_run.py" review "${gate[@]}" --out "ops/codex/review-$ts.md" --log "ops/codex/review-$ts.log" \
+  --changed-file "ops/codex/diff-$ts.files" --argv "$argv" --what "review ${base_sha:0:7}..${head_sha:0:7}" \
+  --prompt "Read AGENTS.md, then review the change in ops/codex/diff-$ts.patch (diff ${base_sha:0:9}...${head_sha:0:9}).
 Look for: correctness bugs, missing tests, model calls that bypass etho/gateway or its cache,
 unbounded per-frame loops or missing fps subsampling, secrets in code, and anything that could
 leak eval labels into product code. $focus
 Rank findings by severity with file:line, evidence, and a concrete fix. If nothing is wrong, say so.
 Don't invent issues to seem thorough." || rc=$?
-echo "ops/codex/review-$ts.md"
+rm -f "ops/codex/diff-$ts.files"
+[ -s "ops/codex/review-$ts.md" ] && echo "ops/codex/review-$ts.md"
 exit "$rc"

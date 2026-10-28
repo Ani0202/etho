@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Queued Codex requests (ops/codex/queue/). Never waits, never loops.
+
+  bin/codex-queue           list queued requests, active limits, and pending notifications
+  bin/codex-queue --drain   run what is runnable now: gates first, then oldest first. Queued routine
+                            reviews are coalesced into one review (oldest base .. newest head).
+                            Stops at the first request that hits a limit or cap. Cron runs this every
+                            10 minutes (bin/install-autostart).
+"""
+import fcntl
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(root / "bin"))
+import codex_run as cr  # noqa: E402
+
+
+def models_for(it):
+    return [m for m, _ in cr.PROFILES["gate" if it.get("gate") else it["script"]]]
+
+
+def coalesce(items):
+    reviews = [it for it in items if it["script"] == "review" and not it.get("gate")]
+    if len(reviews) < 2:
+        return items
+    first, last = reviews[0], reviews[-1]
+    head = last["argv"][last["argv"].index("--head") + 1]
+    argv = list(first["argv"])
+    argv[argv.index("--head") + 1] = head
+    first["argv"] = argv
+    (cr.queue_dir() / f"{first['id']}.json").write_text(json.dumps(first, indent=1, sort_keys=True) + "\n")
+    for it in reviews[1:]:
+        cr.resolve(it["id"], "done", coalesced_into=first["id"])
+        print(f"coalesced {it['id']} into {first['id']}")
+    return [it for it in items if it not in reviews[1:]]
+
+
+def drain():
+    lock = open(cr.ops_dir() / ".queue.lock", "a")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("another drain is running")
+        return 0
+    items = coalesce(cr.queued_items())
+    now = cr.now_utc()
+    for it in items:
+        if all(cr.active_limit(m, now) for m in models_for(it)):
+            continue  # its models are still limited: leave it, try the next (other models may be free)
+        argv = it.get("argv") or []
+        print(f"running {it['id']} ({it['script']}{' gate ' + it['gate'] if it.get('gate') else ''})")
+        rc = subprocess.call([str(root / "bin" / f"codex-{it['script']}"), *argv], cwd=root,
+                             env={**os.environ, "CODEX_FROM_QUEUE": it["id"]})
+        if rc == 0:
+            cr.resolve(it["id"], "done")
+        elif rc in (cr.EXIT_QUEUED, cr.EXIT_GATE_BLOCKED):
+            print(f"{it['id']} still waiting (exit {rc}); stopping this drain")
+            return rc
+        elif rc == cr.EXIT_REFUSED:
+            cr.resolve(it["id"], "dropped", exit=rc)
+        else:
+            cr.resolve(it["id"], "failed", exit=rc)
+    return 0
+
+
+def show():
+    for it in cr.queued_items():
+        print(it["id"], it.get("gate") or "routine", it["reason"], json.dumps(it.get("argv")))
+    for m, d in cr.limits().items():
+        print(f"limit {m}: until {d['reset']} (parsed={d['reset_parsed']})")
+    for n in cr.read_jsonl(cr.ops_dir() / "notify.jsonl"):
+        if not n.get("sent"):
+            print("NOTIFY (unsent):", n["message"])
+    print(cr.summary())
+
+
+if __name__ == "__main__":
+    sys.exit(drain() if "--drain" in sys.argv else show())

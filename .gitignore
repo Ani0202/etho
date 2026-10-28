@@ -19,3 +19,5 @@ ops/.spend.lock
 .ruff_cache/
 .pytest_cache/
 ops/codex/diff-*
+ops/codex/queue-cron.log
+ops/codex/.queue.lock

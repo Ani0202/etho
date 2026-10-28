@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Install cron entries so the watchdog runs every 5 minutes and after a reboot. Safe to re-run.
+# Install cron entries: the lead watchdog every 5 minutes and after a reboot, and the Codex queue
+# drain every 10 minutes (runs queued Codex requests after a usage-limit reset). Safe to re-run.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
-( { crontab -l 2>/dev/null || true; } | { grep -v 'bin/lead-watchdog' || true; } ;
+( { crontab -l 2>/dev/null || true; } | { grep -v -e 'bin/lead-watchdog' -e 'bin/codex-queue' || true; } ;
   echo "*/5 * * * * $root/bin/lead-watchdog >/dev/null 2>&1" ;
-  echo "@reboot sleep 90 && $root/bin/lead-watchdog >/dev/null 2>&1" ) | crontab -
-crontab -l | grep lead-watchdog
+  echo "@reboot sleep 90 && $root/bin/lead-watchdog >/dev/null 2>&1" ;
+  echo "*/10 * * * * cd $root && PATH=/usr/local/bin:/usr/bin:/bin $root/bin/codex-queue --drain >> $root/ops/codex/queue-cron.log 2>&1" ) | crontab -
+crontab -l | grep -e lead-watchdog -e codex-queue

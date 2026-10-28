@@ -112,21 +112,24 @@ How to set effort:
 | implementer | `sonnet` | `medium` (spawn with `high` for gateway, tracking, or eval-adjacent code) |
 | reviewer | `sonnet` | `high` |
 | scout | `haiku` | `low` |
-| `bin/codex-review`, `bin/codex-ask` | `gpt-6-astra`; retried once on `gpt-6.1-sol` if Astra fails with a model error | `xhigh` |
-| `bin/codex-build` | `gpt-6.1-sol` | `high` |
+| `bin/codex-review` (routine) | `gpt-6.1-sol` | `high` |
+| `bin/codex-ask` (routine) | `gpt-6.1-sol` | `xhigh` |
+| `--gate` on either script (three gates only) | `gpt-6-astra`, falling back to `gpt-6.1-sol` on a usage limit | Astra `xhigh`; Sol `max` |
+| `bin/codex-build` | `gpt-6.1-sol`, **disabled**: needs `--force` and Aniket's approval | `high` |
 
 Pick the cheapest level that does the job well; raise it when an attempt fails for reasoning
 reasons, not as a default.
 
-Codex model and effort:
-- `CODEX_MODEL` and `CODEX_EFFORT` override the defaults. An explicit `CODEX_MODEL` disables the
-  fallback.
-- The first line of every Codex output file records the model and effort that actually ran.
-- Use `CODEX_EFFORT=max` for exactly three gates:
-  1. the blind critique of `docs/EVAL_PLAN.md` before committing targets;
-  2. the review of test-split results;
-  3. the pre-submission audit.
-- Never use `ultra`; `bin/codex-lib.sh` refuses it.
+Codex model and effort (Aniket is on ChatGPT Plus: Astra is scarce and there's a weekly cap):
+- Only three **gates** use `--gate` (Astra):
+  1. `eval-plan`: the blind critique of `docs/EVAL_PLAN.md` before committing targets;
+  2. `test-results`: the review of test-split results;
+  3. `pre-submission`: the pre-submission audit.
+- Never use `max` on Astra, never use Astra outside a gate, and never use `ultra`. `bin/codex_run.py`
+  refuses all three, even through `CODEX_MODEL` / `CODEX_EFFORT` overrides.
+- The first line of every Codex output file records the model, effort, and tokens. In
+  `codex exec --json` mode the model is the one requested with `-m`; Codex fails rather than
+  substituting another.
 
 ## Budget caps (enforced by the gateway, never raise them yourself)
 - Baseten: hard stop at **$90** of the $100 credit.
@@ -192,7 +195,8 @@ you haven't run.
 - Don't run `bin/lead-start` or `bin/lead-stop` yourself.
 
 ## Session protocol
-- **Start:** read `docs/STATE.md`, the last 20 lines of `docs/DECISIONS.md`, and `bin/spend`.
+- **Start:** read `docs/STATE.md`, the last 20 lines of `docs/DECISIONS.md`, `bin/spend`, and
+  `bin/codex-queue` (send any unsent Codex gate notification).
 - **End** (or before compaction): update `docs/STATE.md` (done / in progress / next / blocked),
   commit with a clear message.
 - Run `/compact` between distinct pieces of work.
@@ -208,16 +212,52 @@ you haven't run.
   cross-species evals, pre-submission audits. Not for routine edits.
 
 ## Second opinions from Codex (GPT), a different model family
-Aniket's ChatGPT plan gives us Codex CLI. Use it where an independent model family adds value, not
-for routine work. It draws on a separate usage allowance from Claude's.
-- `bin/codex-review [base]`: required before merging any branch that touches the gateway,
-  tracking, rule synthesis, or eval, and before submission. Reconcile its findings with the
-  `reviewer` subagent's. Fix real issues, and note dismissed ones with a reason in the PR or commit.
-- `bin/codex-ask <file> "<question>"`: blind critique of architectural ADRs and of the eval plan
-  before targets are committed. Give it the options and evidence, not your preferred answer.
-  Record its view in the ADR.
-- `bin/codex-build <name> "<spec>"`: optional overflow implementer for isolated modules when
-  Claude's usage is tight. Its branch goes through the same review as any other.
+Aniket's ChatGPT Plus plan gives us Codex CLI, with a separate usage allowance from Claude's and a
+weekly cap. Use it where an independent model family adds value. All rules below are enforced by
+`bin/codex_run.py`.
+
+**Uses**
+- `bin/codex-review [base]`: only for merges that touch the gateway, tracking, scoring (rule
+  synthesis or adjudication), or eval. Everything else gets the Claude `reviewer` subagent only.
+  Reconcile Codex's findings with the reviewer's. Fix real issues, and note dismissed ones with a
+  reason in the commit or PR.
+- `bin/codex-ask <file> "<question>"`: blind critique of architectural ADRs. Give it the options and
+  evidence, not your preferred answer, and record its view in the ADR. The eval-plan critique is a
+  gate: `bin/codex-ask --gate eval-plan`.
+- `bin/codex-build`: disabled. It runs only with `--force`, and only after Aniket approves that
+  specific use.
+
+**Budget (routine = any non-gate call)**
+- Batch small changes: at most **1 routine review** and **4 routine calls** per ET calendar day,
+  counted in `ops/codex/usage.jsonl`. Past either cap, the request is queued.
+- From **Nov 1 ET**, no routine Codex calls at all: the weekly allowance is reserved for the gates.
+
+**Usage limits**
+- A usage-limit error (as distinct from a model error) records the parsed reset time per model in
+  `ops/codex/limit.json`. While the reset is in the future, every Codex script skips that model
+  immediately and records the request in `ops/codex/queue/`.
+- After the reset, cron runs `bin/codex-queue --drain` every 10 min: gates first, then oldest first.
+  Queued routine reviews are coalesced into one.
+- Never retry in a loop: one attempt per request per reset window.
+
+**Never block on Codex**
+- A routine review that is skipped or queued (exit 75) does **not** block a merge. Add the trailer
+  `Codex-Review: pending <queue id>` to the commit (or "Codex second opinion pending" to the PR).
+- The review runs after the reset. Read its output (`ops/codex/queue/done/`) and fix what it finds.
+- Only the three gates wait for Codex.
+
+**Notify only when needed**
+- When a gate is blocked and the reset is more than 3 h away (or after the gate's deadline), the
+  script prints `PUSH-NOTIFY-ANIKET: ...` once. It also appends the message to
+  `ops/codex/notify.jsonl`.
+- Send exactly that one PushNotification (reset time and what's waiting), then set `"sent": true`
+  in that row.
+- Aniket decides whether to spend one of his resets. Never assume he will.
+- Check `bin/codex-queue` at each session start: the cron drain can hit a limit while nobody is
+  watching.
+
+**Visibility:** every checkpoint report includes the one-line `bin/codex-usage` summary (routine
+calls today, tokens per model over 7 days, active limits, queue).
 - **Product boundary:** OpenAI models are development tools only. Etho's runtime pipeline uses
   Meta models exclusively, and the README credits only Meta models for the product.
 - If Codex and Claude disagree on something consequential and evidence can't settle it, escalate.

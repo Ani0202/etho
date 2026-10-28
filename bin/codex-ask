@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # Blind second opinion from Codex (GPT) on a decision, plan, or claim. Read-only.
-# Usage: bin/codex-ask <file-with-context> "<question>"
+# Usage: bin/codex-ask [--gate eval-plan|test-results|pre-submission] <file-with-context> "<question>"
+#   routine: gpt-6.1-sol xhigh (counts toward 4/day; none from Nov 1; exit 75 = queued, non-blocking)
+#   --gate:  gpt-6-astra xhigh, falls back to gpt-6.1-sol max on a usage limit. Gates wait for Codex.
 # Give it the options and evidence, NOT Claude's preferred answer, to keep the opinion independent.
-# Model: gpt-6-astra at xhigh, falling back once to gpt-6.1-sol on a model error.
-# Override with CODEX_MODEL / CODEX_EFFORT (CODEX_EFFORT=max only for the three gates in CLAUDE.md).
 set -euo pipefail
-[ $# -ge 2 ] || { echo 'usage: bin/codex-ask <context-file> "<question>"'; exit 1; }
+gate=(); [ "${1:-}" = "--gate" ] && { gate=(--gate "$2"); shift 2; }
+[ $# -ge 2 ] || { echo 'usage: bin/codex-ask [--gate NAME] <context-file> "<question>"'; exit 1; }
+orig=("$@")
 ctx=$1; shift
 root=$(git rev-parse --show-toplevel); cd "$root"
-source "$root/bin/codex-lib.sh"
-mkdir -p ops/codex; ts=$(date +%Y%m%d-%H%M%S)
+mkdir -p ops/codex; ts=$(date +%Y%m%d-%H%M%S)-$$
+argv=$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${gate[@]}" "${orig[@]}")
 rc=0
-codex_run gpt-6-astra gpt-6.1-sol xhigh read-only "ops/codex/ask-$ts.md" "ops/codex/ask-$ts.log" \
-"Read AGENTS.md and $ctx. Question: $*
+python3 "$root/bin/codex_run.py" ask "${gate[@]}" --out "ops/codex/ask-$ts.md" --log "ops/codex/ask-$ts.log" \
+  --argv "$argv" --what "ask on $ctx" \
+  --prompt "Read AGENTS.md and $ctx. Question: $*
 Answer independently: give your recommendation, the strongest argument against it, what evidence
 would change your mind, and anything in the context you think is wrong or unverified." || rc=$?
-echo "ops/codex/ask-$ts.md"
+[ -s "ops/codex/ask-$ts.md" ] && echo "ops/codex/ask-$ts.md"
 exit "$rc"
