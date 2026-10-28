@@ -163,3 +163,25 @@ within $13.60, so path B if lunge is NO-GO; if lunge is GO, wait for your reply.
      24 h;
    - a separate Unix user: give Aniket the exact sudo commands to run.
 5. **Demo plan:** Aniket is reviewing it and will reply separately.
+
+### Answers from Aniket (2026-10-28, ~14:15 ET): demo plan APPROVED with changes
+1. **Timing:**
+   - 0:00-0:20 hook: problem, "Push the Frontier", and a one-line teaser of the headline number.
+   - 0:20-0:35 who it's for and why current tools fall short, with a sourced impact line on who runs these
+     assays.
+   - 0:35-1:15 live run.
+   - 1:15-1:45 results and audit trail, including one visible error traced to its rule and model call.
+   - 1:45-2:00 correction loop (~15 s): "researcher stays in control", no gain claim.
+   - 2:00-2:30 evidence card: .793/.829/.864, speed with the worst case, $ per video-hour.
+   - 2:30-2:45 second species.
+   - 2:45-3:00 close: Meta model stack, who it's for, repo and live link.
+2. **Sources:** every factual claim in the voice-over needs a source in the repo. "The slowest step" becomes "one
+   of the biggest bottlenecks" unless the stronger claim can be cited. Cite or soften "thousands of labeled
+   frames".
+3. Use the real CalMS21 human annotations rendered as a timeline, not a mock spreadsheet.
+4. The live run uses a test video with clear attack and mount. It is recorded live with a visible clock, with a
+   labeled precomputed fallback.
+5. Aniket does the voice-over. Claude writes the full script (380-430 words) and burn-in captions.
+6. Rough cut on Nov 2 (up to $5 of `demo-reserve` unlocked on Nov 2 for it). Final recording Nov 3.
+7. Before export, confirm the maximum video length in the Official Rules, that a LICENSE file exists (MIT or
+   Apache-2.0; Claude proposes which), and that all honesty checks pass.
