@@ -35,11 +35,13 @@ def make_app(tmp_path, monkeypatch, *, seconds: float = 6.0, cfg_kw: dict | None
     return TestClient(app), SimpleNamespace(cfg=cfg, video=video, n=n, gw=gw, app=app, manager=app.state.manager)
 
 
-def post_job(client, video: Path, defs: dict | None = None, filename: str | None = None, **form):
+def post_job(client, video: Path, defs: dict | None = None, filename: str | None = None, headers: dict | None = None,
+             **form):
     body = {"definitions": json.dumps(DEFS if defs is None else defs), "subject": "the resident",
             "partner": "the intruder", **form}
     with open(video, "rb") as f:
-        return client.post("/api/jobs", data=body, files={"video": (filename or video.name, f, "video/mp4")})
+        return client.post("/api/jobs", data=body, headers=headers,
+                           files={"video": (filename or video.name, f, "video/mp4")})
 
 
 def wait_terminal(manager, jid: str, timeout: float = 90.0):
@@ -50,3 +52,17 @@ def wait_terminal(manager, jid: str, timeout: float = 90.0):
             return j
         time.sleep(0.05)
     raise TimeoutError(f"job {jid} did not finish: {manager.jobs.get(jid)}")
+
+
+def no_jobs(c) -> bool:
+    return not c.cfg.jobs_dir.exists() or not any(c.cfg.jobs_dir.iterdir())
+
+
+def wait_for(cond, timeout: float = 20.0, what: str = "condition"):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        v = cond()
+        if v:
+            return v
+        time.sleep(0.02)
+    raise TimeoutError(f"timed out waiting for {what}")

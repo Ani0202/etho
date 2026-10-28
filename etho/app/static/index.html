@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Etho: zero-shot animal behavior scoring</title>
+<title>Etho: animal behavior scoring</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
 <header class="top"><div class="in">
   <a class="brand" href="/">Etho</a>
-  <span class="tag">Zero-shot animal behavior scoring with Meta models</span>
+  <span class="tag" id="tag"></span>
   <span class="spend" id="spend"></span>
 </div></header>
 <main>
   <div class="card">
     <h1>Score animal behavior from plain-English definitions</h1>
     <p class="sub" style="margin:4px 0 0">Upload lab video, describe each behavior in words, and get a scored ethogram, metrics and an auditable
-      methods report. No labeled training frames. Every model call is logged and costed.</p>
+      methods report. Every model call is logged and costed.</p>
+    <p class="sub" id="tagline" style="margin:6px 0 0"></p>
   </div>
 
   <h2 id="show-h">Precomputed showcase runs <span class="sub">(open instantly, zero spend)</span></h2>

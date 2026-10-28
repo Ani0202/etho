@@ -24,14 +24,15 @@ from etho.report.report import build as build_report
 from etho.rules.revise import revise as run_revise
 from etho.rules.sandbox import SandboxError, run_detector
 from etho.rules.synthesize import Detector, synthesize
-from etho.tracking.pipeline import prepare_chunks, track_video
+from etho.tracking.pipeline import count_frames, prepare_chunks, track_video
 
 from . import behaviors as B
 from . import corrections as C
 from .config import AppConfig
-from .jobgw import JobGateway
+from .jobgw import JobBudgetExceeded, JobCancelled, JobGateway
 from .overlay import render_overlay
 from .store import SEQ, Project, read_json, write_json
+from .validate import ValidationError, remux_clean
 
 FPS = 10.0
 CHUNK_DIR = Path("cache/chunks")  # relative to the repo root: tier-1 hard-codes the same path (bin/app chdirs)
@@ -91,7 +92,10 @@ class Backend:
             ctx.state.update(input=read_json(p.base / "input.json", {}), defs=res["behaviors"]["definitions"],
                              names=res["behaviors"]["names"], video=res["video"])
             ctx.state["table"] = dict(np.load(p.seq_dir / "features.npz"))
-            prev = ctx.version - 1
+            # The version this revision builds on: the latest finished one when it was queued (a failed or
+            # interrupted earlier revision leaves a gap in the numbering, so rev - 1 is not it).
+            prev = int(ctx.job.params.get("base_version", ctx.version - 1))
+            ctx.state["base_version"] = prev
             spec, dets = _load_detectors(p.version_dir(prev) / "detectors.json")
             ctx.state.update(dets=dets, detector_meta=spec,
                              prev_labels=np.load(p.version_dir(prev) / "labels.npz")["labels"],
@@ -101,7 +105,18 @@ class Backend:
 
     def stage_validate(self, ctx: Ctx) -> None:
         v = ctx.state["video"]
-        ctx.say(f"{v['duration_s']:.1f} s, {v['width']}x{v['height']}, {v['codec']}; "
+        p = ctx.project
+        clean = p.base / "clean.mp4"
+        if not clean.exists():
+            src = p.video_path()
+            ctx.say("re-encoding the upload to a clean 10 fps mp4 (the pipeline never sees the original container)")
+            remux_clean(src, clean, self.cfg, fps=int(FPS))
+            src.unlink(missing_ok=True)                  # keep only what the pipeline needs
+        frames = count_frames(clean)
+        if frames > (self.cfg.max_duration_s + 2) * FPS:
+            raise ValidationError(f"video has {frames} samples at 10 fps; the limit is "
+                                  f"{(self.cfg.max_duration_s + 2) * FPS:.0f}", 413, "too_long")
+        ctx.say(f"{v['duration_s']:.1f} s, {v['width']}x{v['height']}, {v['codec']}; {frames} samples at 10 fps; "
                 f"estimated cost ${ctx.job.est_cost_usd:.2f} (cap check passed)")
 
     def stage_plan(self, ctx: Ctx) -> None:
@@ -114,6 +129,9 @@ class Backend:
     def stage_track(self, ctx: Ctx) -> None:
         video = ctx.project.video_path()
         ph = ctx.state["plan"]["phrase"]
+        n_in = count_frames(video)             # bound the chunk count (and so SAM cost) before anything is sent
+        if -(-n_in // 600) > -(-int((self.cfg.max_duration_s + 2) * FPS) // 600):
+            raise ValidationError(f"{n_in} samples would need too many SAM chunks", 413, "too_long")
         ctx.say(f'tracking "{ph}" with SAM 3.1 (10 fps, 60 s chunks in parallel)')
         r = track_video(video, ctx.project.seq_dir, gw=ctx.gw, phrase=ph, public_data=ctx.public_data,
                         stride=None, fps=int(FPS), tag=self.cfg.tag, chunk_dir=CHUNK_DIR)
@@ -138,6 +156,8 @@ class Backend:
                 return synthesize(name, defs[name], subject=inp["subject"], partner=inp["partner"], tables=[table],
                                   fps=FPS, frame_wh=(v["width"], v["height"]), gw=ctx.gw, model=model,
                                   public_data=ctx.public_data, tag=self.cfg.tag, effort="high"), None
+            except (JobCancelled, JobBudgetExceeded):
+                raise
             except Exception as e:  # SandboxError after repairs, provider error, ...
                 return None, f"{name}: {type(e).__name__}: {e}"[:400]
 
@@ -186,7 +206,7 @@ class Backend:
         ctx.state["dets"] = new
         ctx.state["revise_notes"] = notes
         _save_detectors(ctx.outdir / "detectors.json", new, {**ctx.state["detector_meta"],
-                                                              "revised_from": ctx.version - 1,
+                                                              "revised_from": ctx.state["base_version"],
                                                               "n_corrections": len(corr)})
         ctx.say("; ".join(f"{n['behavior']}: {n['status']}" for n in notes))
 
@@ -216,6 +236,8 @@ class Backend:
             ctx.say(f"{len(ws)} candidate windows; Muse Spark Open (Fireworks, low effort) judges tiled frame strips")
             v = adjudicate(ctx.project.base / "run", SEQ, ws, {"behaviors": ctx.state["defs"]}, gw=ctx.gw,
                            effort="low", tag=self.cfg.tag, out_dir=ctx.project.strips_dir)
+        except (JobCancelled, JobBudgetExceeded):
+            raise
         except Exception as e:
             ctx.warnings.append(f"Tier-1 adjudication failed ({type(e).__name__}); rule labels are used as they are.")
             raise StageSkipped(f"{type(e).__name__}: {str(e)[:200]}; using rule labels") from e

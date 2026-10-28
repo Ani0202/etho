@@ -33,13 +33,27 @@ uv run python scripts/make_showcase.py --help   # package an existing run as a z
 uv run python -m tests.mock_server              # the real app on synthetic stages and a fake gateway (no spend)
 ```
 
-Upload (mp4/mov/avi, <= 200 MB, <= 5 min, checked with ffprobe before anything is spent), edit the behavior
-definitions, and watch the job stream stage by stage. Results show the overlay video synced with the ethogram,
-per-stage time and cost, the end-to-end speed as a multiple of the video's duration, and the audit trail.
-Mark wrong or missed bouts and "Revise rules" to see what changed. Guards (all in `etho/app/config.py`, env
-overrides `ETHO_APP_*`): gateway tag (`dev` now; the live demo uses `demo-reserve`), a per-day app spend cap
-($5) with a duration-based pre-estimate, 3 jobs per hour per client, one job at a time. Uploads use Standard
-(non-contributor) models; showcase runs on CalMS21 may use contributor models.
+Upload (mp4/mov/avi, <= 200 MB, <= 5 min, checked with a hardened ffprobe that counts real frames, before anything is
+spent), edit the behavior definitions, and watch the job stream stage by stage. Results show the overlay video synced
+with the ethogram, per-stage time and cost, the end-to-end speed as a multiple of the video's duration, and the audit
+trail. Mark wrong or missed bouts and "Revise rules" to see what changed. Trying the correction loop on a showcase
+makes you a private copy first; the showcase itself never changes.
+
+Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
+- gateway tag (`dev` now; the live demo uses `ETHO_APP_TAG=demo-reserve`);
+- a per-day app spend cap ($5, `ETHO_APP_DAILY_CAP_USD`) checked against a duration-based estimate of $0.003/s SAM +
+  $0.003/s tier-1 + $0.06 per behavior + $0.05 (measured costs are about $0.002/s and $0.0012/s), so a 5-minute upload
+  with 3 behaviors is estimated at about $2 and two fit in a day; each job also has its own spend ceiling
+  (max(2x estimate, estimate + $0.50), never more than the day's headroom);
+- 3 jobs per hour per client (the address uvicorn reports; behind a reverse proxy start with
+  `bin/app --forwarded-allow-ips <proxy ip>`, the app never reads `X-Forwarded-For` itself; IPv6 clients are keyed on
+  their /64), at most 5 queued jobs, 2 concurrent uploads, 4 progress streams per client, 256 KB for any non-upload
+  request body, one job at a time;
+- uploads are re-encoded to a clean 10 fps mp4 before the pipeline sees them, and project data is deleted after
+  `ETHO_APP_RETENTION_H` hours (48);
+- uploads use Standard (non-contributor) models; a showcase's `result.json` decides whether its copies may use
+  contributor models.
+UI wording is configurable: `ETHO_APP_TAGLINE`, `ETHO_APP_TILE_TITLE`, `ETHO_APP_TILE_VALUE`, `ETHO_APP_TILE_SUB`.
 
 ## Data and licenses
 

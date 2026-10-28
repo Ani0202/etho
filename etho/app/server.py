@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,16 +22,25 @@ from fastapi.staticfiles import StaticFiles
 from . import corrections as C
 from .backend import FPS, Backend
 from .config import AppConfig
-from .guards import RateLimiter, Refused, SpendGuard
-from .jobgw import AppLedger
+from .guards import RateLimiter, Refused, SpendGuard, client_key
+from .jobgw import AppLedger, stage_of_caller
 from .jobs import TERMINAL, Job, JobManager, QueueFull, new_job_id, sse
-from .store import ID_RE, Project, list_showcases, read_json, resolve_project, write_json
+from .store import ID_RE, Project, fork_showcase, list_showcases, read_json, resolve_project, write_json
 from .validate import ValidationError, check_definitions, check_extension, check_text, check_video
 
 STATIC = Path(__file__).parent / "static"
 STRIP_RE = re.compile(r"^[A-Za-z0-9_.-]{1,120}\.jpg$")
 CALL_KEYS = ("attempt", "cost_usd", "latency_s", "cache_hit", "usage", "check", "revision_rejected", "n_corrections")
 MULTIPART_SLACK = 1_000_000  # form fields and boundaries around the file
+SSE_MAX_S = 1800.0
+
+# Pages and API responses: scripts only from this origin, no inline script, no framing by other sites.
+PAGE_CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "media-src 'self' blob:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; "
+            "form-action 'self'; frame-ancestors 'none'")
+# The report is generated HTML with no script: lock it down completely (it may only be framed by this origin).
+REPORT_CSP = ("default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; "
+              "frame-ancestors 'self'; sandbox allow-same-origin")
 
 
 def default_definitions(cfg: AppConfig) -> dict:
@@ -38,21 +48,17 @@ def default_definitions(cfg: AppConfig) -> dict:
     return {"behaviors": d.get("behaviors", {}), "subject": d.get("subject", ""), "partner": d.get("partner", "")}
 
 
-def client_id(request: Request, cfg: AppConfig) -> str:
-    if cfg.trust_proxy:
-        fwd = request.headers.get("x-forwarded-for")
-        if fwd:
-            return fwd.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 def err(status: int, code: str, message: str, headers: dict | None = None) -> JSONResponse:
     return JSONResponse({"error": code, "message": message}, status_code=status, headers=headers)
 
 
+def refusal(e: Refused) -> JSONResponse:
+    h = {"Retry-After": str(int(e.retry_after) + 1)} if e.retry_after else None
+    return err(e.status, e.code, e.message, h)
+
+
 def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, gateway_factory=None,
-               ledger: AppLedger | None = None, start_worker: bool = True,
-               clock=None, now=None) -> FastAPI:
+               ledger: AppLedger | None = None, start_worker: bool = True, clock=None, now=None) -> FastAPI:
     cfg = cfg or AppConfig()
     ledger = ledger or AppLedger(cfg.ledger_path)
     guard = SpendGuard(cfg, ledger, now=now)
@@ -62,7 +68,13 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         gateway_factory = Gateway
     manager = JobManager(cfg, backend or Backend(cfg), ledger, guard, gateway_factory)
     manager.load_existing()
+    manager.cleanup()
     admit_lock = threading.Lock()
+    upload_sem = threading.BoundedSemaphore(cfg.max_concurrent_uploads)
+    probe_sem = threading.BoundedSemaphore(cfg.max_concurrent_probes)
+    sse_open: dict[str, int] = {}
+    sse_lock = threading.Lock()
+    last_cleanup = [time.monotonic()]
 
     @asynccontextmanager
     async def lifespan(app):
@@ -75,29 +87,61 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     if start_worker:
         manager.start()
 
+    def who(request: Request) -> str:
+        return client_key(request.client.host if request.client else None)
+
     @app.exception_handler(ValidationError)
     async def _validation(_: Request, e: ValidationError):
         return err(e.status, e.code, e.message)
 
     @app.exception_handler(Refused)
     async def _refused(_: Request, e: Refused):
-        h = {"Retry-After": str(int(e.retry_after) + 1)} if e.retry_after else None
-        return err(e.status, e.code, e.message, h)
+        return refusal(e)
 
     @app.exception_handler(C.CorrectionError)
     async def _corr(_: Request, e: C.CorrectionError):
         return err(400, "bad_corrections", str(e))
 
     @app.middleware("http")
-    async def upload_size_gate(request: Request, call_next):
-        """Refuse an oversized upload from its declared length, before the body is parsed or stored."""
-        if request.method == "POST" and request.url.path == "/api/jobs":
-            cl = request.headers.get("content-length")
-            if cl is None:
-                return err(411, "length_required", "Content-Length is required for uploads")
-            if not cl.isdigit() or int(cl) > cfg.max_upload_mb * 1e6 + MULTIPART_SLACK:
-                return err(413, "too_large", f"upload is larger than the {cfg.max_upload_mb:g} MB limit")
-        return await call_next(request)
+    async def gate(request: Request, call_next):
+        """Cheap refusals first, before any body is read; then security headers on every response."""
+        resp = None
+        if request.method == "POST":
+            cl, te = request.headers.get("content-length"), request.headers.get("transfer-encoding")
+            if request.url.path == "/api/jobs":
+                limit = cfg.max_upload_mb * 1e6 + MULTIPART_SLACK
+                if cl is None or te:
+                    resp = err(411, "length_required", "Content-Length is required for uploads")
+                elif not cl.isdigit() or int(cl) > limit:
+                    resp = err(413, "too_large", f"upload is larger than the {cfg.max_upload_mb:g} MB limit")
+                else:
+                    try:
+                        limiter.check(who(request))
+                        if manager.queue_len() >= cfg.max_queue:
+                            raise Refused(f"{manager.queue_len()} jobs are already waiting; try again later", 503,
+                                          "queue_full")
+                        guard.check(cfg.estimate_job_usd(1.0, 1), manager.outstanding_usd())   # cap already spent
+                    except Refused as e:
+                        resp = refusal(e)
+                if resp is None:
+                    if not upload_sem.acquire(blocking=False):
+                        resp = err(503, "busy", "too many uploads in progress; try again in a moment")
+                    else:
+                        try:
+                            resp = await call_next(request)
+                        finally:
+                            upload_sem.release()
+            elif te:
+                resp = err(411, "length_required", "Content-Length is required")
+            elif cl and (not cl.isdigit() or int(cl) > cfg.max_json_body_bytes):
+                resp = err(413, "too_large", f"request body is larger than {cfg.max_json_body_bytes // 1000} KB")
+        if resp is None:
+            resp = await call_next(request)
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        if "content-security-policy" not in resp.headers:
+            resp.headers["Content-Security-Policy"] = PAGE_CSP
+        return resp
 
     # ---- pages -------------------------------------------------------------------------------
     @app.get("/", include_in_schema=False)
@@ -119,6 +163,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                            "extensions": [".mp4", ".mov", ".avi"], "max_behaviors": cfg.max_behaviors,
                            "rate_limit_jobs": cfg.rate_limit_jobs, "rate_window_s": cfg.rate_window_s},
                 "defaults": d,
+                "text": {"tagline": cfg.tagline, "tile_title": cfg.tile_title, "tile_value": cfg.tile_value,
+                         "tile_sub": cfg.tile_sub},
                 "cap": {"cap_usd": cfg.daily_cap_usd, "spent_today_usd": round(spent, 4),
                         "remaining_usd": round(guard.remaining(manager.outstanding_usd()), 4)},
                 "estimate": {"sam_usd_per_s": cfg.est_sam_usd_per_s, "tier1_usd_per_s": cfg.est_tier1_usd_per_s,
@@ -140,6 +186,9 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         defs = check_definitions(raw_defs, cfg)
         subject = check_text(subject, "subject", "the resident animal")
         partner = check_text(partner, "partner", "the other animal")
+        if time.monotonic() - last_cleanup[0] > 600:
+            last_cleanup[0] = time.monotonic()
+            manager.cleanup()
         jid = new_job_id()
         base = cfg.jobs_dir / jid
         base.mkdir(parents=True, exist_ok=False)
@@ -153,9 +202,14 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                         raise ValidationError(f"upload is larger than the {cfg.max_upload_mb:g} MB limit", 413,
                                               "too_large")
                     f.write(chunk)
-            info = check_video(dest, cfg)            # ffprobe: duration, size, decodable; nothing spent yet
+            if not probe_sem.acquire(timeout=15):
+                raise Refused("too many videos are being inspected; try again in a moment", 503, "busy")
+            try:
+                info = check_video(dest, cfg)        # ffprobe: real frame count, duration, decodable; nothing spent
+            finally:
+                probe_sem.release()
             est = cfg.estimate_job_usd(info.duration_s, len(defs))
-            cid = client_id(request, cfg)
+            cid = who(request)
             with admit_lock:
                 limiter.check(cid)
                 guard.check(est, manager.outstanding_usd())
@@ -196,18 +250,35 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         j = job_or_404(jid)
         if not j:
             return err(404, "not_found", "no such job")
+        cid = who(request)
+        with sse_lock:
+            if sse_open.get(cid, 0) >= cfg.max_sse_per_client:
+                return err(429, "too_many_streams", "too many open progress streams from this client")
+            sse_open[cid] = sse_open.get(cid, 0) + 1
 
         async def gen():
-            last = -1
-            while True:
-                snap = manager.snapshot(j)
-                terminal = j.status in TERMINAL
-                yield sse("end" if terminal else "progress", snap, snap["version"])
-                if terminal or await request.is_disconnected():
-                    return
-                last = j.version
-                # wake on any state change, else tick once a second so elapsed time and cost keep moving
-                await asyncio.to_thread(manager.wait_change, j, last, 1.0)
+            """No threads: poll the job's version counter in the event loop. A snapshot is sent on every state
+            change and at least once a second (so elapsed time and cost keep moving)."""
+            last_v, last_t, t0 = -1, 0.0, time.monotonic()
+            try:
+                while True:
+                    v = j.version                        # read before the snapshot: a change after it is re-sent
+                    now = time.monotonic()
+                    if v != last_v or now - last_t >= 1.0:
+                        snap = manager.snapshot(j)
+                        terminal = snap["status"] in TERMINAL    # one source for status and the fields sent with it
+                        yield sse("end" if terminal else "progress", snap, snap["version"])
+                        last_v, last_t = v, now
+                        if terminal:
+                            return
+                    if now - t0 > SSE_MAX_S or await request.is_disconnected():
+                        return
+                    await asyncio.sleep(0.25)
+            finally:
+                with sse_lock:
+                    sse_open[cid] = max(0, sse_open.get(cid, 1) - 1)
+                    if not sse_open[cid]:
+                        del sse_open[cid]
 
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
@@ -216,8 +287,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     def project_or_none(pid: str) -> Project | None:
         return resolve_project(cfg, pid)
 
-    def version_arg(p: Project, v: int | None) -> int:
-        return p.latest_version() if v is None else v
+    def version_arg(v: int | None) -> int:
+        return 0 if v is None or v < 0 else v          # the original unless ?v= says otherwise
 
     @app.get("/api/projects/{pid}")
     def api_project(pid: str):
@@ -244,8 +315,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         p = project_or_none(pid)
         if p is None or p.result() is None:
             return None, None
-        v = version_arg(p, v)
-        f = p.version_file(v, kind)
+        f = p.version_file(version_arg(v), kind)
         return (p, f) if f.exists() else (p, None)
 
     @app.get("/api/projects/{pid}/overlay")
@@ -260,19 +330,17 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         p, f = versioned_file(pid, "report", v)
         if f is None:
             return err(404, "not_found", "no report for this version")
-        return HTMLResponse(f.read_text(), headers={
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
-                                       "frame-ancestors 'self'"})
+        return HTMLResponse(f.read_text(), headers={"Content-Security-Policy": REPORT_CSP})
 
     @app.get("/api/projects/{pid}/strip/{name}")
     def api_strip(pid: str, name: str):
         p = project_or_none(pid)
         if p is None or not STRIP_RE.match(name):
             return err(404, "not_found", "no such strip")
-        f = p.strips_dir / name
-        if not f.exists():
-            return err(404, "not_found", "no such strip")
-        return FileResponse(f, media_type="image/jpeg")
+        for d in (p.strips_dir, p.base / "strips"):
+            if (d / name).is_file():
+                return FileResponse(d / name, media_type="image/jpeg")
+        return err(404, "not_found", "no such strip")
 
     @app.get("/api/projects/{pid}/audit")
     def api_audit(pid: str, v: int | None = None):
@@ -280,59 +348,66 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         res = p.result() if p else None
         if res is None:
             return err(404, "not_found", "no such project")
-        return audit_view(p, res, version_arg(p, v), ledger, manager)
+        return audit_view(p, res, version_arg(v), ledger)
 
     @app.post("/api/projects/{pid}/revise")
     async def api_revise(pid: str, request: Request):
-        p = project_or_none(pid)
-        res = p.result() if p else None
-        if res is None:
+        if project_or_none(pid) is None:
             return err(404, "not_found", "no such project")
         try:
             payload = await request.json()
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             return err(400, "bad_json", "body must be JSON")
         if not isinstance(payload, dict):
             return err(400, "bad_json", "body must be a JSON object")
-        return await asyncio.to_thread(revise_sync, request, p, res, payload)
+        return await asyncio.to_thread(revise_sync, request, pid, payload)
 
-    def revise_sync(request: Request, p: Project, res: dict, payload: dict):
-        if manager.active_for(p.id):
-            return err(409, "busy", "a job is already running for this video")
-        names = res["behaviors"]["names"]
-        latest = p.latest_version()
-        prev_rev = p.revision(latest) if latest else None
-        prior_user = (prev_rev or {}).get("user_corrections", [])
-        prior = (prev_rev or {}).get("corrections", [])
-        cs = C.validate(payload, names=names, duration_s=res["video"]["duration_s"], fps=FPS,
-                        max_total=cfg.max_corrections, existing=len(prior_user))
-        labels = np.load(p.version_file(latest, "labels"))["labels"]
-        new = C.to_revise_format(cs, labels, names, FPS)
-        cumulative = prior + new
-        affected = {c["behavior"] for c in cumulative}
-        est = cfg.estimate_revise_usd(res["video"]["duration_s"], len(affected))
-        cid = client_id(request, cfg)
-        with admit_lock:
+    def revise_sync(request: Request, pid: str, payload: dict):
+        cid = who(request)
+        with admit_lock:                      # check-then-create must be atomic: one revision at a time per project
+            p = project_or_none(pid)
+            res = p.result() if p else None
+            if res is None:
+                return err(404, "not_found", "no such project")
+            if manager.active_for(p.id):
+                return err(409, "busy", "a job is already running for this video")
+            names = res["behaviors"]["names"]
+            latest = p.latest_version()
+            prev_rev = p.revision(latest) if latest else None
+            prior_user = (prev_rev or {}).get("user_corrections", [])
+            prior = (prev_rev or {}).get("corrections", [])
+            cs = C.validate(payload, names=names, duration_s=res["video"]["duration_s"], fps=FPS,
+                            max_total=cfg.max_corrections, existing=len(prior_user))
+            labels = np.load(p.version_file(latest, "labels"))["labels"]
+            new = C.to_revise_format(cs, labels, names, FPS)
+            cumulative = prior + new
+            est = cfg.estimate_revise_usd(res["video"]["duration_s"], len({c["behavior"] for c in cumulative}))
             limiter.check(cid)
             guard.check(est, manager.outstanding_usd())
+            if manager.queue_len() >= cfg.max_queue:
+                raise Refused(f"{manager.queue_len()} jobs are already waiting; try again later", 503, "queue_full")
+            forked = None
+            if p.kind == "showcase":              # a visitor's private, revisable copy of the precomputed run
+                forked = p = fork_showcase(cfg, p, new_job_id())
             n = p.next_revision()
             d = p.work / "revisions" / str(n)
             d.mkdir(parents=True, exist_ok=True)
             job = Job(f"{p.id}-r{n}", p.id, "revise", d, rev=n, est_cost_usd=est,
-                      params={"corrections": cumulative,
+                      params={"corrections": cumulative, "base_version": latest,
                               "user_corrections": prior_user + [c.model_dump() for c in cs]})
             try:
                 manager.submit(job)
             except QueueFull as e:
-                shutil.rmtree(d, ignore_errors=True)
+                shutil.rmtree(forked.base if forked else d, ignore_errors=True)
                 raise Refused(str(e), 503, "queue_full") from e
             limiter.record(cid)
-        return {"job_id": job.id, "rev": n, "est_cost_usd": est, "n_corrections": len(cumulative)}
+        return {"job_id": job.id, "project_id": p.id, "rev": n, "est_cost_usd": est,
+                "n_corrections": len(cumulative), "forked": forked is not None}
 
     return app
 
 
-def audit_view(p: Project, res: dict, v: int, ledger: AppLedger, manager: JobManager) -> dict:
+def audit_view(p: Project, res: dict, v: int, ledger: AppLedger) -> dict:
     """Everything needed to audit a result: models, efforts, prompts, detector code, every call's cost."""
     versions = [0] + p.revision_numbers()
     calls = []
@@ -365,7 +440,6 @@ def audit_view(p: Project, res: dict, v: int, ledger: AppLedger, manager: JobMan
     n_calls = 0
     for jid in job_ids:
         for r in ledger.job_rows(jid):
-            from .jobgw import stage_of_caller
             s = stage_of_caller(str(r.get("caller")))
             by_stage[s] = by_stage.get(s, 0.0) + float(r.get("cost_usd", 0.0) or 0.0)
             n_calls += 1
@@ -385,10 +459,14 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Etho web app")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--forwarded-allow-ips", default="127.0.0.1",
+                    help="proxy addresses uvicorn trusts for X-Forwarded-For (rate limits key on the rewritten "
+                         "client address); the default trusts only a proxy on this machine")
     a = ap.parse_args(argv)
     cfg = AppConfig()
     os.chdir(cfg.root)  # tier 1 reads cache/chunks relative to the repo root
-    uvicorn.run(create_app(cfg), host=a.host, port=a.port, log_level="info")
+    uvicorn.run(create_app(cfg), host=a.host, port=a.port, log_level="info", proxy_headers=True,
+                forwarded_allow_ips=a.forwarded_allow_ips)
 
 
 if __name__ == "__main__":

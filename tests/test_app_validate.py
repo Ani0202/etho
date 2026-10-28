@@ -12,7 +12,7 @@ from etho.app.validate import (
     normalize_name,
     probe,
 )
-from tests.app_env import DEFS, make_app, post_job
+from tests.app_env import DEFS, make_app, no_jobs, post_job
 from tests.app_helpers import make_video
 
 
@@ -67,7 +67,7 @@ def test_api_rejects_oversize_before_any_spend(tmp_path, monkeypatch):
     mid = b"x" * 300_000   # passes the declared-length gate; the streamed byte count catches it
     r = client.post("/api/jobs", data={"definitions": json.dumps(DEFS)}, files={"video": ("a.mp4", mid)})
     assert r.status_code == 413 and r.json()["error"] == "too_large"
-    assert not c.cfg.ledger_path.exists() and not any(c.cfg.jobs_dir.iterdir())  # nothing spent, nothing kept
+    assert not c.cfg.ledger_path.exists() and no_jobs(c)  # nothing spent, nothing kept
 
 
 def test_api_rejects_type_duration_and_garbage_before_any_spend(tmp_path, monkeypatch):
@@ -82,4 +82,4 @@ def test_api_rejects_type_duration_and_garbage_before_any_spend(tmp_path, monkey
     r = client.post("/api/jobs", data={"definitions": json.dumps(DEFS)},
                     files={"video": ("x.mp4", b"not a video", "video/mp4")})
     assert r.status_code == 400 and r.json()["error"] == "unreadable"
-    assert not c.cfg.ledger_path.exists() and not any(c.cfg.jobs_dir.iterdir())  # nothing spent, nothing kept
+    assert not c.cfg.ledger_path.exists() and no_jobs(c)  # nothing spent, nothing kept

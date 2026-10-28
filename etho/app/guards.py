@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import threading
 import time
 from collections import defaultdict, deque
@@ -10,6 +11,18 @@ from datetime import datetime, timezone
 
 from .config import AppConfig
 from .jobgw import AppLedger
+
+
+def client_key(host: str | None) -> str:
+    """Rate-limit key: the address as uvicorn reports it (X-Forwarded-For is never read here). An IPv6
+    client is keyed on its /64, since one subscriber controls a whole /64."""
+    try:
+        ip = ipaddress.ip_address(host or "")
+    except ValueError:
+        return host or "unknown"
+    if ip.version == 6:
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return str(ip)
 
 
 class Refused(Exception):
@@ -53,11 +66,25 @@ class RateLimiter:
         while q and now - q[0] >= self.window_s:
             q.popleft()
 
+    def _prune(self, now: float) -> None:
+        if len(self._hits) < 256:
+            return
+        for k in list(self._hits):
+            self._trim(self._hits[k], now)
+            if not self._hits[k]:
+                del self._hits[k]
+
     def check(self, client: str) -> None:
         with self._lock:
             now = self.clock()
-            q = self._hits[client]
+            self._prune(now)
+            q = self._hits.get(client)
+            if q is None:
+                return
             self._trim(q, now)
+            if not q:
+                del self._hits[client]
+                return
             if len(q) >= self.limit:
                 wait = self.window_s - (now - q[0])
                 raise Refused(f"rate limit: {self.limit} jobs per {self.window_s / 3600:g} h per client; "
@@ -65,10 +92,14 @@ class RateLimiter:
 
     def record(self, client: str) -> None:
         with self._lock:
+            self._prune(self.clock())
             self._hits[client].append(self.clock())
 
     def release(self, client: str) -> None:
         """Undo the latest `record` (job rejected after the rate check)."""
         with self._lock:
-            if self._hits[client]:
-                self._hits[client].pop()
+            q = self._hits.get(client)
+            if q:
+                q.pop()
+                if not q:
+                    del self._hits[client]

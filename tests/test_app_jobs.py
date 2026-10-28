@@ -1,11 +1,10 @@
 """Job state machine, queue, SSE progress format, job-attributed gateway and ledger."""
 
 import json
-import time
 
 from etho.app.jobgw import AppLedger, JobGateway, caller_for, job_of_caller, stage_of_caller
 from etho.app.jobs import ANALYZE_STAGES, REVISE_STAGES, Job, Stage, sse
-from tests.app_env import make_app, post_job, wait_terminal
+from tests.app_env import make_app, post_job, wait_for, wait_terminal
 from tests.app_helpers import FakeGateway
 
 
@@ -32,7 +31,7 @@ def test_sse_frame_format():
 
 
 def test_sse_stream_reports_stage_message_elapsed_and_cost(tmp_path, monkeypatch):
-    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.15})
+    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.6})
     jid = post_job(client, c.video).json()["id"]
     with client.stream("GET", f"/api/jobs/{jid}/events") as r:
         assert r.headers["content-type"].startswith("text/event-stream")
@@ -53,7 +52,7 @@ def test_sse_stream_reports_stage_message_elapsed_and_cost(tmp_path, monkeypatch
     costs = [s["cost_usd"] for s in snaps]
     assert costs == sorted(costs) and costs[-1] > 0                     # running cost from the ledger, never down
     elapsed = [s["elapsed_s"] for s in snaps]
-    assert elapsed[-1] > 0.3 and elapsed == sorted(elapsed)
+    assert elapsed[-1] > 1.0 and elapsed == sorted(elapsed)
     last = snaps[-1]
     assert last["status"] == "done" and last["stage"] is None and all(x["status"] == "done" for x in last["stages"])
     assert abs(last["cost_usd"] - c.manager.ledger.job_cost(jid)) < 1e-9
@@ -68,8 +67,8 @@ def test_sse_unknown_job_is_404(tmp_path, monkeypatch):
 def test_jobs_run_one_at_a_time_in_fifo_order(tmp_path, monkeypatch):
     client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.1}, cfg_kw={"rate_limit_jobs": 10})
     ids = [post_job(client, c.video).json()["id"] for _ in range(3)]
-    time.sleep(0.2)
-    snaps = [client.get(f"/api/jobs/{i}").json() for i in ids]
+    wait_for(lambda: c.manager.jobs[ids[0]].status == "running", what="first job to start")
+    snaps = [client.get(f"/api/jobs/{i}").json() for i in ids]   # each job takes seconds, so this is stable
     assert snaps[0]["status"] == "running" and snaps[0]["queue_position"] == 0
     assert [s["status"] for s in snaps[1:]] == ["queued", "queued"] and [s["queue_position"] for s in snaps[1:]] == [1, 2]
     jobs = [wait_terminal(c.manager, i) for i in ids]
@@ -79,13 +78,13 @@ def test_jobs_run_one_at_a_time_in_fifo_order(tmp_path, monkeypatch):
 
 
 def test_queue_limit_and_cancel(tmp_path, monkeypatch):
-    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.2}, cfg_kw={"rate_limit_jobs": 20, "max_queue": 1})
+    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.4}, cfg_kw={"rate_limit_jobs": 20, "max_queue": 1})
     a = post_job(client, c.video).json()["id"]
-    time.sleep(0.1)
+    wait_for(lambda: c.manager.jobs[a].status == "running", what="first job to start")
     b = post_job(client, c.video).json()["id"]            # waits in the queue
     r = post_job(client, c.video)                          # queue full
     assert r.status_code == 503 and r.json()["error"] == "queue_full"
-    assert not (c.cfg.jobs_dir / "x").exists() and len(list(c.cfg.jobs_dir.iterdir())) == 2  # rejected upload removed
+    assert len(list(c.cfg.jobs_dir.iterdir())) == 2        # the rejected upload left nothing behind
     assert client.post(f"/api/jobs/{b}/cancel").json() == {"cancelled": True}
     assert client.get(f"/api/jobs/{b}").json()["status"] == "cancelled"
     assert client.post(f"/api/jobs/{b}/cancel").json() == {"cancelled": False}
@@ -93,13 +92,15 @@ def test_queue_limit_and_cancel(tmp_path, monkeypatch):
     assert client.get(f"/api/jobs/{b}").json()["stages"][0]["status"] == "pending"   # never ran
 
 
-def test_cancel_running_job_stops_between_stages(tmp_path, monkeypatch):
-    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.3})
+def test_cancel_running_job_stops_before_the_next_model_call(tmp_path, monkeypatch):
+    client, c = make_app(tmp_path, monkeypatch, gw_kw={"delay": 0.4})
     a = post_job(client, c.video).json()["id"]
-    time.sleep(0.15)
+    wait_for(lambda: c.manager.jobs[a].status == "running" and c.gw.calls, what="first model call")
     assert client.post(f"/api/jobs/{a}/cancel").json()["cancelled"] is True
     j = wait_terminal(c.manager, a)
     assert j.status == "cancelled" and any(s.status == "pending" for s in j.stages)
+    n = len(c.gw.calls)
+    assert n <= 2 and len([x for x in c.gw.calls if "synthesize" in str(x.get("caller"))]) == 0   # stopped early
 
 
 def test_restart_marks_unfinished_jobs_failed_and_never_resumes(tmp_path, monkeypatch):

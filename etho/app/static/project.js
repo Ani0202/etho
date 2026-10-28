@@ -2,13 +2,14 @@
 (async function () {
   const pid = decodeURIComponent(location.pathname.split("/").pop());
   const root = document.getElementById("root");
-  loadHeader();
+  const cfgP = loadHeader();
 
   const S = { proj: null, ver: 0, sel: null, pending: [], progress: null, seekAfterLoad: 0 };
 
   function fail(msg) { root.replaceChildren(h("div", { class: "card" }, h("h1", {}, "Not available"), h("p", { class: "sub" }, msg), h("a", { class: "btn", href: "/" }, "Home"))); }
 
   async function boot() {
+    await cfgP;
     let p;
     try { p = await api(`/api/projects/${encodeURIComponent(pid)}`); } catch (e) { return fail(e.status === 404 ? "No such project. Uploads are kept only on the machine that ran them." : e.message); }
     S.proj = p;
@@ -26,6 +27,7 @@
   }
 
   // ---------------------------------------------------------------- results
+  const TXT = () => (window.ETHO_CFG && window.ETHO_CFG.text) || { tile_title: "", tile_value: "", tile_sub: "" };
   const P = () => S.proj;
   const V = () => P().versions[S.ver];
   const names = () => P().behaviors.names;
@@ -44,7 +46,7 @@
   function header() {
     const p = P();
     return h("div", { class: "card" },
-      h("div", {}, h("span", { class: "badge" }, p.kind === "showcase" ? "showcase (public data)" : "your upload")),
+      h("div", {}, h("span", { class: "badge" }, p.kind === "showcase" ? "showcase (public data)" : p.kind === "showcase_copy" ? "your copy of a showcase" : "your upload")),
       h("h1", {}, p.title),
       h("div", { class: "sub" }, `${p.video.name || ""}  ${fmt.time(p.video.duration_s)}, ${p.video.width}x${p.video.height}, scored at ${p.fps} fps. Subject: ${p.subject}. Partner: ${p.partner}.`),
       p.description ? h("div", { class: "sub" }, p.description) : null,
@@ -65,8 +67,8 @@
         h("div", { class: "s" }, `${fmt.usd(c.total_usd / Math.max(mins, 1e-9))} per video-minute` + (c.estimated ? " (list-price estimate)" : c.ledger_usd !== null ? " (matches the gateway ledger)" : ""))),
       h("div", { class: "tile" }, h("div", { class: "k" }, "Bouts scored"), h("div", { class: "v" }, String(bouts)),
         h("div", { class: "s" }, `${names().length} behaviors, ${S.ver ? "revision " + S.ver : "original rules"}`)),
-      h("div", { class: "tile" }, h("div", { class: "k" }, "Labeled training frames"), h("div", { class: "v" }, "0"),
-        h("div", { class: "s" }, "Definitions in English only; corrections below are optional")));
+      h("div", { class: "tile" }, h("div", { class: "k" }, TXT().tile_title), h("div", { class: "v" }, TXT().tile_value),
+        h("div", { class: "s" }, TXT().tile_sub)));
   }
 
   // ---- player + ethogram
@@ -211,12 +213,13 @@
       try {
         const r = await api(`/api/projects/${encodeURIComponent(pid)}/revise`, { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ corrections: S.pending.map(({ text, ...c }) => c) }) });
+        if (r.project_id !== pid) { location.href = `/p/${r.project_id}`; return; }   // showcase: continue in your own copy
         S.pending = []; drawPending(); drawEtho();
         watchRevision(r.job_id);
       } catch (e) { err.textContent = e.message; btn.disabled = false; }
     } }, "Revise rules");
     return h("div", {}, h("div", { class: "row" }, h("div", { class: "fit" }, btn),
-      h("div", { class: "sub" }, `Calls Muse Spark (effort high) once per affected behavior, then the tier-1 check on the new windows. Costs are shown live.`)), err);
+      h("div", { class: "sub" }, `Calls Muse Spark (effort high) once per affected behavior, then the tier-1 check on the new windows. Costs are shown live.${P().kind === "showcase" ? " Revising a showcase makes your own private copy first; the showcase itself never changes." : ""}`)), err);
   }
 
   function watchRevision(jobId) {

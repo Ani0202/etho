@@ -25,6 +25,7 @@ class VideoInfo:
     fps: float
     codec: str
     size_bytes: int
+    frames: int = 0
 
     def as_dict(self) -> dict:
         return vars(self)
@@ -46,11 +47,26 @@ def _fraction(s: str) -> float:
         return 0.0
 
 
+# Demuxer forced by file extension (so a playlist or concat script in a ".mp4" is parsed as MP4 and fails),
+# and the container names ffprobe may report back. Only the local file protocol is allowed.
+DEMUXER = {".mp4": "mov,mp4,m4a,3gp,3g2,mj2", ".mov": "mov,mp4,m4a,3gp,3g2,mj2", ".avi": "avi"}
+FORMATS = {".mp4": {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"}, ".mov": {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"},
+           ".avi": {"avi"}}
+MAX_SRC_FPS = 125.0
+_HARDEN = ["-protocol_whitelist", "file"]
+
+
 def probe(path: Path) -> VideoInfo:
-    """ffprobe the file; raises ValidationError if it is not a decodable video."""
+    """ffprobe the file (forced demuxer, file protocol only); raises ValidationError if it is not a decodable
+    video. Duration is the largest of the container duration, the stream duration and decoded-frame-count / fps,
+    and packets are actually counted, so a container that lies about its length cannot slip under the limit."""
+    ext = path.suffix.lower()
+    if ext not in DEMUXER:
+        raise ValidationError(f"unsupported file type {ext or '(none)'}", 415, "bad_type")
     try:
-        out = subprocess.run(["ffprobe", "-v", "error", "-print_format", "json", "-show_streams", "-show_format",
-                              str(path)], capture_output=True, text=True, timeout=30)
+        out = subprocess.run(["ffprobe", "-v", "error", *_HARDEN, "-f", DEMUXER[ext], "-count_packets",
+                              "-print_format", "json", "-show_streams", "-show_format", str(path)],
+                             capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         raise ValidationError(f"could not inspect the video ({type(e).__name__})", 400, "probe_failed") from e
     if out.returncode != 0:
@@ -59,23 +75,33 @@ def probe(path: Path) -> VideoInfo:
         info = json.loads(out.stdout)
     except json.JSONDecodeError as e:
         raise ValidationError("file is not a readable video", 400, "unreadable") from e
+    names = set(str(info.get("format", {}).get("format_name", "")).split(","))
+    if not names & FORMATS[ext]:
+        raise ValidationError(f"container {sorted(names)} does not match a {ext} file", 400, "bad_container")
     vs = [s for s in info.get("streams", []) if s.get("codec_type") == "video"]
     if not vs:
         raise ValidationError("no video stream found", 400, "no_video")
     v = vs[0]
-    dur = None
+    fps = _fraction(v.get("avg_frame_rate") or v.get("r_frame_rate") or "0")
+    try:
+        frames = int(v.get("nb_read_packets") or 0)
+    except (TypeError, ValueError):
+        frames = 0
+    cands = []
     for src in (info.get("format", {}).get("duration"), v.get("duration")):
         try:
             if src is not None and float(src) > 0:
-                dur = float(src)
-                break
+                cands.append(float(src))
         except (TypeError, ValueError):
             continue
-    if dur is None:
+    if fps > MAX_SRC_FPS:
+        raise ValidationError(f"frame rate {fps:.0f} fps is not supported", 400, "bad_fps")
+    if frames and fps > 0:
+        cands.append(frames / fps)
+    if not cands:
         raise ValidationError("could not determine the video duration", 400, "no_duration")
-    return VideoInfo(dur, int(v.get("width") or 0), int(v.get("height") or 0),
-                     _fraction(v.get("avg_frame_rate") or v.get("r_frame_rate") or "0"),
-                     str(v.get("codec_name", "")), path.stat().st_size)
+    return VideoInfo(max(cands), int(v.get("width") or 0), int(v.get("height") or 0), fps,
+                     str(v.get("codec_name", "")), path.stat().st_size, frames)
 
 
 def check_video(path: Path, cfg: AppConfig) -> VideoInfo:
@@ -83,9 +109,32 @@ def check_video(path: Path, cfg: AppConfig) -> VideoInfo:
     if info.duration_s > cfg.max_duration_s:
         raise ValidationError(f"video is {info.duration_s:.0f} s long; the limit is {cfg.max_duration_s:.0f} s",
                               413, "too_long")
+    if info.frames > cfg.max_duration_s * MAX_SRC_FPS:
+        raise ValidationError(f"video has {info.frames} frames; the limit is {cfg.max_duration_s * MAX_SRC_FPS:.0f}",
+                              413, "too_long")
     if info.width < 64 or info.height < 64 or info.width * info.height > 4096 * 4096:
         raise ValidationError(f"unsupported frame size {info.width}x{info.height}", 400, "bad_size")
     return info
+
+
+def remux_clean(src: Path, dst: Path, cfg: AppConfig, *, fps: int = 10, timeout_s: float = 600.0) -> None:
+    """Re-encode the upload to a clean H.264 mp4 at `fps` before it reaches the pipeline (whose own ffmpeg calls
+    are not hardened): same forced demuxer and file-only protocol, first video stream only, no audio, data or
+    subtitle streams, and cut at the duration limit. The result is also what the pipeline's chunking sees, so
+    chunk count and cost are bounded by the limit, not by the container's claims."""
+    ext = src.suffix.lower()
+    tmp = dst.with_name(dst.stem + ".part.mp4")
+    try:
+        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", *_HARDEN, "-f", DEMUXER[ext], "-i", str(src),
+                        "-t", f"{cfg.max_duration_s + 1:g}", "-map", "0:v:0", "-an", "-sn", "-dn", "-vf", f"fps={fps}",
+                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                        "-movflags", "+faststart", "-f", "mp4", str(tmp)],
+                       check=True, capture_output=True, timeout=timeout_s, stdin=subprocess.DEVNULL)
+        tmp.replace(dst)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        raise ValidationError("could not re-encode the video", 400, "remux_failed") from e
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")

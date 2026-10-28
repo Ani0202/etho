@@ -11,6 +11,7 @@ One worker thread takes jobs in submission order; jobs wait in the queue, they n
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 import time
 import uuid
@@ -23,7 +24,7 @@ from etho.gateway import Gateway
 from .backend import Backend, Ctx, StageSkipped
 from .config import AppConfig
 from .guards import Refused, SpendGuard
-from .jobgw import AppLedger, JobGateway
+from .jobgw import AppLedger, JobBudgetExceeded, JobCancelled, JobGateway
 from .store import read_json, resolve_project, write_json
 
 ANALYZE_STAGES = ("validate", "plan", "track", "synthesize", "predict", "tier1", "report", "overlay")
@@ -123,8 +124,7 @@ class JobManager:
     def load_existing(self) -> None:
         """Re-read persisted jobs. Anything that was queued or running when the process died is marked
         failed: restarting never silently resumes (and re-spends)."""
-        paths = list(self.cfg.jobs_dir.glob("*/job.json")) + list(self.cfg.jobs_dir.glob("*/revisions/*/job.json")) \
-            + list(self.cfg.showcase_state_dir.glob("*/revisions/*/job.json"))
+        paths = list(self.cfg.jobs_dir.glob("*/job.json")) + list(self.cfg.jobs_dir.glob("*/revisions/*/job.json"))
         for p in paths:
             d = read_json(p)
             if not d:
@@ -137,6 +137,34 @@ class JobManager:
                         s.status = "failed" if s.status == "running" else "pending"
                 self._persist(j)
             self.jobs[j.id] = j
+
+    def queue_len(self) -> int:
+        with self._cv:
+            return len(self._queue)
+
+    def cleanup(self, now: float | None = None) -> list[str]:
+        """Delete project dirs (uploads, tracks, overlays, revisions) untouched for `retention_hours`, unless a
+        job for them is queued or running. Returns the removed ids."""
+        import time as _t
+        now = now or _t.time()
+        limit = self.cfg.retention_hours * 3600
+        removed = []
+        if not self.cfg.jobs_dir.exists():
+            return removed
+        with self._cv:
+            busy = {j.project_id for j in self.jobs.values() if j.status in ("queued", "running")}
+        for d in self.cfg.jobs_dir.iterdir():
+            if not d.is_dir() or d.name in busy:
+                continue
+            newest = max((p.stat().st_mtime for p in d.rglob("*") if not p.is_symlink()), default=0.0)
+            newest = max(newest, d.stat().st_mtime)
+            if now - newest > limit:
+                shutil.rmtree(d, ignore_errors=True)
+                removed.append(d.name)
+        with self._cv:
+            for jid in [k for k, j in self.jobs.items() if j.project_id in removed]:
+                del self.jobs[jid]
+        return removed
 
     # ---- submission -----------------------------------------------------------------------
     def outstanding_usd(self) -> float:
@@ -266,8 +294,12 @@ class JobManager:
             self._gw = self._gateway_factory()
         outdir = project.base if job.kind == "analyze" else job.dir
         outdir.mkdir(parents=True, exist_ok=True)
+        # Per-job ceiling: twice the estimate (at least +$0.50), and never more than today's headroom.
+        others = self.outstanding_usd() - max(0.0, job.est_cost_usd - self.job_cost(job))
+        ceiling = min(max(2 * job.est_cost_usd, job.est_cost_usd + 0.5), self.guard.remaining(others))
         gw = JobGateway(self._gw, job_id=job.id, tag=self.cfg.tag, calls_path=outdir / "calls.jsonl",
-                        on_cost=lambda _c: self.touch(job))
+                        on_cost=lambda _c: self.touch(job), max_cost_usd=ceiling,
+                        cancelled=lambda: job.cancel_requested)
         job.gw = gw
         version = 0 if job.kind == "analyze" else int(job.rev)
         ctx = Ctx(self.cfg, project, job, gw, outdir, version, public_data=project.public_data,
@@ -283,7 +315,6 @@ class JobManager:
         ctx.say = say
         self.backend.prepare(ctx)
         # The cap was checked at submission; check again now that the job actually starts (jobs queue).
-        others = self.outstanding_usd() - max(0.0, job.est_cost_usd - self.job_cost(job))
         try:
             self.guard.check(job.est_cost_usd, others)
         except Refused as e:
@@ -302,6 +333,14 @@ class JobManager:
                 st.status = "done"
             except StageSkipped as e:
                 st.status, st.message = "skipped", str(e)
+            except JobCancelled:
+                st.status, st.message = "failed", "cancelled"
+                job.outcome, job.message = "cancelled", "cancelled"
+                return
+            except JobBudgetExceeded as e:
+                st.status, st.message = "failed", str(e)
+                job.outcome, job.error = "failed", f"{st.name}: {e}"
+                return
             except Exception as e:
                 st.status = "failed"
                 job.outcome, job.error = "failed", f"{st.name}: {type(e).__name__}: {e}"[:600]

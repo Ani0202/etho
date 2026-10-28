@@ -25,6 +25,14 @@ JOB_PREFIX = "job:"
 MAX_TEXT = 6000
 
 
+class JobBudgetExceeded(Exception):
+    """The job reached its own spend ceiling; no further model call is made."""
+
+
+class JobCancelled(Exception):
+    """The user cancelled the job; no further model call is made."""
+
+
 def caller_for(job_id: str, caller: str) -> str:
     return f"{JOB_PREFIX}{job_id}|{caller}"
 
@@ -75,8 +83,10 @@ class JobGateway:
     """Drop-in for `Gateway` as far as the pipeline modules use it (chat, sam, responses, upload_file)."""
 
     def __init__(self, gw: Gateway, *, job_id: str, tag: str, calls_path: Path | None = None,
-                 on_cost=None):
+                 on_cost=None, max_cost_usd: float | None = None, cancelled=None):
         self._gw, self.job_id, self.tag = gw, job_id, tag
+        self.max_cost_usd = max_cost_usd      # per-job ceiling, checked before every call
+        self._cancelled = cancelled
         self.stage = "init"
         self.stage_cost: dict[str, float] = defaultdict(float)
         self.total_cost = 0.0
@@ -86,6 +96,13 @@ class JobGateway:
         self._on_cost = on_cost
 
     # -- helpers -----------------------------------------------------------------------
+    def _guard(self) -> None:
+        if self._cancelled and self._cancelled():
+            raise JobCancelled("cancelled by the user")
+        if self.max_cost_usd is not None and self.total_cost >= self.max_cost_usd:
+            raise JobBudgetExceeded(f"this job reached its spend ceiling of ${self.max_cost_usd:.2f} "
+                                    f"(spent ${self.total_cost:.2f}); no further model calls")
+
     def _caller(self, caller: str | None) -> str:
         if caller is None:
             caller = "unknown"
@@ -114,6 +131,7 @@ class JobGateway:
     # -- gateway surface ---------------------------------------------------------------
     def chat(self, provider: str, model: str, messages: list[dict], *, effort: str, tag: str | None = None,
              caller: str | None = None, **kw):
+        self._guard()
         caller = self._caller(caller)
         stage = self.stage
         res = self._gw.chat(provider, model, messages, effort=effort, tag=self.tag, caller=caller, **kw)
@@ -125,6 +143,7 @@ class JobGateway:
         return res
 
     def responses(self, model: str, input, *, effort: str, tag: str | None = None, caller: str | None = None, **kw):
+        self._guard()
         caller = self._caller(caller)
         stage = self.stage
         res = self._gw.responses(model, input, effort=effort, tag=self.tag, caller=caller, **kw)
@@ -134,6 +153,7 @@ class JobGateway:
         return res
 
     def sam(self, phrase: str, *, tag: str | None = None, caller: str | None = None, **kw):
+        self._guard()
         caller = self._caller(caller)
         stage = self.stage
         res = self._gw.sam(phrase, tag=self.tag, caller=caller, **kw)
@@ -144,6 +164,7 @@ class JobGateway:
         return res
 
     def upload_file(self, path, *, tag: str | None = None, caller: str | None = None, **kw):
+        self._guard()
         return self._gw.upload_file(path, tag=self.tag, caller=self._caller(caller), **kw)
 
 

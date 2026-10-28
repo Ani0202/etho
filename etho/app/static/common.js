@@ -93,6 +93,11 @@ async function loadHeader() {
     const c = await api("/api/config");
     const el = document.getElementById("spend");
     if (el) el.textContent = `app spend today ${fmt.usd(c.cap.spent_today_usd)} of ${fmt.usd(c.cap.cap_usd)}`;
+    const t = document.getElementById("tag");
+    if (t) t.textContent = c.text.tagline;
+    const t2 = document.getElementById("tagline");
+    if (t2) t2.textContent = c.text.tagline;
+    window.ETHO_CFG = c;
     return c;
   } catch (e) { return null; }
 }
