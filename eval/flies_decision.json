@@ -59,5 +59,42 @@
   "path": "configs/frozen_flies_v1.json",
   "sha256": "0cbd1152660be0dbba87218fae618515526547135312157e6dcde4ca1749c30a"
  },
- "criteria_sha256": "ddcb52a900cd80f947af2850fa51803f1691d4c664c3cc61985a5e1e768ee0e2"
+ "criteria_sha256": "ddcb52a900cd80f947af2850fa51803f1691d4c664c3cc61985a5e1e768ee0e2",
+ "wing": {
+  "run_id": "flies-train-20261028T205010Z-fdba57",
+  "decision": "NO-GO",
+  "verdict": {
+   "before_deadline": true,
+   "branch": "GO",
+   "decision": "NO-GO",
+   "evidence": {
+    "gt_bouts_observable": 19,
+    "min_gt_bouts": 15,
+    "min_movies_with_behavior": 3,
+    "movies_with_behavior": 3,
+    "sufficient": true
+   },
+   "frame_f1": {
+    "ci_informative": true,
+    "ci_lower": 0.009289031797070382,
+    "ci_lower_bar": 0.043299061443003384,
+    "ci_undefined_frac": 0.0002,
+    "pass": false,
+    "point": 0.5841981921660528,
+    "point_bar": 0.4,
+    "reference": 0.043299061443003384
+   },
+   "scored_at_utc": "2026-10-28T20:50:12+00:00",
+   "setup_ok": true
+  },
+  "predictions_sha256": "7436f6056eade47d548a9c3cbec116e2b893480badd1d8a8dc870bb5a3b7be11",
+  "frozen_config": {
+   "path": "configs/frozen_flies_v1.json",
+   "sha256": "0cbd1152660be0dbba87218fae618515526547135312157e6dcde4ca1749c30a"
+  },
+  "criteria_sha256": "ddcb52a900cd80f947af2850fa51803f1691d4c664c3cc61985a5e1e768ee0e2",
+  "git_commit": "d669b8749a172b26c1804222e16a6c1a5396390d",
+  "decided_utc": "2026-10-28T20:50:32+00:00"
+ },
+ "test_allowed": false
 }
