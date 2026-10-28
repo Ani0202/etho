@@ -250,6 +250,6 @@ exported arrays stay uncommitted in gitignored `data/demo/` unless you want them
    products, why Meta's models, Meta feedback, partner feedback: Fireworks, Modal, Baseten). Drafts are in
    docs/SUBMISSION.md for Aniket to edit. Aniket does the hosting sudo steps (read-only) and section 7 checks.
 3. **Accuracy is final:** no test-2, no further CalMS21 tuning.
-4. **ADR-005** (pre-freeze additions: "Ask your experiment", live-product polish, other): recommend one, get
+4. **ADR-005** (pre-freeze additions: "Ask your experiment", live-product polish, other): written; recommendation (b)+(c1)+(c2), ~$1.5 dev; recommend one, get
    approval, don't start before approval. OPEN.
 5. Send the full v3 voice-over script. Sent.

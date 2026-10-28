@@ -283,7 +283,81 @@ Otherwise the fly segment is labeled **"qualitative"**, with no F1 on screen.
 before any gate run.
 
 **Reverse:** only by Aniket.
+
+## ADR-005 (2026-10-28): What to build between now and the Nov 2 freeze. PROPOSED, awaiting Aniket's approval; no work starts before approval.
+**Context.** Accuracy is final: test-1 zs_t1 macro F1 0.580, no test-2, no more CalMS21 tuning, flies qualitative. Nothing here changes or re-claims a test number. It is Oct 28 ~18:10 ET. Freeze is Nov 2 EOD, rough cut Nov 2, recording Nov 3, internal submission target Nov 4 12:00 PM ET, official deadline 9:00 PM ET (SUBMISSION.md). Routine Codex reviews stop Nov 1, so anything touching the sandbox, scoring, spend or eval must merge by Oct 31. The 3:00 video is full: DEMO_PLAN v3 has ~6 s of slack. The hosted app is a primary judging artifact (ADR-003).
+**Found while reading (all verified this session).**
+- **No showcase is packaged.** `data/showcase/` does not exist, so the public read-only site would list nothing today. `make_showcase.py:86` asserts the CalMS21 trio, so a fly showcase can't be packaged as written.
+- **Precomputed showcases look thin.** The plan step is "skipped", speed is "n/a", and the audit says "prompts and responses were not captured" (`make_showcase.py:137,159-167`; `project.js:62-65`).
+- **The planner is buried.** Its steps (propose, per-phrase SAM image counts, 50-frame video probe) are stored (`data/app/jobs/je496f25acb6f/result.json`), but the UI shows them only as raw JSON inside the collapsed audit (`project.js:347`).
+- **The planner doesn't do what the architecture says.** It checks detection *counts*. Muse Spark never looks at an overlay, and there is no re-prompt: it tries its 3 proposals in order, then falls back (`planner.py:91-115`). The prompt itself suggests "mouse"/"fly" (`planner.py:35`).
+- **The video's error trace may not reproduce.** The traced error (mouse075, 37.5-43.5 s) comes from the T1 predictions. The live app re-encodes the clip and cuts its own chunks, so tier-1 strips are not cache hits. Whether the error shows up again in a live run is **unverified**.
+**Options.**
+- **(a) "Ask your experiment."** A plain-English question over a collection of scored videos. Muse Spark writes analysis code, the sandbox runs it, and the app shows a plot plus a test, with the code.
+  - *Sandbox (read, not executed):*
+    - The AST check bans all imports (`sandbox.py:257-258`). The namespace is np, math and the helpers, and the runner requires `detect`/`classify` returning one value per sample (`sandbox.py:103-110,334-336`).
+    - scipy is in `.venv` (pyproject dependency) and the venv is bind-mounted into bwrap (`sandbox.py:140-141,178-179`), so its files are present, but model code can't reach it. matplotlib is not installed.
+    - So: a separate `etho/analysis/` runner that reuses `_bwrap_argv`, `_read_output` and the AST rules with its own entry point `per_video(v) -> dict of named numeric values`. Leave `sandbox.py` HELPERS/RUNNER untouched, because HELPERS is prepended to every detector.
+    - The model writes only the per-video metric. The app runs a fixed, seeded numpy test (paired sign-flip or two-sample permutation, bootstrap CI) and renders the plot in JS from the returned arrays. The sandbox returns no images.
+  - *Data:* the 19 per-video zs_t1 ethograms (`data/runs/T1/zs_t1/*.npz`, present), Etho predictions only, no labels. CalMS21 has no experimental conditions, so honest questions are within-session only: first vs second half (habituation of investigation), latency to first attack, bout durations, investigation→attack transitions. Attack occurs in only 5 videos (mouse075-079), which may share animals (test1_report:78), so attack questions have n ≤ 5. Questions that need conditions must come back as "this collection has no condition labels".
+  - *p-hacking optics:*
+    - the unit of analysis is the video;
+    - effect size and CI are shown before p;
+    - every question asked in a collection is listed, with Holm-adjusted p across them;
+    - the banner reads "demonstration on benchmark data, Etho labels (0.58 macro F1), not a scientific finding".
+  - *Cost (estimate, unmeasured):* 4-6k tokens in, 4-10k out at effort high.
+    - Standard ~$0.03-0.06 per question, ~$0.10 with one repair. Live judge questions are Standard (user text; `store.py:130-132` precedent) and count against the $3/day.
+    - Precomputed showcase questions use `-contributor` (public data), < $0.01 each.
+    - Dev prompt testing ≤ $2 from `dev` ($11.99 left).
+  - *Time:* ~12-14 h (runner, tests, collection builder, route plus estimate plus job ceiling, JS plot, prompt, review fixes). It touches the sandbox and a new spend route, so Codex review is needed by Oct 31.
+  - *Risk:* moderate. The new POST is closed by default (`server.py:44-47,188-191`), but it needs its own estimate and ceiling, and it queues behind a 5-min upload on the single worker. Frozen detectors are unaffected if `sandbox.py` is left alone.
+  - *Video:* needs ~15 s. Either replace the correction beat (1:45-2:00), which drops a headline feature from the video and is Aniket's call, or cut the fly beat to ~5 s (2:30-2:35) and use the 6 s of slack.
+- **(b) Live-product polish and a rehearsed judge path.**
+  - *Package showcases ($0, from disk):* mouse075 from T1 (tracking, zs_t1 and zs_rules preds present) and a dev video. Generalize `make_showcase.py` for the fly clip (~1 h).
+  - *Rehearsal run:* one real app run of mouse075 0-300 s on `dev`, ~$0.93 (scaled from the measured $0.7456 per 240 s). It doubles as the dress rehearsal for the 0:35-1:05 beat and shows whether the 1:20-1:45 error reproduces. Package it as the main showcase, so judges see real stage timings, plan steps, prompts and per-call costs instead of "n/a".
+  - *Judge path:* a "start here" card on the home page, plan and audit sections easier to find, and empty and loading states.
+  - *Time:* ~5-6 h. Frontend, `scripts/` and `data/showcase` only, so the reviewer subagent is enough and no Codex review is needed.
+  - *Risk:* low. `data/showcase` must exist before the service starts (HOSTING.md:266).
+  - *Video:* no cut. The same footage gets better in 0:35-1:05 and 2:45-3:00 ("live at the link").
+- **(c1) Show the perception planner.** A card showing the 4 sampled frames, the proposed phrases, each phrase's SAM image result with mask outlines, and the video-probe pass/fail.
+  - *Change:* `planner.py` gets an additive `save_dir` argument (planner.py isn't run on test, and the fly runs are finished). ~3 h with tests. Send it for routine review by Oct 31 as perception-adjacent.
+  - *Cost:* $0 on mouse075, since it rides on the (b) run. One fly planner run is ~$0.03 (`-contributor`, CC0).
+  - *Payoff:* if its alternates include "fruit fly", the card shows "fly" failing SAM's video probe and "fruit fly" passing. That is the README's "generic noun" lesson, live, and the clearest "creative use of Meta tools" moment we have. Whether the alternates include "fruit fly" is **unverified**.
+  - *Honesty:* say "SAM checks each phrase", not "Muse Spark inspects the overlay", and disclose that the prompt hints at generic nouns.
+  - *Video:* ~3 s under the existing line "Muse Spark picks what to track" (0:35-1:05), or behind the fly beat. No words added, nothing cut.
+- **(c2) Sample clip for judges.** A download link to a 60 s public CalMS21 *dev* clip that a judge uploads with the access code.
+  - *Run cost:* each run is $0.23-0.36 (measured, ADR-003) and takes ~90 s, since a 60 s clip runs at ~1.5x real time (chunk-length line). That is ~8 runs per day under $3.
+  - *Build:* ~0.5 h, with no new spend route.
+  - *Video:* none.
+- **(c3) Rejected: app-only fix for discarded tier-1 verdicts.** At low effort, tier-1 attack and mount verdicts were 21-26% right on dev (log line ~126), so the fix would mostly add errors. The app would also diverge from the frozen config behind the test numbers. It needs dev spend plus Codex review, and it would erase the video's most honest beat (1:20-1:45).
+- **(c4) Rejected: tier-2 video in the app.** It gave +0.005 dev F1 for $2.30, adds Baseten latency against the ~1x speed line, and the README already says it isn't used.
+**Choice (recommended): (b) + (c1) + (c2) as one bundle.**
+- *Cost:* ~$1.5 from `dev` (rehearsal ~$0.93, fly planner ~$0.03, two sample-clip checks).
+- *Time:* ~9-10 h implementer time, merged by Oct 31 so the Nov 2 rough cut uses it.
+- *Why:*
+  - It fixes a real gap in a judged artifact: an empty public showcase.
+  - It de-risks two video beats (the live run and the traced error) before the rough cut.
+  - It makes Meta's models visibly do agentic work without cutting a second of the video.
+  - It changes no scoring code, spend route or eval path.
+- *Not (a):* it is a new headline feature (Aniket's call). It changes the sandbox and adds a spend route under an Oct 31 review deadline, costs a 15 s beat, and on CalMS21 it can only ask within-session questions of 0.58-F1 labels.
+- *If Aniket wants (a) anyway:* build it precomputed-only, with 3 fixed questions on the 19-video collection using `-contributor` (< $0.05), the app-side test, and no live question box. If it isn't merged by Oct 31, it is dropped.
+**Evidence.** File:line references above were read this session. Showcase absence and on-disk T1 files were checked by glob. The rehearsal, (a) per-question and fly-planner costs are estimates. Whether the traced error reproduces and what the fly planner proposes are unverified.
+**Risks.**
+- *Rules:* none. Showcases use public data (CalMS21 CC BY, flies CC0) and stay gitignored.
+- *Budget:* ≤ $1.6 from `dev`, with no tag moves. (a) live adds Standard calls inside the existing $3/day.
+- *Integrity:* none, because the app reads no labels. If (a) is ever validated against human labels, that is evaluator-owned, eval/-only, and needs its own ADR.
+**Reverse.**
+- Delete `data/showcase/<name>` (or restore the prior dir).
+- Revert the static/ commits.
+- Remove the planner's `save_dir` argument. It's additive, and old plans still render.
+- Remove the sample link.
+- No migration and no frozen file touched.
+**Codex view:** not requested (routine budget). Optional `bin/codex-ask` before Oct 31.
+**Approval needed from Aniket:**
+1. The (b)+(c1)+(c2) bundle and ~$1.5 from `dev`?
+2. Do you want "Ask your experiment" at all? If yes: precomputed-only, and which beat it replaces (the correction loop, or most of the fly beat)?
 - 2026-10-28: (Aniket, Official Rules excerpt) The submission deadline is **Nov 4 12:00 PM ET**, with no late submissions. This replaces the 9:00 PM ET in CLAUDE.md. Hosting is required and must stay up through Nov 9. The video is hard-limited to 3:00 and must show code built during the event. The checklist is docs/SUBMISSION.md and the demo plan is v3.
+- 2026-10-28: (Aniket, ~18:05 ET correction to the line above) The official deadline is **Nov 4, 9:00 PM ET**; 12:00 PM ET is our internal target and stays there. CLAUDE.md already said this; SUBMISSION.md, DEMO_PLAN.md and STATE.md are fixed. Accuracy is final (no test-2, no more CalMS21 tuning). Aniket is confirming the time zone.
 - 2026-10-28: ADR-003 review fixes and hosting additions (same branch). (1) A wrong access code is throttled and delayed, the right one is never refused (a 24-char code has ~140 bits; a lockout only let a guesser deny real visitors); (2) an unreadable ledger row closes the caps (counted as $1e6) instead of being skipped, and the offset moves only after a chunk is processed; (3) the public instance counts only rows with caller prefix `pub:job:`, so the lead's localhost recording on `demo-reserve` does not use the public $3/$20; (4) public per-job ceiling is max(1.5x estimate, estimate + $0.25) so two 120 s jobs fit under $3/day (measured cost is 0.4-0.6 of the estimate); (5) the app has its own chunk dir in both modes and retention deletes only chunk dirs cut from a project's own video; (6) showcase revisions on a public deployment use Standard models; (7) ffprobe/ffmpeg on uploads run under bwrap; (8) /api/health shows visitors only the mode and the budget; (9) a systemd health watchdog and an external uptime check (public DNS, so the check does not stop at the tailnet) were added; the optional stop timer is Nov 11 00:05 ET.
 - 2026-10-28: The ledger and public visitors. Once the public app is live (Nov 3+), its rows carry `pub:job:<id>`, and the job id is a capability link to that visitor's project for 24 h. So `ops/spend.jsonl` is not committed with any `pub:job:` row in it. From go-live, ledger commits use a redacted copy (pub rows replaced by daily totals), or the ledger is untracked before the repo goes public. The pre-submission audit checks this.
 - 2026-10-28: ADR-002 fly path, pre-gate review fixes (same branch; no gate run, no tracking, no model call).
