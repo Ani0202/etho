@@ -1073,7 +1073,7 @@ Adds a new, separate protocol. It changes no CalMS21 item: no metric, split, tar
 accounting in sections 1-13. Fly test runs are logged with `split: "flies-test"`, so `eval/common.py`'s CalMS21
 test-run accounting never counts them, and the reverse holds too.
 
-### A3 (2026-10-28, ~18:10 UTC): CalMS21 test-2 decision: no test-2 (lifts the per-sequence seal)
+### A3 (2026-10-28, ~17:57 UTC): CalMS21 test-2 decision: no test-2 (lifts the per-sequence seal)
 Under section 7.4, this is the committed test-2 decision for CalMS21. **There will be no test-2.**
 - **Reason 1, owner instruction.** Aniket wrote "never re-score test" (`docs/ESCALATIONS.md`, "Answers from
   Aniket (2026-10-28, ~13:50 ET)", item 3).
@@ -1089,6 +1089,14 @@ Under section 7.4, this is the committed test-2 decision for CalMS21. **There wi
 - **How the per-sequence results may be used.** They may be reported, and used to choose a demo clip, which is
   presentation and not a result. They may not be used to change any pipeline setting that is then described as
   evaluated on test.
+- **Descriptive analysis after the decision** (added ~18:05 UTC, before any such analysis ran). With no test-2,
+  a label-reading analysis of test-1's *existing* predictions is allowed. It makes no new predictions and
+  changes nothing in the pipeline. An example is choosing the demo clip and counting its bouts with
+  `eval/demo_clip.py`. Such an analysis:
+  - is logged in `runs.jsonl` (kind `analysis`; a purpose other than `test-1` or `test-2`, so the test-run
+    accounting is unaffected);
+  - is labeled presentation or exploratory;
+  - is never reported as a test result.
 - This amendment changes no metric, target, split, frozen config, or reported test number.
 
 ## 14. Second species: Fly vs. Fly (Aggression)
