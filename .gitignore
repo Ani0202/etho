@@ -14,3 +14,8 @@ ops/codex/*.patch
 ops/lead.started
 ops/lead.disabled
 ops/watchdog.log
+ops/inflight/
+ops/.spend.lock
+.ruff_cache/
+.pytest_cache/
+ops/codex/diff-*

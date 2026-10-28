@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Thin wrapper over etho.gateway (see etho/gateway/cli.py). Usage: bin/spend --help
+root=$(cd "$(dirname "$0")/.." && pwd)
+exec uv run --quiet --project "$root" python -m etho.gateway.cli spend "$@"

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(uv *)",
+      "Bash(pytest *)",
+      "Bash(make *)",
+      "Bash(git *)",
+      "Bash(ffmpeg *)",
+      "Bash(ffprobe *)",
+      "Bash(jq *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(bin/*)",
+      "Bash(./bin/*)",
+      "Bash(bin/codex-*)",
+      "Bash(./bin/codex-*)",
+      "Bash(codex exec *)"
+    ],
+    "deny": [
+      "Read(~/.config/etho/**)",
+      "Read(~/.codex/**)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git push * +*)",
+      "Bash(gh repo edit *)",
+      "Bash(gh repo create *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-bash.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
