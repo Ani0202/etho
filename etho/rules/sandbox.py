@@ -2,15 +2,21 @@
 
 The code may only define functions and use numpy (as `np`), math, and the helpers below. It is
 checked statically (no imports, no dunder access, no I/O or introspection builtins) and then
-executed in a separate `python -I` process with CPU, memory, and wall-clock limits.
+executed in a separate `python -I` process with CPU, memory, and wall-clock limits. When bubblewrap
+(`bwrap`) works, the child additionally runs in fresh namespaces with no network, a minimal read-only
+filesystem (interpreter, libraries, numpy), a private /tmp, and a cleared environment; see `isolation_mode()`.
 """
 
 from __future__ import annotations
 
 import ast
+import functools
 import json
+import os
+import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
 
@@ -101,6 +107,77 @@ class SandboxError(RuntimeError):
     pass
 
 
+_PATH_ENV = "/usr/bin:/bin"
+_IO = "/io"  # mount point of the input/output files inside the bwrap child
+
+
+def _py_roots() -> list[str]:
+    """Directories the child interpreter needs beyond /usr: the venv/prefix and numpy's install dir."""
+    roots = {sys.prefix, sys.base_prefix, sys.exec_prefix, sysconfig.get_paths()["purelib"],
+             sysconfig.get_paths()["platlib"], str(Path(np.__file__).resolve().parent.parent)}
+    out = []
+    for r in sorted(roots, key=len):
+        r = os.path.realpath(r)
+        if r == "/usr" or r.startswith("/usr/") or any(r == o or r.startswith(o + "/") for o in out):
+            continue
+        out.append(r)
+    return out
+
+
+def _bwrap_argv(workdir: Path, outdir: Path) -> list[str]:
+    """bwrap prefix: no network/pid/ipc/uts/cgroup, read-only minimal fs, private /tmp, empty environment.
+    Deliberately NOT mounted: the home directory (except the venv if it lives there), /etc secrets, the repo's ops/."""
+    a = [shutil.which("bwrap") or "/usr/bin/bwrap", "--unshare-all", "--die-with-parent", "--new-session",
+         "--clearenv", "--setenv", "PATH", _PATH_ENV, "--ro-bind", "/usr", "/usr"]
+    for top in ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32"):
+        if os.path.islink(top):
+            a += ["--symlink", os.readlink(top), top]
+        elif os.path.isdir(top):
+            a += ["--ro-bind", top, top]
+    for f in ("/etc/ld.so.cache", "/etc/ld.so.conf", "/etc/ld.so.conf.d"):
+        if os.path.exists(f):
+            a += ["--ro-bind", f, f]
+    for r in _py_roots():
+        a += ["--ro-bind", r, r]
+    a += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", _IO,
+          "--ro-bind", str(workdir / "t.npz"), f"{_IO}/t.npz", "--ro-bind", str(workdir / "code.py"), f"{_IO}/code.py",
+          "--ro-bind", str(workdir / "runner.py"), f"{_IO}/runner.py", "--bind", str(outdir), f"{_IO}/out",
+          "--chdir", f"{_IO}/out"]
+    return a
+
+
+@functools.lru_cache(maxsize=1)
+def _probe_bwrap() -> tuple[bool, str]:
+    """One-time self-probe (cached per process): can bwrap start the interpreter with numpy under our layout?"""
+    if not shutil.which("bwrap"):
+        return False, "bwrap not found"
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            for n in ("t.npz", "code.py", "runner.py"):
+                (d / n).write_text("")
+            (d / "out").mkdir()
+            p = subprocess.run(_bwrap_argv(d, d / "out") + [sys.executable, "-I", "-c", "import numpy; print(1)"],
+                               capture_output=True, text=True, timeout=20)
+        if p.returncode == 0 and p.stdout.strip() == "1":
+            return True, "ok"
+        return False, f"probe failed: {p.stderr.strip()[-300:]}"
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, f"probe error: {e}"
+
+
+def isolation_mode() -> str:
+    """"bwrap" if children run under bubblewrap, else "rlimit-only". ETHO_SANDBOX=bwrap|rlimit forces a mode
+    (forcing bwrap when it is unavailable raises SandboxError)."""
+    want = os.environ.get("ETHO_SANDBOX", "").strip().lower()
+    if want == "rlimit":
+        return "rlimit-only"
+    ok, why = _probe_bwrap()
+    if want == "bwrap" and not ok:
+        raise SandboxError(f"ETHO_SANDBOX=bwrap but bubblewrap is unusable: {why}")
+    return "bwrap" if ok else "rlimit-only"
+
+
 def check_source(code: str) -> None:
     try:
         tree = ast.parse(code)
@@ -132,24 +209,40 @@ def run_detector(code: str, table: dict[str, np.ndarray], fps: float, cpu_s: int
     """Execute `detect(t, fps)` in a sandboxed subprocess; returns a bool array of len n.
     With `labels=K`, the code is a joint `classify(t, fps)` returning ints in 0..K-1 (one label per sample)."""
     check_source(code)
-    n = len(next(iter(table.values())))
+    return _finish(_run_unchecked(code, table, fps, cpu_s, timeout_s), len(next(iter(table.values()))), labels)
+
+
+def _run_unchecked(code: str, table: dict[str, np.ndarray], fps: float, cpu_s: int = 30,
+                   timeout_s: float = 60.0, mode: str | None = None) -> np.ndarray:
+    """Run code in the child WITHOUT the AST check (used by tests to probe OS-level isolation).
+    `mode` overrides isolation_mode(): "bwrap" or "rlimit-only"."""
+    mode = mode or isolation_mode()
     with tempfile.TemporaryDirectory() as d:
         d = Path(d)
         np.savez(d / "t.npz", __fps__=np.float64(fps), **table)
         (d / "code.py").write_text(HELPERS + "\n" + code)
         (d / "runner.py").write_text(RUNNER)
+        (d / "out").mkdir()
+        if mode == "bwrap":
+            cmd = _bwrap_argv(d, d / "out") + [sys.executable, "-I", f"{_IO}/runner.py", f"{_IO}/t.npz",
+                                               f"{_IO}/code.py", str(cpu_s), f"{_IO}/out/out.npy"]
+        else:
+            cmd = [sys.executable, "-I", str(d / "runner.py"), str(d / "t.npz"), str(d / "code.py"),
+                   str(cpu_s), str(d / "out" / "out.npy")]
         try:
-            p = subprocess.run([sys.executable, "-I", str(d / "runner.py"), str(d / "t.npz"), str(d / "code.py"),
-                                str(cpu_s), str(d / "out.npy")], capture_output=True, text=True,
-                               timeout=timeout_s, cwd=d, env={"PATH": "/usr/bin:/bin"})
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, cwd=d,
+                               env={"PATH": _PATH_ENV})
         except subprocess.TimeoutExpired as e:
             raise SandboxError(f"detector timed out after {timeout_s}s") from e
         if p.returncode != 0:
             raise SandboxError("detector failed:\n" + p.stderr[-2000:])
         try:
-            out = np.load(d / "out.npy", allow_pickle=False)
+            return np.load(d / "out" / "out.npy", allow_pickle=False)
         except (OSError, ValueError) as e:
             raise SandboxError(f"detect() output unreadable: {e}") from e
+
+
+def _finish(out: np.ndarray, n: int, labels: int | None) -> np.ndarray:
     if out.shape != (n,):
         raise SandboxError(f"detect() must return one value per sample: got shape {out.shape}, need ({n},)")
     if labels is not None:
@@ -181,4 +274,4 @@ def describe(table: dict[str, np.ndarray]) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["run_detector", "check_source", "describe", "SandboxError", "HELPERS", json.__name__]
+__all__ = ["run_detector", "isolation_mode", "check_source", "describe", "SandboxError", "HELPERS", json.__name__]
