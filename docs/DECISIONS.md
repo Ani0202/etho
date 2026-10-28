@@ -132,3 +132,4 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
   - tier-1 medium effort: 0.471 dev, no gain;
   - tier-2 video on disagreements: +0.005 dev for $2.30.
 - 2026-10-28: Correction loop keeps a revision only if it handles more of the user's corrected windows AND shifts the detector's positive rate by <= 20% (2 feedback rounds, else keep the original). With 18 simulated corrections: holdout cascade 0.503 -> 0.563, but dev minus corrected windows 0.4995 -> 0.446. Mixed: report both, no robustness claim.
+- 2026-10-28: Test-run pre-flight passed ($0): scripts/test_run.py regenerated all four dev-holdout arms from configs/frozen_test_v1.json; predictions identical to the logged R1 arrays, and all 786 tier-1 windows were cache hits (prompt byte-identical). Planner is NOT run on test: the frozen phrase is "mouse".
