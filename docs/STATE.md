@@ -1,59 +1,47 @@
 # Etho state
 
-_Updated 2026-10-28 04:36 UTC (00:36 ET, Wed Oct 28). Phase 0 and Phase 1 are done; waiting on
-Aniket at the checkpoint._
+_Updated 2026-10-28 17:35 UTC (13:35 ET). Test run 1 is scored; Phase 2 continues._
 
-## Phase 2 status (updated 2026-10-28 09:25 UTC / 05:25 ET)
+## Status (updated 2026-10-28 17:35 UTC / 13:35 ET)
 
-### Done and measured (dev / dev-holdout, frame-level F1, CalMS21 definition)
-| Pipeline | dev macro | holdout macro | holdout attack / inv / mount |
-|---|---|---|---|
-| zero-shot rules (Muse Spark writes detectors from the MARS definitions) | 0.366 | 0.337 | .472 / .205 / .336 |
-| + tier-1 strips (Fireworks Open, low, restricted to investigation/none) | **0.482** | **0.503** | .563 / .515 / .429 |
-| + tier-2 video (Baseten Open, high, on disagreements) | 0.487 | not run | adds +0.005 for $2.30, so not used |
-| few-shot: + 18 simulated corrections (revision with self-check) + tier-1 | pending | **0.563** | .543 / .634 / .513 |
+### Test run 1: DONE, scored once (`eval/results/test1_report.md`, sections 1-10 plus corrections in section 11)
+| Arm | Macro F1 [95% CI] | Attack | Investigation | Mount |
+|---|---|---|---|---|
+| **zs_t1** (primary, training-free + tier-1) | **0.580** [0.493, 0.621] | 0.449 | 0.635 | 0.656 |
+| zs_rules | 0.375 | 0.324 | 0.240 | 0.561 |
+| fs_t1 (18 corrections simulated from dev labels) | 0.572 | 0.461 | 0.682 | 0.574 |
+| fs_rules | 0.424 | 0.338 | 0.426 | 0.508 |
 
-Random floor 0.139 (dev). Supervised CalMS21 baseline 0.793 (same metric; test split).
+- **Baselines:**
+  - 73.1% of the raw-pose 1D ConvNet baseline (.793; per class .664/.814/.900). Better published methods exist (.829 and .864).
+  - Frequency-matched random reference: 0.1345.
+- **Paired differences:**
+  - Tier-1 lift: +0.205, robust.
+  - fs_t1 vs zs_t1: inconclusive, so no accuracy claim for the correction loop.
+- **Identity error:** 0.29%. Coverage is 0.973, so the "good" level is not met.
+- **Speed including preprocessing:** 0.88x real time pooled, median 0.86x, max 1.54x. Preprocessing was measured
+  after the run; the "good" speed target is not met. Tier-1 is the bottleneck.
+- **Cost:** $11.25 per hour of video (model API at logged rates, excluding the planner).
+- **Spend:** Fireworks $19.80 for tier-1 (approved up to $25). The run crashed once on a timeout and was resumed
+  from cache; the decision is logged.
+- **Codex test-results gate (Astra):** done, `ops/codex/ask-20261028-165452-293961.md`. The accuracy result stands.
+  The corrections are applied in report section 11. The headline wording is escalated.
 
-Other results:
-- **Speed, uncached, end to end** (5-min video, chunk + SAM + decode + rules): 65 s = 0.22x real time.
-  Tier-1 adds about 0.2x on long videos (174 windows on a 7-min video in 97 s at 6 concurrent calls).
-- **Identity vs keypoints (dev):** error 0.19%; both mice labeled in 99.2% of samples.
-- **Mount occlusion:** once a track exists it survives the mount (spike test with preceding footage).
-- **Cost:** SAM $0.12/video-min; tier-1 about $0.07/video-min.
-- **Built:** a fast decoder (about 0.7 ms/mask, bit-exact) and a perception planner (Muse Spark proposes
-  phrases; SAM image check + 5 s video probe; under 4 cents per video).
-
-### Test run 1 (CalMS21, 19 videos)
-- **Frozen config:** `configs/frozen_test_v1.json`. The $0 pre-flight reproduced all dev-holdout arms exactly.
-- **EVAL_PLAN:** v1-final plus amendment A1 (from the Codex Astra eval-plan gate: no adaptive headline,
-  precise supervision wording, pre-label validation, freeze covers the product tree).
-- **SAM pass: DONE.** 19/19 tracked, $17.48 (pre-approved up to $20). Tracking was 0.21x real time
-  pooled (median 0.14x, max 0.82x). Rules arms zs_rules / fs_rules are written. **No labels read.**
-- **Blocked:** tier-1 arms (about $15 on Fireworks), waiting for Aniket's approval. Then run
-  `eval.score_arms --preflight-only`, then score.
-
-### Web app (merged, 13afead)
-- **What it does:** upload → plan → track → synthesize → predict → tier-1 → report → overlay. It has
-  live SSE progress, an ethogram synced to the overlay video, the correction loop, an audit trail, a daily
-  cap, a per-job ceiling, rate limits, and per-visitor showcase copies. Reviewed by Claude; all findings fixed.
-- **Live e2e:** a 60 s clip took 2.61x real time ($0.36). An implementer is cutting this to ≤ 1x (detector
-  cache seeded with the benchmark detectors, parallel synthesis, smaller chunks, overlapped stages).
-- **Deferred until after test tier-1:**
-  - sandbox isolation (bwrap) for model-written code;
-  - report wording ("zero labeled training frames" lives in the frozen etho/report).
+### Also done today
+- Rule sandbox OS isolation (bwrap) merged; 441 tests pass. Codex review queued (daily cap).
+- Live app: a fresh 4-min clip ran at 0.80x real time for $0.75. App chunks are fixed at 60 s.
+- Proposed: `docs/DEMO_PLAN.md`, and ADR-003 (public hosting) in DECISIONS.
 
 ### Next
-1. Test tier-1 + scoring, once approved.
-2. App speed fix, then the live re-test.
-3. Fly vs Fly, once ADR-002 is approved.
-4. Demo video plan.
-5. Sandbox hardening.
+1. Fly vs. Fly (ADR-002 approved). Its conditions are now met. If wing threat isn't clearly above the random
+   floor on train by end of Oct 31 ET, it becomes a qualitative clip.
+2. Report wording in `etho/report` (still says "zero labeled training frames"). Apply once Aniket decides on the headline.
+3. Oct 30 ET checkpoint report: dev and holdout per-behavior F1, speed, spend, and the Codex usage line.
+4. README: pair-level disclosure, dataset citations, "How this was built", and bwrap.
 
 ### Waiting on Aniket
-- tier-1 test spend;
-- headline wording (default to the precise wording at about 11:00 UTC);
-- ADR-002.
+- Headline wording after the gate (ESCALATIONS 17:20 UTC). Fallback at ~19:20 UTC: the recommended version.
+- DEMO_PLAN questions, and ADR-003 hosting approval.
 
 ## Day-by-day plan (ET)
 
