@@ -13,6 +13,7 @@ import inspect
 import json
 import mimetypes
 import random
+import re
 import sys
 import time
 import uuid
@@ -30,6 +31,8 @@ from .config import GatewayConfig
 from .errors import CapExceeded, PolicyError, ProviderError
 from .ledger import Ledger
 
+_FILE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 529}
 
 # Allowed reasoning-effort values per provider (CLAUDE.md "How to set effort"). `max` exists on
@@ -343,6 +346,39 @@ class Gateway:
             self.ledger.settle(None, {**row, "cache_hit": False})
             self.cache.put_json(key, data)
             return data["id"]
+
+    def delete_file(self, file_id: str, *, tag: str, caller: str | None = None,
+                    request_key: str | None = None) -> bool:
+        """Delete a file from the Meta Files API (`DELETE /v1/files/{file_id}`, free). True when the file is gone
+        (a 404 means it already was); False when it may still exist, recorded in the ledger row (`maybe_undeleted`)
+        for the caller to retry or list. Provider failures never raise. 5xx/429 are retried (deleting is idempotent);
+        an ambiguous transport failure is not retried. With `request_key` (the key of the `upload_file` cache entry,
+        in the ledger row's `request_key`), a successful delete also forgets that entry so a later upload of the same
+        bytes uploads again instead of reusing a dead id."""
+        caller = caller or _caller()
+        self._check_tag(tag)
+        if not _FILE_ID_RE.match(file_id or ""):
+            raise PolicyError(f"not a file id: {file_id!r}")
+        row = {"provider": "meta", "model": "files", "endpoint": "/files", "method": "DELETE", "tag": tag,
+               "caller": caller, "file_id": file_id, "units": {}, "cost_usd": 0.0, "cache_hit": False}
+        t0 = time.monotonic()
+        try:
+            self._request("meta", "files", "DELETE", f"/files/{file_id}")
+            gone, why = True, None
+        except ProviderError as e:
+            if e.status == 404:
+                gone, why = True, "already deleted (404)"
+            else:
+                gone, why = False, str(e)[:300]
+        row["latency_s"] = round(time.monotonic() - t0, 3)
+        if gone:
+            self.ledger.settle(None, {**row, "deleted": True, **({"note": why} if why else {})})
+            if request_key and _KEY_RE.match(request_key):
+                with self.cache.lock(request_key):
+                    self.cache.delete_json(request_key)
+        else:
+            self.ledger.settle(None, {**row, "deleted": False, "maybe_undeleted": True, "error": why})
+        return gone
 
     # ---- SAM 3.1 --------------------------------------------------------------------------
     def sam(self, phrase: str, *, tag: str, image: str | Path | None = None,

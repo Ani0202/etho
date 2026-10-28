@@ -29,6 +29,7 @@ from .backend import Backend, Ctx, StageSkipped
 from .config import AppConfig
 from .guards import Refused, SpendGuard
 from .jobgw import AppLedger, JobBudgetExceeded, JobCancelled, JobGateway
+from .metafiles import delete_job_files
 from .retention import project_created, purge_project
 from .store import read_json, resolve_project, write_json
 
@@ -136,6 +137,7 @@ class JobManager:
         self._tls = threading.local()          # the stage whose thread is calling `say`
         self._stop = False
         self._thread: threading.Thread | None = None
+        self._files_thread: threading.Thread | None = None
 
     # ---- lifecycle ------------------------------------------------------------------------
     def start(self) -> None:
@@ -193,13 +195,36 @@ class JobManager:
                 with self._cv:
                     ids = {j.id for j in self.jobs.values() if j.project_id == d.name} | {d.name}
                 ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
-                purge_project(self.cfg, self.ledger, d, sorted(ids))
+                purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway())
                 tuning.forget_under(d)
                 removed.append(d.name)
         with self._cv:
             for jid in [k for k, j in self.jobs.items() if j.project_id in removed]:
                 del self.jobs[jid]
         return removed
+
+    # ---- Meta Files API copies ------------------------------------------------------------
+    def _files_gateway(self):
+        """The gateway used to delete uploaded clips (None if it cannot be built; the ids are then recorded)."""
+        if self._gw is None:
+            try:
+                self._gw = self._gateway_factory()
+            except Exception:
+                return None
+        return self._gw
+
+    def delete_uploaded_files(self, job: Job) -> dict | None:
+        """Delete the Files API copies this job uploaded. Only for a deployment with its own gateway cache (the
+        cache entry holding the id is forgotten afterwards, which a shared cache must not lose). Idempotent."""
+        if not self.cfg.private_gateway_cache:
+            return None
+        gw = self._files_gateway()
+        if gw is None:
+            return None
+        try:
+            return delete_job_files(self.cfg, self.ledger, gw, [job.id], caller=f"job:{job.id}|etho.app.metafiles")
+        except Exception:
+            return None
 
     # ---- submission -----------------------------------------------------------------------
     def outstanding_usd(self) -> float:
@@ -343,6 +368,12 @@ class JobManager:
                 job.status = job.outcome or "failed"
                 self._persist(job)
                 self.touch(job)
+                t = getattr(self, "_files_thread", None)
+                if t is not None:
+                    t.join(timeout=60)
+                    self._files_thread = None
+                if job.kind == "analyze":
+                    self.delete_uploaded_files(job)       # a failed or cancelled job's uploads; no-op when done
 
     def _run(self, job: Job) -> None:
         project = resolve_project(self.cfg, job.project_id)
@@ -398,6 +429,10 @@ class JobManager:
                     failed = True
             if failed:
                 return
+            if any(st.name == "track" for st in group):    # the clips are no longer needed: delete them now
+                self._files_thread = threading.Thread(target=self.delete_uploaded_files, args=(job,),
+                                                      name="etho-delete-files", daemon=True)
+                self._files_thread.start()
         self.backend.finalize(ctx, ledger_cost=self.ledger.job_cost(job.id) or None)
         job.outcome = "done"
 

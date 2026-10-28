@@ -86,7 +86,7 @@ class AppConfig:
     chunk_min_s: int = 60   # = benchmark; 10 s and 30 s chunks lost coverage (DECISIONS 2026-10-28)
     chunk_max_s: int = 60
     # Fireworks calls in flight for tier 1 (the benchmark default is 6; 40 at once returned HTTP 429).
-    tier1_concurrency: int = field(default_factory=lambda: _env("ETHO_APP_TIER1_CONCURRENCY", 8, int))
+    tier1_concurrency: int = field(default_factory=lambda: _env("ETHO_APP_TIER1_CONCURRENCY", 16, int))
     synth_workers: int = 8                     # detector-writing calls in flight (at most one per behavior)
     # Per-day app spend cap (UTC day) and the pre-estimate used to refuse a job that would cross it. Rates are
     # measured costs with margin: SAM $0.002/s of video at 10 fps, tier-1 $0.0012/s (docs/STATE.md).

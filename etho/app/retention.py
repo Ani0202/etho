@@ -7,14 +7,14 @@ A periodic timer (`Retention`, not only startup or submit) removes, for every pr
      the Files API id), found through the `request_key` of the project's rows in the shared ledger. Only a private
      cache (`cfg.gateway_cache_root`, the public default) is touched: the shared repo cache also holds the
      benchmark's entries, which this app must never delete;
+  4. the Meta Files API copies of the SAM clips (`Gateway.delete_file`, `DELETE /v1/files/{id}`). They are normally
+     deleted right after tracking (metafiles.py); this pass retries what is left and lists only the ids it could not
+     delete in `<data>/meta_files_undeleted.jsonl` (ids only, no content).
 and, as a backstop for orphans (a crash between steps), sweeps the private gateway cache, the app's own chunk dir and
 the app's temp dir for anything older than the retention window.
 
 What this cannot delete, and says so:
-  * Meta Files API copies. The gateway has no delete call (its surface is chat, responses, sam and upload_file), so
-    the clip of the video that went to SAM stays on Meta's side under Meta's own retention. The file ids are
-    appended to `<data>/meta_files_undeleted.jsonl` (ids only, no content) so they can be deleted by hand or in a
-    later gateway change.
+  * A Files API copy whose delete failed (the list above), and anything Meta or Fireworks keep in their own logs.
   * Ledger rows in ops/spend.jsonl (job id, time, model, token counts, cost, SAM phrase, request hash). They hold no
     video, prompt or answer text and are the audit trail the spend caps are computed from.
   * Detector code in the detector cache: code written for a definition, containing no video or user data. The job id
@@ -35,6 +35,7 @@ from pathlib import Path
 
 from .config import AppConfig
 from .jobgw import AppLedger
+from .metafiles import delete_job_files, record_undeleted
 from .store import read_json, write_json
 
 log = logging.getLogger("etho.app.retention")
@@ -102,10 +103,11 @@ def _meta_file_id(root: Path, key: str) -> str | None:
         return None
 
 
-def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]) -> dict:
-    """Delete one project's chunk dirs and gateway-cache entries, then its directory. Order matters: the directory
-    goes last, so a crash in between leaves it (and the record of what to delete) for the next pass."""
-    rep = {"project": d.name, "cache_entries": 0, "chunk_dirs": 0, "meta_files_recorded": 0}
+def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str], gw=None) -> dict:
+    """Delete one project's Meta Files copies (when `gw` is a gateway), chunk dirs and gateway-cache entries, then
+    its directory. Order matters: the directory goes last, so a crash in between leaves it (and the record of what to
+    delete) for the next pass."""
+    rep = {"project": d.name, "cache_entries": 0, "chunk_dirs": 0, "meta_files_recorded": 0, "meta_files_deleted": 0}
     refs = read_json(d / CHUNK_REFS, {}) or {}
     chunk_root = cfg.chunk_cache_dir
     for c in refs.get("chunk_dirs", []):
@@ -121,15 +123,15 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
                 k = r.get("request_key")
                 if isinstance(k, str) and KEY_RE.match(k):
                     keys[k] = keys.get(k, False) or r.get("endpoint") == "/files"
-        ids = [(k, _meta_file_id(root, k)) for k, is_file in keys.items() if is_file]
-        ids = [(k, i) for k, i in ids if i]
-        if ids:
-            f = cfg.data_dir / "meta_files_undeleted.jsonl"
-            f.parent.mkdir(parents=True, exist_ok=True)
-            with f.open("a") as out:
-                for _, i in ids:
-                    out.write(json.dumps({"file_id": i, "project": d.name,
-                                          "recorded": datetime.now(timezone.utc).isoformat(timespec="seconds")}) + "\n")
+        if gw is not None:     # ask Meta to delete whatever the early pass did not; list only the failures
+            r = delete_job_files(cfg, ledger, gw, job_ids, caller=f"job:{d.name}|etho.app.retention",
+                                 project=d.name, record_failures=True)
+            rep["meta_files_deleted"], rep["meta_files_recorded"] = r["deleted"], r["failed"]
+        else:                  # no gateway to ask: keep the ids so they can be deleted by hand
+            ids = [_meta_file_id(root, k) for k, is_file in keys.items() if is_file]
+            ids = [i for i in ids if i]
+            for i in ids:
+                record_undeleted(cfg, i, d.name)
             rep["meta_files_recorded"] = len(ids)
         for k in keys:
             for p in cache_files(root, k):

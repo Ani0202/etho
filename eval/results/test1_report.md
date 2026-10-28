@@ -22,8 +22,8 @@ Full-precision values are in the result JSON. All target verdicts were computed 
 
 ## 1. Supervision statement (attach to every number below)
 
-> **[2026-10-28, after the gate] Headline wording: pending Aniket's decision.** Both versions are in section
-> 11.2. "No setting was tuned on test" below is replaced by "No test prediction scores were used to select
+> **[2026-10-28, after the gate] The headline wording below is superseded by the version Aniket approved
+> (section 11.2).** "No setting was tuned on test" below is replaced by "No test prediction scores were used to select
 > this configuration."
 
 The primary arm `zs_t1` is described as follows (Aniket's approved wording, DECISIONS.md 2026-10-28):
@@ -346,7 +346,7 @@ not demonstrated.
 
 > **[2026-10-28, after the gate]** The figures below omit 10 fps preprocessing (chunks were precomputed). The
 > corrected figures, including the separately measured preprocessing, are in section 11.3: pooled 0.8777x,
-> median 0.8602x, max 1.5421x; the manual time is 3.41x-4.55x Etho's.
+> median 0.8602x, max 1.5421x. Manual-time ratios are analysis only, never a claim (11.1).
 
 **Definition** (EVAL_PLAN 4.4 [A1]): per-video processing time = tracking wall + rules wall + **first-pass**
 tier-1 wall, divided by the video's duration (`src_frames / 30`). It is a sum of stage times, not one
@@ -600,39 +600,53 @@ public claims."
   test-2 headline or a rerun of accuracy.
 - Its two High findings are the speed omission (11.3) and the headline wording (11.2).
 
-### 11.1 Demo numbers (corrected; use these, with the wording as given)
+### 11.1 Demo and README numbers (approved wording; updated ~17:55 UTC after Aniket's approval)
 
-These three statements are approved by the evaluator for the demo, subject to Aniket's headline decision in
-11.2. Each must appear with its caveat.
+Aniket approved this wording in `docs/ESCALATIONS.md`, "Answers from Aniket (2026-10-28, ~13:50 ET)" (17:50 UTC).
+The evaluator's earlier draft of this subsection is in commit 21055bc. Each line below must carry its
+conditions.
 
-1. **Accuracy relative to the published baseline.**
-   > Etho achieved **73.1%** of the published raw-pose 1D ConvNet baseline's macro F1: **0.580 versus 0.793,
-   > a 0.213 gap** (CalMS21 Task 1 test set, frame-level F1).
+1. **Accuracy line** (use everywhere):
+   > **0.58 F1 with no training; supervised methods reach 0.79–0.86** (CalMS21 Task 1 test set, frame-level
+   > macro F1; supervised references: Sun et al. 2021, Tables 1 and 2: .793, .829, .864).
 
-   - Show the per-behavior F1s beside it: attack 0.449 (baseline 0.664), investigation 0.635 (0.814), mount
-     0.656 (0.900). The baseline per-class values are from Sun et al. Table 8, verified (11.4).
-   - Interval: 62.1%-78.4% (the macro CI divided by 0.793, rounded outward; section 4's 62.1%-78.3% was
-     truncated). This treats 0.793 as fixed, so it is not a full uncertainty interval for the
-     comparison.
-   - 0.793 is *not* the best published result. On the same test set, the paper's Table 2 lists 0.829
-     (baseline plus task-programming features) and 0.864 (MABe 2021 Task 1 top-1 entry). Etho's macro is
-     67.1% of 0.864.
-   - Attach the supervision statement (11.2).
-2. **Speed, including preprocessing.**
-   > Summed processing time (10 fps chunking, tracking, rules, and adjudication, one video at a time) was
-   > **0.88x the video's duration** pooled over the 19 test videos (median 0.86x per video; 5 of 19 videos
-   > took longer than real time, max 1.54x). Published estimates put manual scoring of social behavior at
-   > 3-4x video duration (Segalin et al., eLife 2021).
+   **Verified by the evaluator from arXiv:2104.02710v4** (11.4 and 11.9). All three references are trained on
+   the 70 labeled Task 1 videos and scored with the same metric on the same Task 1 test set, so the range
+   0.79–0.86 is supported. It is conventional rounding of .793–.864. "0.58" is 0.580027.
 
-   - Caveat (mandatory): *this is a runtime comparison, not demonstrated labor savings.* Human review and
-     correction time were not measured, and Etho's accuracy is below supervised models.
-   - Preprocessing was measured separately, after the run (11.3). Video download is excluded.
-   - The cited manual time is 3.41x-4.55x Etho's summed processing time (3 / 0.8777 to 4 / 0.8777).
-3. **Cost.**
+   Conditions:
+   - **Per-behavior F1s must appear on the same slide or README line** (EVAL_PLAN 4.1 reporting rule: a macro F1
+     is never shown alone). Etho's are attack 0.449, investigation 0.635, mount 0.656. The baseline per-class
+     values from Table 8 are optional context: 1D ConvNet .664/.814/.900; MABe top-1 .827/.852/.913.
+   - **"No training" must be read with the headline and footnote** in 11.2: no task-specific model training,
+     with settings tuned on 13 labeled dev videos.
+   - The 95% CI (0.493–0.621) belongs in the README and report.
+2. **Speed line:**
+   > **Scores a video unattended in about its own length (0.88× real time on test; worst 1.54×); manual
+   > scoring takes 3–4×.**
+
+   Supporting figures:
+   - Pooled 0.8777×, median 0.8602×, max 1.5421× (mouse073); 5 of 19 test videos ran slower than real time.
+   - The figures include the separately measured, non-contemporaneous preprocessing (11.3) and exclude the
+     video download.
+   - The manual figure is the MARS 3–4× estimate (Segalin et al., eLife 2021), which has no primary source in
+     that paper.
+
+   Conditions:
+   - In the README and report, add: "a runtime comparison, not demonstrated labor savings: human review and
+     correction time were not measured."
+   - **No "N× faster" wording anywhere** (Aniket). The 3.41–4.55× and 3.64–4.85× ratios in sections 6.1 and
+     11.3 are analysis only, not claims.
+3. **Cost:**
    > Model API cost for this fixed benchmark pipeline was **$11.25 per hour of video** ($11.54 without
    > input-cache discounts), excluding the planner, one-time detector synthesis, hosting, and human review.
 
-   - This is from the gateway ledger at logged rates. It is not an invoice.
+   This comes from the gateway ledger at logged rates; it is not an invoice.
+
+**Analysis only, not for claim-level text:**
+- Share of the raw-pose 1D ConvNet: 73.1% (62.1–78.4%, treating .793 as fixed).
+- Share of the MABe 2021 top-1 entry: 67.1%.
+- The manual-time / Etho-time ratios.
 
 Supporting measurement, not a test-set result: the live app on a fresh **4-minute dev clip** (mouse021, 60-300
 s, re-encoded so nothing was cached).
@@ -647,12 +661,39 @@ s, re-encoded so nothing was cached).
     pipeline (for example, app tier-1 concurrency is 8, per commit d3c3844).
   - Per the lead's note, a 60 s clip would stay above 1x, because tier-1 latency dominates.
 
-### 11.2 Headline and footnote: PENDING ANIKET'S DECISION
+### 11.2 Headline and footnote: APPROVED by Aniket (2026-10-28, ~13:50 ET / 17:50 UTC)
 
-The lead is escalating this. The evaluator does not adopt either version. Until Aniket decides, public
-material should not use the "untouched" footnote.
+**Full version** (README and report):
+> **Training-free: plain-English behavior definitions, no labeled examples given to the models, no model
+> training.**¹
+>
+> ¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
+> videos. Test-label summaries (behavior counts) informed dev-set selection and targets; no test predictions
+> were used to choose settings.
 
-| | Version A (Aniket's approved wording, used in section 1) | Version B (proposed by the Codex gate) |
+**Demo-slide version**, recorded for traceability:
+> **Training-free: plain-English behavior definitions, no labeled examples given to the models, no model
+> training.**¹
+>
+> ¹ Tuned on 13 labeled dev videos; scored once on the 19 official test videos. Full disclosure in README.
+
+The evaluator checked the approved wording against the record:
+- "13 labeled development videos" (8 dev + 5 dev-holdout), "19 official test videos", and "scored once" (one
+  `score` and one `identity` execution under test-1) are correct.
+- "No labeled examples given to the models" is correct for the primary arm.
+- "No test predictions were used to choose settings" is correct, and it matches the gate's narrowing ("No test
+  prediction scores were used to select this configuration").
+- **One omission, flagged for Aniket rather than changed:** EVAL_PLAN section 1 and the gate's version say the
+  test-label summaries also informed the **sampling rate**. The 10 fps decision used the test short-bout
+  histogram. The approved footnote names only "dev-set selection and targets". The evaluator recommends
+  "informed dev-set selection, the 10 fps sampling rate, and targets". The summaries also included bout counts
+  and the short-bout length histogram, not only behavior counts. This is Aniket's wording decision.
+
+The wording that preceded the approval is kept below for traceability.
+
+**Superseded wording, kept for the record:**
+
+| | Version A (the earlier wording, used in section 1) | Version B (proposed by the Codex gate) |
 |---|---|---|
 | Headline | "Training-free: plain-English behavior definitions, no labeled examples, no model training." | "Plain-English behavior definitions, no task-specific model training or fine-tuning, and no labeled examples supplied to models in the primary arm." |
 | Footnote | "Pipeline settings were tuned on 13 labeled development videos; test results are on 19 untouched videos." | "Pipeline settings were selected using 13 labeled development videos. Predictions were evaluated once on all 19 official test videos. Before evaluation, test-label summaries informed development-set selection, sampling rate, and targets." |
@@ -735,7 +776,7 @@ There is no CI, so no "robustly":
 - **Good** (max <= 1.0 and pooled <= 0.5): max 1.542032 > 1.0 and pooled 0.877626 > 0.5, so **NOT MET**.
 
 These replace the speed rows of section 3 and the ratios in sections 6.1 and 10. Against the cited manual
-figure, Etho's 7,667.7 s (127.8 min) for 145.6 min of video means the manual time is 3.41x-4.55x Etho's summed
+figure (analysis only, not claim-level text; see 11.1), Etho's 7,667.7 s (127.8 min) for 145.6 min of video means the manual time is 3.41x-4.55x Etho's summed
 processing time. The earlier 3.64x-4.85x is withdrawn. The section 6.1 caveat stands: this is a contextual
 runtime comparison, not labor savings. The gate's interim wording, recorded for completeness, was: "With
 video chunks precomputed, summed tracking, rules, and adjudication time was approximately 0.82 times video
@@ -860,3 +901,213 @@ Items the gate lists as unverified, and still unverified:
 | **Speed, minimum credible** | **MET**, *conditional on the separately measured preprocessing*: pooled 0.8777x, median 0.8602x |
 | **Speed, good** | **NOT MET**: max 1.5421x, pooled 0.8777x |
 | Cost per video-minute, minimum / good | MET / MET ($0.1923 most conservative; no CI; without planner). With the planner extrapolation it would be $0.1988-0.2014, straddling the $0.20 threshold |
+
+### 11.9 Verification of the three supervised references in the accuracy line (2026-10-28, ~17:55 UTC)
+
+Source: arXiv:2104.02710v4 HTML (https://arxiv.org/html/2104.02710v4), downloaded and read by the evaluator.
+The local copy is in the evaluator's scratchpad, sha256 `23545b53...d14efd`. The passages used are Tables 1, 2,
+and 8, section 4.2 ("Task 1 Classic Classification Results"), the Table 2 caption, and Appendix E.
+
+**Same metric and test set for all three.**
+- Table 2 is titled "Class-averaged results on Task 1 (attack, investigation, mount; mean ± standard deviation
+  over 5 runs)".
+- Appendix E fixes the metric: an unweighted F1 average over the three behaviors, omitting "other", computed on
+  the entire Task 1 test set concatenated. That is Etho's metric and test set.
+- Each figure is a mean over 5 training runs.
+
+| Value | Paper's name | Labels used (supervision) | Other training data | Inputs |
+|---|---|---|---|---|
+| **.793 ± .011** | "Baseline" / "1D Conv Net" (Tables 1, 2) | Task 1 train split (70 labeled videos) | none | **raw pose trajectories** (MARS keypoints) |
+| **.829 ± .004** | "Baseline w/ task prog" (Table 2) | Task 1 train split | features from a task-programming model (self-supervised) "trained on the unlabeled set only", concatenated with the keypoints | pose keypoints + learned trajectory features |
+| **.864 ± .011** | "MABe 2021 Task 1 Top-1" (Table 2; winning challenge entry) | Task 1 train split, **plus labeled data of all three tasks** ("jointly trained on all three tasks") | the unlabeled set; trained "in a semi-supervised fashion" (contrastive loss on all samples, cross-entropy on labeled samples) | pose-derived egocentric features (distances, velocities, angles) + PCA embedding of pairwise keypoint distances |
+
+**Verdict: all three are supervised methods on Task 1, with the same metric and test split.** Every one is
+trained with Task 1 expert labels. The .829 and .864 entries add self- or semi-supervised learning on
+unlabeled data, and the .864 entry also uses Task 2 and Task 3 labels. **None uses video. All use pose
+keypoints** from the MARS pose estimator, which was itself trained on labeled mouse poses. So "supervised
+methods reach 0.79–0.86" is accurate, and the evaluator adopts it.
+
+Notes that go with the line, for the README:
+1. **Use of test trajectories.** Table 2's "Unlabeled Set" column is headed "(all splits)". The caption says
+   "'all splits' indicates that both labeled train set and trajectory from unlabeled test set are used." On the
+   literal reading, the .829 and .864 entries used the test sequences' pose trajectories, without labels, in
+   their self- or semi-supervised training. That is transductive use of test inputs, not test labels. The
+   evaluator reports the caption as written and has not resolved it further.
+2. **Rounding.** "0.79–0.86" rounds .793 and .864 to two decimals (.864 to .86). This is conventional rounding,
+   as the gate asked. For the citation, give the exact values: .793, .829, .864.
+3. **What the comparison does not show.** It is not a like-for-like model comparison. Etho reads video through
+   SAM 3.1, and the references read pose keypoints. Development procedures also differ, so the gap is not
+   attributable to training alone (the gate's caution in 11.4).
+4. **Other Table 1 rows.** Table 1 also lists weaker supervised architectures (fully connected .659, LSTM .675,
+   self-attention .610). The line cites the 1D ConvNet and the two stronger Table 2 entries. That is the
+   paper's own benchmark set, and it does not cherry-pick a weak reference.
+
+---
+
+## 12. Per-sequence results and demo-clip choice (after the no-test-2 decision; 2026-10-28, ~18:00-18:20 UTC)
+
+**The seal is lifted.** Amendment A3 (EVAL_PLAN section 13; commits ed4a5dc and 7c43c04) records the CalMS21
+test-2 decision as **no test-2**, for two reasons: Aniket's instruction "never re-score test", and the absence
+of a qualifying defect. Committing it lifts the per-sequence seal (section 7.2). Before opening
+`eval/results/score-test-20261028T164333Z-473c64.per_sequence.sealed.json`, the evaluator checked its sha256
+against the run log: `88f361fe033bd0c642a5d57192264708b113ff56c375b2d4534a0987b0dc0451` in both.
+
+**Everything below is descriptive or presentation-only.** It makes no new predictions and is not a new test
+result. Choosing a demo clip is presentation, so these numbers must not be used to tune anything that is then
+described as evaluated on test.
+
+### 12.1 Per-sequence F1, all 19 test videos (from the unsealed file)
+
+Each row is computed from that video's frames alone (frame F1 at 30 fps). "–" means the behavior is absent from
+the video's ground truth. The last column averages F1 only over the behaviors present in that video. These
+numbers are not comparable to the pooled macro F1 of section 2.
+
+| Video | Frames | GT frames A / I / M | `zs_t1` F1 attack | `zs_t1` F1 investigation | `zs_t1` F1 mount | `zs_t1` attack FP frames | Mean F1 over present behaviors: zs_t1 / zs_rules / fs_t1 / fs_rules |
+|---|---|---|---|---|---|---|---|
+| mouse071 | 23810 | 0 / 4679 / 2894 | – | 0.6680 | 0.7566 | 1284 | 0.7123 / 0.4711 / 0.5217 / 0.3727 |
+| mouse072 | 18164 | 0 / 4298 / 6409 | – | 0.7964 | 0.8799 | 501 | 0.8382 / 0.5823 / 0.8059 / 0.6155 |
+| mouse073 | 19156 | 0 / 6867 / 5050 | – | 0.8276 | 0.5528 | 873 | 0.6902 / 0.3634 / 0.5977 / 0.4013 |
+| mouse074 | 18825 | 0 / 3595 / 2203 | – | 0.6178 | 0.7567 | 978 | 0.6873 / 0.3853 / 0.5420 / 0.3569 |
+| mouse075 | 18015 | 1920 / 2300 / 33 | 0.6223 | 0.6995 | 0.0734 | 285 | 0.4651 / 0.2994 / 0.4623 / 0.4034 |
+| mouse076 | 19710 | 3321 / 2633 / 0 | 0.7060 | 0.3152 | – | 1604 | 0.5106 / 0.3655 / 0.5529 / 0.4814 |
+| mouse077 | 18907 | 2098 / 1649 / 0 | 0.6720 | 0.3402 | – | 1287 | 0.5061 / 0.3349 / 0.5573 / 0.4239 |
+| mouse078 | 19473 | 4606 / 2826 / 0 | 0.5931 | 0.1619 | – | 3239 | 0.3775 / 0.3220 / 0.4722 / 0.4558 |
+| mouse079 | 17483 | 685 / 8353 / 0 | 0.3860 | 0.6867 | – | 260 | 0.5364 / 0.3221 / 0.5884 / 0.4122 |
+| mouse080 | 6179 | 0 / 2496 / 786 | – | 0.6709 | 0.5938 | 396 | 0.6324 / 0.3515 / 0.6113 / 0.4247 |
+| mouse081 | 4932 | 0 / 363 / 0 | – | 0.4482 | – | 0 | 0.4482 / 0.5057 / 0.4183 / 0.5476 |
+| mouse082 | 7115 | 0 / 2336 / 682 | – | 0.5870 | 0.4165 | 885 | 0.5017 / 0.2626 / 0.5801 / 0.3492 |
+| mouse083 | 4881 | 0 / 1172 / 597 | – | 0.4498 | 0.5068 | 963 | 0.4783 / 0.2972 / 0.6605 / 0.4151 |
+| mouse084 | 5626 | 0 / 395 / 1138 | – | 0.3400 | 0.6571 | 561 | 0.4985 / 0.3348 / 0.5798 / 0.5088 |
+| mouse085 | 19200 | 0 / 2802 / 6884 | – | 0.5268 | 0.7398 | 1148 | 0.6333 / 0.4799 / 0.6576 / 0.5501 |
+| mouse086 | 8617 | 0 / 671 / 3237 | – | 0.2557 | 0.6398 | 618 | 0.4478 / 0.3524 / 0.4699 / 0.3965 |
+| mouse087 | 11915 | 0 / 7174 / 125 | – | 0.7539 | 0.1400 | 1584 | 0.4469 / 0.2115 / 0.4908 / 0.2733 |
+| mouse088 | 8825 | 0 / 3927 / 497 | – | 0.6779 | 0.2521 | 1157 | 0.4650 / 0.2295 / 0.5915 / 0.4528 |
+| mouse089 | 11274 | 0 / 2739 / 1313 | – | 0.5647 | 0.6316 | 567 | 0.5982 / 0.4534 / 0.5810 / 0.5377 |
+
+Observations, all visible in the table:
+- Attack appears only in mouse075-079. Within those videos, `zs_t1` attack F1 ranges from 0.3860 to 0.7060.
+- Each of the 14 videos without attack, except mouse081, contains predicted-attack false positives, 396 to
+  1,584 frames per video. In total, 18,190 false-positive attack frames are pooled over all 19 videos,
+  including 260-3,239 per attack video.
+- Investigation F1 is lowest in the attack videos mouse076-078 (0.16-0.34), where investigation is confused
+  with attack.
+- Mount F1 is high where mount is common (mouse072 0.8799, mouse074 0.7567) and low where it is rare (mouse075
+  33 GT frames 0.0734, mouse087 0.1400).
+
+### 12.2 Demo clip: the requested rule cannot be met on the test set
+
+The rule, fixed in `eval/demo_clip.py` before it ran:
+- windows of 120, 180, 240, or 300 s, starting on 10 s multiples;
+- at least 3 attack bouts **and** at least 3 mount bouts in the ground truth, each 0.5 s or longer;
+- within each video, the window with the highest `zs_t1` macro F1;
+- videos ranked by that F1.
+
+**No window in any test video qualifies** (logged run `analysis-test-20261028T175934Z-222a75`). Attack and mount
+barely co-occur in the CalMS21 test set: mount is absent from all of mouse076-079, and mouse075 has exactly
+**one** mount bout (33 frames, 1.1 s). The evaluator then ran an unlogged, label-only count of bouts per video
+(no predictions), which is disclosed here, followed by three relaxed rules, each a separate logged execution.
+
+| Run | Rule (ground-truth bouts of 0.5 s or longer) | Videos with a qualifying window |
+|---|---|---|
+| `analysis-test-20261028T175934Z-222a75` | attack >= 3 and mount >= 3 | 0 |
+| `analysis-test-20261028T180007Z-cdf519` | attack >= 3 and mount >= 1 | 1 (mouse075) |
+| `analysis-test-20261028T180007Z-5a24de` | attack >= 3 | 5 (mouse075-079) |
+| `analysis-test-20261028T180008Z-072925` | mount >= 3 | 13 |
+
+**Candidates.** Window F1 is `zs_t1`, frame-level, computed inside the window only. Bout counts are ground-truth
+bouts of 0.5 s or longer, with all bouts in parentheses.
+
+| # | Video, segment | Attack bouts | Mount bouts | Investigation bouts | `zs_t1` F1 in window: attack / investigation / mount | Whole-video `zs_t1` F1: attack / investigation / mount |
+|---|---|---|---|---|---|---|
+| **1 (recommended if one clip must show both)** | **mouse075, 0-300 s** (frames 0-9000) | 11 (11) | **1** (1) | 17 (22) | 0.5283 / 0.7544 / 0.0810 | 0.6223 / 0.6995 / 0.0734 |
+| 2 (attack-rich) | mouse076, 230-350 s (frames 6900-10500) | 9 (11) | 0 | 12 (22) | 0.7595 / 0.5000 / – | 0.7060 / 0.3152 / – |
+| 2b (best attack window) | mouse075, 240-360 s (frames 7200-10800) | 3 | 0 | 9 | 0.8833 / 0.8288 / – | as row 1 |
+| 3 (mount-rich) | mouse072, 340-460 s (frames 10200-13800) | 0 | 3 | 8 | – / 0.8050 / 0.9687 | – / 0.7964 / 0.8799 |
+
+Further qualifying windows (these runs' full candidate lists are in `runs.jsonl`):
+- Attack, with window attack F1: mouse079 80-200 s (0.5859), mouse077 140-260 s (0.7357), mouse078 110-230 s
+  (0.6856).
+- Mount, with window mount F1: mouse085 20-140 s (0.8568), mouse071 20-140 s (0.8200), and 10 more.
+
+**Recommendation (the demo choice is the lead's and Aniket's):**
+- If the live clip must show both attack and mount, the only test option is **candidate 1, mouse075 0-300 s**.
+  It has plenty of attack and investigation, but mount is one 1.1 s bout. Etho finds that bout (it predicts
+  mount at frames 545-578 against ground truth 552-585), but it also calls parts of several attack bouts
+  "mount", so mount F1 in the window is 0.0810.
+- "Clear mount" is therefore **not available alongside attack in any test video**. Alternatives:
+  - run candidate 2 or 2b live for attack, and show candidate 3 precomputed for mount;
+  - use a dev or train video that has both behaviors. That video was used for tuning and must be labeled so.
+- **Selection bias, to disclose in the demo.** Windows were ranked by Etho's own F1, so every candidate is
+  favorable to Etho by construction. A clip's F1 must never be shown as representative. Show the pooled test
+  numbers instead.
+
+### 12.3 Exported aligned arrays (git-ignored, under `data/demo/`)
+
+Each export is a per-frame (30 fps) array of `gt` (CalMS21 annotator 1), `zs_t1`, and `zs_rules`. The coding is
+attack 0, investigation 1, mount 2, other 3. Each comes as an npz plus a json that also records frame_start,
+fps, vocab, and the source and attribution.
+
+| Path | sha256 |
+|---|---|
+| data/demo/attack-3_mount-1/mouse075_task1_annotator1_0_9000.npz (**candidate 1**) | d19c35c311574f7dc0cd3132a7492077dd8c12b7008c7c2fa6a5540ac4c5754d |
+| data/demo/attack-3_mount-1/mouse075_task1_annotator1_0_9000.json | 8cad072901f0cc51ce008e351a84d241ab2912c5176fa2e4aec5189bb5d6dc40 |
+| data/demo/attack-3/mouse075_task1_annotator1_7200_10800.{npz,json} (2b) | 13fb1b80... / 20cc4677... |
+| data/demo/attack-3/mouse079_task1_annotator1_2400_6000.{npz,json} | 0182ce6e... / ee7cc6af... |
+| data/demo/attack-3/mouse077_task1_annotator1_4200_7800.{npz,json} | 832e0e1e... / b9fec828... |
+| data/demo/mount-3/mouse072_task1_annotator1_10200_13800.{npz,json} (3) | dd924b24... / f5190b6f... |
+| data/demo/mount-3/mouse085_task1_annotator1_600_4200.{npz,json} | dee2205f... / 28cf9c47... |
+| data/demo/mount-3/mouse071_task1_annotator1_600_4200.{npz,json} | e9f6ca59... / b0ab5a6a... |
+
+Candidate 2 (mouse076, 230-350 s) was not exported, because each run exports only its top 3 by F1. It can be
+produced with `--min-bouts attack=3 --n-candidates 5`.
+
+**License.** The Caltech data record
+(`https://data.caltech.edu/api/records/s0vdx-0k302`, re-checked 2026-10-28) gives `rights`:
+`cc-by-4.0`. CC BY 4.0 allows redistribution of derived annotations with attribution (Sun et al. 2021) and an
+indication of changes. However, the project rule in CLAUDE.md is "never commit raw data". These arrays are a
+verbatim excerpt of the annotations, so the evaluator kept them in the git-ignored `data/demo/` and did **not**
+commit them. Committing them, or rendering them in a public repo or app, is a license and data question for
+Aniket (CLAUDE.md escalation item 3). Rendering the annotation timeline inside the demo video, with attribution,
+is within CC BY 4.0.
+
+### 12.4 One Etho error inside candidate 1, traced to the rule and the tier-1 call
+
+All verdicts below come from `data/runs/T1/verdicts_test_zs_t1.jsonl`. Tier-1 windows are given in 10 fps
+samples s0-s1, where frame = 3 x sample. The restricted cascade (frozen config, `tier1.allow =
+[investigation, none]`, confidence >= 0.6) applies a tier-1 verdict only if it says investigation or none.
+
+**Error A, the type requested: expert investigation labeled attack (the known over-prediction).**
+- **Where:** mouse075, frames 686-721 (22.87-24.03 s; 35 frames, 1.17 s). Ground truth is investigation, then
+  attack from frame 721. Etho predicts attack from frame 686, so this is an attack onset about 1.2 s too early.
+  It is the largest attack-on-investigation run in the clip; the only other one of 0.5 s or longer is frames
+  911-937.
+- **Rule:** the zero-shot attack detector (`configs/detectors/R1_zero_shot.json`, behavior `attack`). The
+  rules-only arm labels all 35 frames attack, and the tier-1 window was raised with `rule_label: attack`.
+- **Tier-1 call:** window s0 229-259 (frames 687-777), verdict **"mount"**, confidence 0.88, reason "Resident
+  is hunched over intruder from rear grasping it in final frames, matching mount definition."
+- **Why the error survived:** "mount" is not an allowed tier-1 label, so the rule's attack was kept. Here tier
+  1 was also wrong (the expert says investigation, then attack).
+
+**Error B, an alternative that is longer and clearer: expert attack labeled mount.**
+- **Where:** mouse075, frames 1124-1304 (37.47-43.47 s; 180 frames, 6.0 s). Etho predicts mount; the expert
+  labels 138 of those frames attack and 42 investigation.
+- **Rule:** the zero-shot mount detector fired. The rules-only arm labels all 180 frames mount.
+- **Tier-1 calls:**
+  - s0 375-405: rule mount, verdict **"attack"**, confidence 0.92, reason "Resident in sustained close
+    tussling/biting contact with intruder across all frames, consistent with high-intensity attack not passive
+    sniffing or rear mount."
+  - s0 405-435: rule mount, verdict **"attack"**, confidence 0.92.
+- **Why the error survived:** tier 1 was **right**, but the restricted cascade discards attack verdicts, so
+  the rule's mount stood.
+- This traces a real design trade-off. The restriction was chosen on dev, where restricted tier-1 scored
+  macro 0.4820 against 0.4063 unrestricted (section 6, item 1).
+
+For the demo, B shows the audit trail more clearly. A matches the over-prediction the demo plan names. Neither
+may be described as typical.
+
+### 12.5 Logging
+
+The four `analysis` executions are in `eval/results/runs.jsonl`, each a `started` record followed by an `ok`
+record. They use `split: test` with purpose `demo-clip-selection`, so the test-run accounting (`test-1`,
+`test-2`) is unaffected. Code: `eval/demo_clip.py` and `eval/tests/test_demo_clip.py` (commits 2979eb8 and
+189c24c).

@@ -559,8 +559,8 @@ def test_retention_timer_deletes_everything_a_job_left(tmp_path, monkeypatch):
     assert not list(gwc.rglob("*.gz")) and not list((gwc / "locks").glob("*"))
     assert not list(c.cfg.tmp_dir.iterdir())
     assert client.get(f"/api/projects/{jid}").status_code == 404 and jid not in c.manager.jobs
-    ids = [json.loads(x)["file_id"] for x in (c.cfg.data_dir / "meta_files_undeleted.jsonl").read_text().splitlines()]
-    assert ids and all(i.startswith("file-") for i in ids)              # Meta-side copies: recorded, not deletable
+    assert c.gw.deleted and all(i.startswith("file-") for i in c.gw.deleted)    # Meta-side copies were deleted ...
+    assert not (c.cfg.data_dir / "meta_files_undeleted.jsonl").exists()          # ... so nothing is listed as undeleted
     assert len(c.app.state.ledger.job_rows(jid)) == rows_before         # the audit ledger is not rewritten
 
 
@@ -612,7 +612,7 @@ def test_privacy_notice_is_on_the_upload_page(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     html = client.get("/").text
     for needle in ("Privacy notice", "Meta's Model API in Standard mode", "does not use them for training",
-                   "Fireworks", "deleted", 'id="ret-h"', "hours after upload", "cannot be deleted by this site",
+                   "Fireworks", "deleted", 'id="ret-h"', "hours after upload", "Files API", "as soon as tracking ends", "their own policies",
                    "right to share"):
         assert needle in html, needle
     js = client.get("/static/home.js").text
@@ -726,3 +726,52 @@ def test_paths_come_from_env_not_from_the_users_home(tmp_path, monkeypatch):
     for p in (cfg.jobs_dir, cfg.detector_cache_dir, cfg.gateway_cache_root, cfg.work_dir, cfg.tmp_dir, cfg.kill_path,
               cfg.readonly_path, cfg.chunk_cache_dir):
         assert str(p).startswith(str(tmp_path)), p
+
+
+def delete_rows(c):
+    return [json.loads(x) for x in c.cfg.ledger_path.read_text().splitlines() if '"DELETE"' in x]
+
+
+def test_meta_files_are_deleted_right_after_tracking_not_at_24h(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch)
+    unlock(client)
+    jid = wait_done(c, post_job(client, c.video).json()["id"])
+    wait_for(lambda: c.gw.deleted, what="the Files API delete")
+    assert (c.cfg.jobs_dir / jid).exists()                                       # the project itself is still there
+    uploads = [r for r in c.app.state.ledger.job_rows(jid) if r.get("endpoint") == "/files" and not r.get("method")]
+    assert len(uploads) == len(c.gw.deleted) == 1 and c.gw.deleted[0].startswith("file-")
+    assert not [p for p in c.cfg.gateway_cache_root.rglob("*.json.gz")
+                if "file-" in __import__("gzip").open(p, "rt").read()]            # the dead id is forgotten
+    rows = delete_rows(c)
+    assert rows and all(r["cost_usd"] == 0.0 and r["caller"].startswith(f"job:{jid}|") for r in rows)
+    assert c.app.state.retention.run_once(time.time() + 25 * 3600)["removed_projects"] == 1
+    assert len(c.gw.deleted) == 1                                                # retention had nothing left to delete
+    assert not (c.cfg.data_dir / "meta_files_undeleted.jsonl").exists()
+
+
+def test_a_failed_delete_is_retried_by_retention_and_listed_only_if_it_fails_again(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch)
+    c.gw.delete_fails = True
+    unlock(client)
+    wait_done(c, post_job(client, c.video).json()["id"])
+    time.sleep(0.3)
+    assert c.gw.deleted == [] and not (c.cfg.data_dir / "meta_files_undeleted.jsonl").exists()   # not listed yet
+    c.gw.delete_fails = False                                                    # Meta recovers before retention
+    c.app.state.retention.run_once(time.time() + 25 * 3600)
+    assert len(c.gw.deleted) == 1 and not (c.cfg.data_dir / "meta_files_undeleted.jsonl").exists()
+    c.gw.deleted.clear()
+    c.gw.delete_fails = True                                                     # fails at job end and at retention
+    jid2 = wait_done(c, post_job(client, c.video).json()["id"])
+    time.sleep(0.3)
+    c.app.state.retention.run_once(time.time() + 25 * 3600)
+    listed = [json.loads(x) for x in (c.cfg.data_dir / "meta_files_undeleted.jsonl").read_text().splitlines()]
+    assert len(listed) >= 1 and all(x["file_id"].startswith("file-") and x["project"] == jid2 for x in listed)
+
+
+def test_a_shared_gateway_cache_deployment_does_not_delete_meta_files(tmp_path, monkeypatch):
+    client, c = hosted(tmp_path, monkeypatch, cfg_kw={"gateway_cache_root": None, "public": False,
+                                                        "access_code_file": None},
+                       gw_kw={"cache_root": tmp_path / "shared"})
+    wait_done(c, post_job(client, c.video).json()["id"])
+    time.sleep(0.3)
+    assert c.gw.deleted == []            # deleting would orphan the id kept in the shared cache (SAM cache hits)

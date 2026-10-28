@@ -163,3 +163,44 @@ within $13.60, so path B if lunge is NO-GO; if lunge is GO, wait for your reply.
      24 h;
    - a separate Unix user: give Aniket the exact sudo commands to run.
 5. **Demo plan:** Aniket is reviewing it and will reply separately.
+
+### Answers from Aniket (2026-10-28, ~14:15 ET): demo plan APPROVED with changes
+1. **Timing:**
+   - 0:00-0:20 hook: problem, "Push the Frontier", and a one-line teaser of the headline number.
+   - 0:20-0:35 who it's for and why current tools fall short, with a sourced impact line on who runs these
+     assays.
+   - 0:35-1:15 live run.
+   - 1:15-1:45 results and audit trail, including one visible error traced to its rule and model call.
+   - 1:45-2:00 correction loop (~15 s): "researcher stays in control", no gain claim.
+   - 2:00-2:30 evidence card: .793/.829/.864, speed with the worst case, $ per video-hour.
+   - 2:30-2:45 second species.
+   - 2:45-3:00 close: Meta model stack, who it's for, repo and live link.
+2. **Sources:** every factual claim in the voice-over needs a source in the repo. "The slowest step" becomes "one
+   of the biggest bottlenecks" unless the stronger claim can be cited. Cite or soften "thousands of labeled
+   frames".
+3. Use the real CalMS21 human annotations rendered as a timeline, not a mock spreadsheet.
+4. The live run uses a test video with clear attack and mount. It is recorded live with a visible clock, with a
+   labeled precomputed fallback.
+5. Aniket does the voice-over. Claude writes the full script (380-430 words) and burn-in captions.
+6. Rough cut on Nov 2 (up to $5 of `demo-reserve` unlocked on Nov 2 for it). Final recording Nov 3.
+7. Before export, confirm the maximum video length in the Official Rules, that a LICENSE file exists (MIT or
+   Apache-2.0; Claude proposes which), and that all honesty checks pass.
+
+## 2026-10-28 ~18:40 UTC: demo clip. No test video has clear attack and mount together
+Evaluator, report section 12: in CalMS21 test, attack and mount almost never co-occur. mouse076-079 have no
+mount, and mouse075 has one mount bout (1.1 s). Candidates (selection ranked by Etho's own F1, so any clip flatters
+Etho; the demo shows pooled numbers, not clip F1):
+1. **mouse075, 0-300 s:** 11 attack, 1 mount and 17 investigation bouts. This is the only test clip with both
+   behaviors.
+2. **Two clips:** mouse076 230-350 s (attack, live), plus mouse072 340-460 s (mount, precomputed and labeled).
+3. **A dev video with both behaviors,** labeled "development video (used for tuning)".
+
+*Recommend 1.* It's one live test clip. Its traced error is strong and honest: frames 1124-1304 (37.5-43.5 s).
+Etho said mount, the expert said attack. The frame-strip model said "attack" (0.92) and was right, but the frozen
+pipeline only lets that check confirm investigation or reject, so the verdict was discarded. That restriction was
+chosen on dev (0.482 vs 0.406).
+
+**License:** CalMS21 annotations are CC BY 4.0. Showing the human timeline in the video with credit is fine. The
+exported arrays stay uncommitted in gitignored `data/demo/` unless you want them in the public repo.
+
+*Blocking:* no, the rough cut is Nov 2. *Fallback in 2 h:* option 1.

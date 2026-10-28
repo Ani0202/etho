@@ -333,10 +333,15 @@ retention by a timer; no other visitor's job id in any page.
 
 Not deleted or not guaranteed, in full:
 
-* **Meta Files API copies.** The gateway has no delete call, and its surface was not extended (no direct HTTP). Each
-  SAM clip uploaded for a job stays on Meta's side under Meta's retention. The ids are appended to
-  `/var/lib/etho-app/data/meta_files_undeleted.jsonl` (ids only) at deletion time, so they can be deleted by hand if
-  Meta's API has a delete call. The privacy notice on the page says this.
+* **Meta Files API copies** are deleted through the gateway (`Gateway.delete_file`, `DELETE /v1/files/{file_id}`, from
+  the public docs at https://dev.meta.ai/docs/file-handling) right after the tracking stage, again when the job ends
+  (failed or cancelled jobs), and once more by the 24 h retention pass. Only ids that still fail at retention time are
+  listed, ids only, in `/var/lib/etho-app/data/meta_files_undeleted.jsonl`. Files do not expire by default
+  ("Uploaded files don't expire, so stored data only grows until you remove it"), so a failed delete leaves the clip on
+  Meta's side until someone deletes it. The delete call is untested against the live API. It only runs when the app has
+  its own gateway cache (public mode), because forgetting the cached id would otherwise break SAM cache hits.
+  A side effect: repeat uploads of the same clip re-upload and re-run SAM (the file id is part of the SAM cache key), so
+  they are no longer free cache hits.
 * **Fireworks and Meta logs** of the frame strips and prompts sent to them are theirs.
 * **Ledger rows** in `ops/spend.jsonl` (job id, time, model, tokens, cost, SAM phrase, request hash; no video or text) are
   kept: the caps are computed from them.

@@ -69,11 +69,16 @@ class FakeGateway:
     def __init__(self, ledger_path: Path, cost: float = 0.01, delay: float = 0.0, cache_root: Path | None = None):
         self.ledger_path, self.cost, self.delay = ledger_path, cost, delay
         self.cache_root = cache_root          # when set, every row also leaves a cache entry like the real gateway
+        from etho.gateway.cache import DiskCache
+        self.cache = DiskCache(cache_root) if cache_root is not None else DiskCache(ledger_path.parent / "nocache")
+        self.deleted: list[str] = []          # Files API ids deleted through delete_file
+        self.delete_fails = False             # simulate Meta refusing the delete
         self.calls: list[dict] = []
         self.lock = threading.Lock()
         self._n = 0
 
-    def _row(self, caller: str, tag: str, model: str, cost: float, endpoint: str = "/chat/completions") -> None:
+    def _row(self, caller: str, tag: str, model: str, cost: float, endpoint: str = "/chat/completions",
+             delete: bool = False) -> None:
         self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
         with self.lock:
             self._n += 1
@@ -81,9 +86,12 @@ class FakeGateway:
         row = {"provider": "meta", "model": model, "tag": tag, "caller": caller, "cost_usd": cost, "endpoint": endpoint,
                "request_key": key, "time": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                "cache_hit": False}
+        if delete:
+            row.pop("request_key")
+            row["method"] = "DELETE"
         with self.lock, self.ledger_path.open("a") as f:
             f.write(json.dumps(row) + "\n")
-        if self.cache_root is not None:
+        if self.cache_root is not None and not delete:
             d = self.cache_root / key[:2]
             d.mkdir(parents=True, exist_ok=True)
             with gzip.open(d / f"{key}.json.gz", "wt") as f:
@@ -111,6 +119,15 @@ class FakeGateway:
 
     def upload_file(self, *a, **k):
         return "file_x"
+
+    def delete_file(self, file_id, *, tag, caller=None, request_key=None):
+        if self.delete_fails:
+            return False
+        self.deleted.append(file_id)
+        if request_key:
+            self.cache.delete_json(request_key)
+        self._row(caller, tag, "files", 0.0, endpoint="/files", delete=True)
+        return True
 
 
 def patch_pipeline(monkeypatch, video: Path, n: int, *, revise_ok: bool = True, tier1_fail: bool = False,

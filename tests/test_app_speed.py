@@ -279,7 +279,7 @@ def test_tier1_concurrency_is_raised_for_app_jobs_and_installing_twice_is_safe(t
     with pytest.raises(ValueError):
         sem.release()                                # a BoundedSemaphore: releasing more than acquired is a bug
     Backend(AppConfig(root=tmp_path))
-    assert T1.FW_CONCURRENCY == AppConfig(root=tmp_path).tier1_concurrency == 8
+    assert T1.FW_CONCURRENCY == AppConfig(root=tmp_path).tier1_concurrency == 16
     assert getattr(T1.prepare_chunks, "_etho_app_shim", False) is True
     assert T1.prepare_chunks is tuning._prepare_chunks_for_app
 
