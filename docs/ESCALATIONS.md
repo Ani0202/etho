@@ -76,3 +76,20 @@ definitions, dev-tuned pipeline". The correction-loop arm is labeled "few-shot (
 
 *Blocking:* no (it affects the README, demo and report wording, not the test run).
 *Fallback if no reply in 2 h:* use the precise wording above in all written material.
+
+### Answers from Aniket (2026-10-28, ~09:20 ET)
+1. **Approved:** up to $25 of Fireworks for tier-1 on test. Exactly the frozen settings, one run. Then
+   score all four pre-registered arms once and report all four. State how the 18 corrections were
+   produced (simulated from dev labels). The correction loop is presented as a feature; no accuracy-gain
+   claim unless test shows one. Then the Codex `test-results` gate.
+2. **Approved:** ADR-002 (Fly vs. Fly), up to $13.60 from `ablation`. Starts only after test scoring,
+   the live-app timing test, and the rule sandbox are done. If wing threat isn't clearly above the
+   random floor on train by end of Oct 31 ET, ship it as a qualitative demo clip with no F1 claim.
+   Disclose pair-level scoring in the README and cite the dataset (even though CC0).
+3. **Headline wording** (replaces 5fb5078): "Training-free: plain-English behavior definitions, no
+   labeled examples, no model training." Footnote: "Pipeline settings were tuned on 13 labeled
+   development videos; test results are on 19 untouched videos." Demo numbers: test F1 as a share of
+   the supervised baseline; speed vs the 3-4x manual figure from the measured full-video end-to-end
+   time; $ per hour of video.
+4. **Next:** propose a demo-video script plan and an ADR on whether/where the app is hosted publicly
+   during judging (public hosting needs approval).

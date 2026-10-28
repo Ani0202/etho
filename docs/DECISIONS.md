@@ -74,7 +74,7 @@ For eval, planner outputs on test are logged and never inspected by a person (EV
 - 2026-10-28: (Aniket) Test-split SAM pass pre-approved up to $20, once targets are committed, the eval-plan Codex gate is done, and config is frozen. MABe22 dropped from anything public; second species to be Fly vs. Fly (if licensed) via an ADR.
 - 2026-10-28: SAM masks requested as `one_bit` from now on: 28x less wire data, and binary masks are all the features need.
 
-## ADR-002 (2026-10-28): Second species = Caltech Fly vs. Fly (Aggression), with measured F1. PROPOSED: needs Aniket's approval
+## ADR-002 (2026-10-28): Second species = Caltech Fly vs. Fly (Aggression), with measured F1. APPROVED 2026-10-28 with conditions (see the decision log line)
 **Context.** Aniket dropped MABe22 (no license). He wants Fly vs. Fly with a measured F1 on 1-2 behaviors, plus an identity method that works for identical-looking flies. Spend comes from the Meta `ablation` tag ($20), which is shared with the Etho Local labels. No second-species data is downloaded into the repo or committed until he approves.
 **(a) Dataset.** Options: Fly vs. Fly Aggression; Fly vs. Fly Courtship / BoyMeetsBoy; zebrafish dyads (Sci Data 2026); MABe22 kept local-only.
 - **Choice: Aggression.zip**, CaltechDATA zrznw-w7386 (DOI 10.22002/D1.1893). Verified: `metadata.rights` = cc-zero; 10 labeled 30-min movies, 144x144 px, 30 fps, 2 flies; official split in `traintest.mat` (train 1-5, test 6-10). movie11 is excluded (not in the split; its contents are unchecked).
@@ -144,3 +144,5 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
   | 30 s | 85.5% | 2.0% | 100% |
   Short uploads are therefore slower (a 60 s clip is about 1.5x real time); videos of 2 min or more parallelize across chunks and stay under 1x. Accuracy over speed.
 - 2026-10-28 13:15 UTC: (fallback, no reply in 2 h) Headline wording adopted for all written material: "No labeled examples in any prompt and no model training; pipeline settings tuned on 13 labeled development videos (disclosed)." Correction-loop arm is "few-shot (18 corrections)". Reversible if Aniket prefers other wording. The frozen `etho/report` text ("zero labeled training frames") is changed after test run 1.
+- 2026-10-28: (Aniket) Headline wording, replacing the 5fb5078 fallback: "Training-free: plain-English behavior definitions, no labeled examples, no model training." Footnote: "Pipeline settings were tuned on 13 labeled development videos; test results are on 19 untouched videos." The few-shot arm is described as using 18 corrections simulated from dev labels.
+- 2026-10-28: (Aniket) ADR-002 APPROVED with conditions: starts after test scoring, the live-app timing test and the rule sandbox; up to $13.60 from `ablation`; if wing threat is not clearly above the random floor on train by end of Oct 31 ET it ships as a qualitative clip with no F1 claim; README discloses pair-level scoring and cites the dataset.
