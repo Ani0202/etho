@@ -112,11 +112,21 @@ How to set effort:
 | implementer | `sonnet` | `medium` (spawn with `high` for gateway, tracking, or eval-adjacent code) |
 | reviewer | `sonnet` | `high` |
 | scout | `haiku` | `low` |
-| `bin/codex-review`, `bin/codex-ask` | Codex default model | `high` |
-| `bin/codex-build` | Codex default model | `medium` |
+| `bin/codex-review`, `bin/codex-ask` | `gpt-6-astra`; retried once on `gpt-6.1-sol` if Astra fails with a model error | `xhigh` |
+| `bin/codex-build` | `gpt-6.1-sol` | `high` |
 
 Pick the cheapest level that does the job well; raise it when an attempt fails for reasoning
 reasons, not as a default.
+
+Codex model and effort:
+- `CODEX_MODEL` and `CODEX_EFFORT` override the defaults. An explicit `CODEX_MODEL` disables the
+  fallback.
+- The first line of every Codex output file records the model and effort that actually ran.
+- Use `CODEX_EFFORT=max` for exactly three gates:
+  1. the blind critique of `docs/EVAL_PLAN.md` before committing targets;
+  2. the review of test-split results;
+  3. the pre-submission audit.
+- Never use `ultra`; `bin/codex-lib.sh` refuses it.
 
 ## Budget caps (enforced by the gateway, never raise them yourself)
 - Baseten: hard stop at **$90** of the $100 credit.

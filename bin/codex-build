@@ -2,8 +2,9 @@
 # Hand a well-scoped implementation task to Codex in its own git worktree (workspace-write sandbox).
 # Use when Claude's usage limits are tight or for a fully independent module.
 # Usage: bin/codex-build <name> "<spec with acceptance criteria>"
+# Model: gpt-6.1-sol at high (override with CODEX_MODEL / CODEX_EFFORT; no fallback).
 # Codex's sandbox can't write the main repo's .git, so this script commits Codex's changes itself
-# after Codex finishes. Output: ops/codex/build-<name>.md
+# after Codex finishes. Output: ops/codex/build-<name>.md (first line = model that ran)
 set -euo pipefail
 [ $# -ge 2 ] || { echo 'usage: bin/codex-build <name> "<spec>"'; exit 1; }
 name=$1; shift
@@ -12,15 +13,14 @@ root=$(git rev-parse --show-toplevel)
 wt="$root/../etho-wt/codex-$name"
 mkdir -p "$root/ops/codex"
 git -C "$root" worktree add -B "codex/$name" "$wt" HEAD >/dev/null
-model_args=(); [ -n "${CODEX_MODEL:-}" ] && model_args=(-m "$CODEX_MODEL")
 nohup bash -c '
+  source "$3/bin/codex-lib.sh"
   cd "$1" || exit 1
-  codex exec --sandbox workspace-write '"${model_args[*]:-}"' -c model_reasoning_effort="medium" \
+  codex_run gpt-6.1-sol - high workspace-write "$3/ops/codex/build-$4.md" "$3/ops/codex/build-$4.log" \
 "Read AGENTS.md and CLAUDE.md. Implement: $2
 Rules: all model calls through etho/gateway; tests must run without network; never edit eval/.
 Do NOT run git commit (the wrapper commits for you). Run the tests and end with: what changed,
-test output, open issues, and anything you could not do because of the sandbox." </dev/null \
-    > "$3/ops/codex/build-$4.md" 2> "$3/ops/codex/build-$4.log"
+test output, open issues, and anything you could not do because of the sandbox."
   git add -A && git commit -q -m "codex-build: $4" || echo "nothing to commit" >> "$3/ops/codex/build-$4.md"
 ' _ "$wt" "$spec" "$root" "$name" >/dev/null 2>&1 &
 echo "codex building '$name' (pid $!) in $wt on branch codex/$name"
