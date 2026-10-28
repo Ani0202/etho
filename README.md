@@ -13,6 +13,12 @@ uv sync                      # Python 3.11+, installs deps into .venv
 make check                   # lint + tests (no network needed)
 ```
 
+Model-written detector code runs in a sandbox: an AST check, rlimits, and (when available) bubblewrap
+isolation with no network and a minimal read-only filesystem. Install it with `sudo apt install bubblewrap`.
+`ETHO_SANDBOX=bwrap` requires it (jobs fail if it is unusable), `ETHO_SANDBOX=rlimit` forces the weaker
+rlimit-only mode, and unset picks bwrap when it works and logs a warning when it does not. The mode in effect
+is shown in `/api/config` and in each project's audit view.
+
 API keys go in `~/.config/etho/secrets.env` (outside the repo):
 
 ```
