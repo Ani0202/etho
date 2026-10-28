@@ -41,7 +41,7 @@ response on disk, and logs each call to `ops/spend.jsonl`. `bin/spend` prints to
 ```bash
 bin/app                         # http://127.0.0.1:8000 (localhost only; --host / --port to change)
 uv run python scripts/make_showcase.py --help   # package an existing pipeline run as a zero-spend showcase
-uv run python scripts/make_sample_clip.py       # cut the 60 s CalMS21 dev-split sample clip into data/app/sample/
+uv run python scripts/make_sample_clip.py       # cut the 60 s CalMS21 dev-split sample clip into data/showcase/_sample/
 uv run python scripts/package_job_showcase.py --help   # package a finished app job as a showcase (real timings)
 uv run python -m tests.mock_server              # the real app on synthetic stages and a fake gateway (no spend)
 ```
@@ -63,7 +63,7 @@ confidence, or set aside by the restriction that lets tier 1 change a window onl
 decided the label. `?present=1` enlarges everything for recording (`?present=0` turns it off).
 
 Sample clip for judges. `scripts/make_sample_clip.py` cuts 60 s from a CalMS21 sequence of the **dev** split
-(`eval/splits/calms21_v1.json`, read only; any other sequence is refused) with ffmpeg into `data/app/sample/` (gitignored). The home
+(`eval/splits/calms21_v1.json`, read only; any other sequence is refused) with ffmpeg into `data/showcase/_sample/` (gitignored; inside the showcase dir so the public unit can read it). The home
 page offers it for download next to the dataset authors' behavior definitions, with the attribution "Clip from CalMS21 (Sun et al.
 2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. A judge with the access
 code uploads it and gets a full run in about 90 s.

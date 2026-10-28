@@ -3,7 +3,7 @@
   uv run python scripts/make_sample_clip.py [--seq mouse008_task1_annotator1] [--start-s 60]
 
 Reads data/calms21/videos/train/<seq>.mp4 (CalMS21, Sun et al. 2021, CC BY 4.0), cuts 60 s with ffmpeg (re-encoded,
-no audio, so the cut is frame-accurate and the file is small), and writes data/app/sample/calms21_dev_60s.mp4 plus
+no audio, so the cut is frame-accurate and the file is small), and writes data/showcase/_sample/calms21_dev_60s.mp4 plus
 sample.json next to it. The app serves that directory read-only (GET /api/sample, /api/sample/clip). Both stay
 gitignored: raw dataset video is never committed.
 
@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--duration-s", type=float, default=60.0)
     ap.add_argument("--videos", type=Path, default=ROOT / "data" / "calms21" / "videos" / "train")
     ap.add_argument("--splits", type=Path, default=ROOT / "eval" / "splits" / "calms21_v1.json")
-    ap.add_argument("--out-dir", type=Path, default=ROOT / "data" / "app" / "sample")
+    ap.add_argument("--out-dir", type=Path, default=ROOT / "data" / "showcase" / "_sample")
     a = ap.parse_args(argv)
     seq = a.seq or next((s for s in dev_sequences(a.splits) if (a.videos / f"{s}.mp4").is_file()), None)
     if seq is None:

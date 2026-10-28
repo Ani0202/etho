@@ -179,8 +179,10 @@ class AppConfig:
 
     @property
     def sample_dir(self) -> Path:
-        """The sample clip for judges (scripts/make_sample_clip.py), served read-only."""
-        return self.data_dir / "sample"
+        """The sample clip for judges (scripts/make_sample_clip.py), served read-only. It lives under the showcase
+        dir (no result.json, so it is never listed as a showcase) because the public unit bind-mounts that dir
+        read-only and cannot read the operator's data/app."""
+        return self.showcase_dir / "_sample"
 
     @property
     def work_dir(self) -> Path:
