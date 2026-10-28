@@ -146,3 +146,78 @@ Fallback is Courtship.zip. Zebrafish has no labels, so no measured F1 is possibl
 - 2026-10-28 13:15 UTC: (fallback, no reply in 2 h) Headline wording adopted for all written material: "No labeled examples in any prompt and no model training; pipeline settings tuned on 13 labeled development videos (disclosed)." Correction-loop arm is "few-shot (18 corrections)". Reversible if Aniket prefers other wording. The frozen `etho/report` text ("zero labeled training frames") is changed after test run 1.
 - 2026-10-28: (Aniket) Headline wording, replacing the 5fb5078 fallback: "Training-free: plain-English behavior definitions, no labeled examples, no model training." Footnote: "Pipeline settings were tuned on 13 labeled development videos; test results are on 19 untouched videos." The few-shot arm is described as using 18 corrections simulated from dev labels.
 - 2026-10-28: (Aniket) ADR-002 APPROVED with conditions: starts after test scoring, the live-app timing test and the rule sandbox; up to $13.60 from `ablation`; if wing threat is not clearly above the random floor on train by end of Oct 31 ET it ships as a qualitative clip with no F1 claim; README discloses pair-level scoring and cites the dataset.
+
+## ADR-003 (2026-10-28): Public hosting of the web app during judging. PROPOSED, needs Aniket's approval (escalation items 3, 4, 6)
+**Context.** The app runs on localhost only (`bin/app`; `server.py:462` defaults to 127.0.0.1). Uploads use Standard models (`server.py:218`), and a measured 60 s upload costs $0.23-0.36. Judging starts after the Nov 4 9 PM ET submission and **its length is unknown**, so anything public has to run unattended for an unknown number of days and fail closed. The video (25%) is the primary artifact. CLAUDE.md does not list a hosted demo as a requirement; I did not re-read the Official Rules for this (unverified). `demo-reserve` ($35) opens on Nov 3 05:00 UTC and also has to pay for the recording.
+**What the current guards bound (worst case, code as it is).**
+- **Daily cap:** $5 per UTC day (`config.py:38`, `guards.py:45-54`). It covers every app-attributed ledger row on all providers (`jobgw.py:206-212`). The day rolls over at 00:00 UTC, which is 7 PM ET after Nov 1, so a scripted client can spend about $10 within a few hours either side of rollover.
+- **Per-job ceiling:** `min(max(2x est, est + $0.50), headroom)` (`jobs.py:325-330`). It is checked before each call but not reserved (`jobgw.py:99-104`), so calls already in flight overshoot it: up to 8 syntheses, 8 tier-1 calls (`config.py:34-35`) and 5 SAM chunks. I estimate about $1 per job (unmeasured). Only one worker runs, so only one job overshoots at a time.
+- **Result:** about **$6 per UTC day**, with **no limit on the number of days**. The only multi-day stops are the gateway refusing `demo-reserve` at $35 (fail-closed) and the $140 Meta / $90 Fireworks caps. At $5/day an attacker empties `demo-reserve` in about 6 days.
+- **Rate limit:** 3 jobs/h per IP, held in memory (`config.py:46`, `guards.py:57-62`). A restart clears it, and anyone with a few IPs gets around it. It is a courtesy, not a spend bound.
+**Gaps for public exposure.**
+1. **No access control.** The `gate` middleware (`server.py:105-144`) checks only size, rate, queue and cap. Anyone with the URL can spend up to the cap.
+2. **No cumulative app cap.** `SpendGuard` reads only `spend_today` (`guards.py:43,46`; `jobgw.py:226-228`).
+3. **Wrong tag by default.** The tag is `dev` (`config.py:23`). Judging needs `ETHO_APP_TAG=demo-reserve`, which the gateway refuses until Nov 3 05:00 UTC.
+4. **No kill switch or read-only mode.** The nearest thing is `ETHO_APP_DAILY_CAP_USD=0` plus a restart. That refuses uploads before the body is read (`server.py:123`) and refuses revisions (`server.py:386`), and showcases still render. But the upload form stays visible and returns 429.
+5. **Retention is partial.** The window is 48 h (`config.py:54`), but cleanup only runs at startup and on a submit at most every 10 min (`server.py:189-191`, `jobs.py:171-193`), so an idle server keeps uploads past 48 h. It deletes only `data/app/jobs/<id>`. The upload's chunk mp4s in `cache/chunks` (`backend.py:41`) and its responses in `cache/gateway` (`gateway/config.py:67-68`) stay forever. The video also goes to Meta's Files API (log line 14), and we have not checked Meta's retention or whether we can delete it there. The UI has no privacy notice (`static/index.html`).
+6. **Model-written code runs next to the secrets.** The rule sandbox runs that code, and a visitor can steer it through definition text (up to 2,000 chars, `validate.py:170`). It runs as the same Unix user that can read `~/.config/etho/secrets.env`, the git push credentials and the Claude/Codex logins. Today it has an AST filter, CPU/AS rlimits and a stripped env (`sandbox.py:79-81,104-144`), with no filesystem or network isolation. **bwrap (in progress) is a hard prerequisite for any live mode.** ffprobe/ffmpeg on untrusted files have hardened flags (`validate.py:59-137`) but are otherwise unconfined.
+7. **No supervision.** `bin/app` is a bare `exec` (`bin/app:5`). Nothing restarts it and nothing alerts on failure. The lead session, which sends PushNotifications, may not be running during judging.
+8. **Capability links.** Project URLs carry 48-bit random ids (`jobs.py:113-114`), and `/api/jobs/{id}/cancel` has no ownership check (`server.py:244-246`). This is acceptable if the notice says links are shareable.
+9. **Shared detector cache.** Detectors written from one visitor's upload go into the shared cache (first writer wins) and are reused for another visitor's identical definition. In public live mode the cache should be lookup-only.
+**Options.**
+- **A. No public hosting.** Video, a README that runs locally, and showcases shown in the video. Judge value rests entirely on the video, and judges cannot open the audit trail. $0, no exposure, no effort, no ops.
+- **B. Public read-only showcase.** The real app with upload and revise turned off, serving precomputed CalMS21 runs (CC BY 4.0, attributed in `result.json`): ethogram, overlay, strips, detector code and the per-call audit.
+  - $0/day: with cap 0, no route can reach a model.
+  - No untrusted code or ffmpeg path runs, though the secrets are still on the box. There are no uploads, so no privacy issue.
+  - Effort about 3 h: a `read_only` flag that hides and refuses those routes, with tests; a tunnel; a systemd unit.
+  - Ops risk: a crash leaves a dead link.
+- **C. Public live app with uploads.** Fix gaps 1-7 and 9:
+  - an access code given to judges in the submission (middleware);
+  - $3/day plus a $20 cumulative cap from `demo-reserve`, which works out to about $4 per UTC day worst case including overshoot;
+  - bwrap around the sandbox and ffmpeg;
+  - a retention timer that also clears the job's `cache/chunks` and `cache/gateway` entries;
+  - a notice: "public or synthetic video only; sent to Meta and Fireworks; deleted after 48 h";
+  - supervision and a health check.
+  - Few judges have two-animal lab video, so offer a sample clip. Repeat uploads of it are gateway-cache hits (~$0), and the audit discloses `cache_hit`.
+  - Effort about 1 implementer-day before the Nov 2 freeze. This competes with Fly vs. Fly. The change touches the spend guards, so `bin/codex-review` applies, and routine Codex calls stop Nov 1.
+- **D. Hybrid B + C with a kill switch.** B is the public face, and live upload needs the access code. A kill switch file (e.g. `ops/app-live-off`, checked per request, no restart) and an auto-off date (`ETHO_APP_LIVE_UNTIL`) control live mode. Hitting any cap or crashing the worker leaves B serving. Effort is C plus about 1 h.
+**Hosting candidates.** Any public URL is escalation item 3, and anything paid is item 6.
+- **This VM + Cloudflare named tunnel.** Free, no inbound port. It needs Aniket's Cloudflare account and a domain on Cloudflare DNS; buying one would be a paid item. Quick Tunnels are out: the URL changes on every restart, there is no uptime guarantee, and **they do not support SSE** (Cloudflare docs), which the progress page uses.
+- **This VM + Tailscale Funnel.** Free, a stable `*.ts.net` URL, no domain needed.
+  - Unverified: whether SSE works, and whether the real client IP reaches uvicorn. If it doesn't, every visitor shares one 3-jobs/h bucket. That is safe for spend but bad for access.
+  - Bandwidth limits are unpublished (one anecdote says ~7 Mbps), so lower `max_upload_mb` from 200 (`config.py:25`) to about 50.
+- **Separate small host.** It would hold the same keys and keep its own ledger, so neither box's gateway caps would see the other's spend. That needs a cap split (an ADR plus approval) and about half a day. Not worth it.
+- **Hugging Face Spaces.** Rejected. Free-tier disk is ephemeral (unverified for the current tier), so `ops/spend.jsonl` and the caps would reset on every restart. It would also publish the code before Aniket flips the repo.
+- **Shared-box mitigation for any VM option.** Run the app as a separate Unix user (needs sudo):
+  - a secrets file holding only the Meta and Fireworks keys;
+  - write access only to `ops/spend.jsonl` and `ops/inflight/`, so there is still one ledger and one set of caps;
+  - no access to `.git`, `~/.claude` or the Codex credentials.
+**Choice (proposed): D on this VM behind Tailscale Funnel, or a Cloudflare named tunnel if Aniket already has a domain there. Staged, with B as the floor.**
+1. **By the Nov 2 freeze ($0, mock gateway):** read-only mode, kill switch, access code, cumulative cap, retention fix, notice, systemd unit and separate user. **Gate:** if bwrap for the sandbox and ffmpeg is not merged and tested by then, ship B only and leave live mode off.
+2. **Nov 3:** record the demo on localhost, not through the public URL. Put B up publicly so the URL can go into the submission.
+3. **At submission:** live mode on (`demo-reserve` tag, $3/day, $20 cumulative), which leaves $15 for the recording and Aniket's own live runs. Auto-off on a date Aniket picks.
+**Evidence.**
+- Every file:line above was read this session.
+- The $0.23-0.36 job cost is the lead's measurement and was not re-run.
+- The ~$1 overshoot is an estimate and was not measured.
+- The Cloudflare facts (no SSE on Quick Tunnels, a named tunnel needs a Cloudflare DNS domain) come from Cloudflare docs, via search on Oct 28.
+- The Funnel limits are only "non-configurable" per Tailscale docs; the numbers are unverified.
+**Cost and time.** A: $0. B: $0 and about 3 h. D: B plus about 5-6 h of implementer and reviewer time, and at most $20 of `demo-reserve` over the whole window. No change to any gateway cap.
+**Risks.**
+- **Rules:** none for A or B. C and D invite non-public uploads (item 4); the notice and access code reduce this but do not prevent it.
+- **Budget:** bounded by the cumulative cap.
+- **Integrity:** none. The app touches no eval data, and its outputs are never quoted as benchmark numbers.
+- **Ops:** nobody may be watching during judging, so the design fails closed. Meta credits or keys may be revoked after the event (unverified); live jobs would then fail and B would keep serving.
+**Reverse.**
+- Touch the kill switch: live mode goes off and B stays up.
+- Stop the tunnel: this is option A.
+- Delete `data/app/jobs/` and the jobs' cache entries.
+- No migration is needed at any step.
+**Codex view:** pending. The lead may run `bin/codex-ask` on this ADR before Nov 1 (routine budget).
+**Approval needed from Aniket:**
+1. Public hosting at all? If yes: B only, or D (live upload behind an access code given to judges in the submission)?
+2. Host: this VM via Tailscale Funnel (your account), or a Cloudflare named tunnel (do you already have a domain on Cloudflare)?
+3. Live budget from `demo-reserve`: $3/day and $20 in total (leaving $15 for the recording), or a different split?
+4. Live window: from submission until what date (auto-off)?
+5. The notice wording, 48 h retention, and uploads sent to Meta (Standard mode) and Fireworks: OK?
+6. OK to create a separate Unix user for the app (sudo) and keep only the Meta and Fireworks keys in its secrets file?
