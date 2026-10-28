@@ -941,3 +941,172 @@ Notes that go with the line, for the README:
 4. **Other Table 1 rows.** Table 1 also lists weaker supervised architectures (fully connected .659, LSTM .675,
    self-attention .610). The line cites the 1D ConvNet and the two stronger Table 2 entries. That is the
    paper's own benchmark set, and it does not cherry-pick a weak reference.
+
+---
+
+## 12. Per-sequence results and demo-clip choice (after the no-test-2 decision; 2026-10-28, ~18:00-18:20 UTC)
+
+**The seal is lifted.** Amendment A3 (EVAL_PLAN section 13; commits ed4a5dc and 7c43c04) records the CalMS21
+test-2 decision as **no test-2**, for two reasons: Aniket's instruction "never re-score test", and the absence
+of a qualifying defect. Committing it lifts the per-sequence seal (section 7.2). Before opening
+`eval/results/score-test-20261028T164333Z-473c64.per_sequence.sealed.json`, the evaluator checked its sha256
+against the run log: `88f361fe033bd0c642a5d57192264708b113ff56c375b2d4534a0987b0dc0451` in both.
+
+**Everything below is descriptive or presentation-only.** It makes no new predictions and is not a new test
+result. Choosing a demo clip is presentation, so these numbers must not be used to tune anything that is then
+described as evaluated on test.
+
+### 12.1 Per-sequence F1, all 19 test videos (from the unsealed file)
+
+Each row is computed from that video's frames alone (frame F1 at 30 fps). "–" means the behavior is absent from
+the video's ground truth. The last column averages F1 only over the behaviors present in that video. These
+numbers are not comparable to the pooled macro F1 of section 2.
+
+| Video | Frames | GT frames A / I / M | `zs_t1` F1 attack | `zs_t1` F1 investigation | `zs_t1` F1 mount | `zs_t1` attack FP frames | Mean F1 over present behaviors: zs_t1 / zs_rules / fs_t1 / fs_rules |
+|---|---|---|---|---|---|---|---|
+| mouse071 | 23810 | 0 / 4679 / 2894 | – | 0.6680 | 0.7566 | 1284 | 0.7123 / 0.4711 / 0.5217 / 0.3727 |
+| mouse072 | 18164 | 0 / 4298 / 6409 | – | 0.7964 | 0.8799 | 501 | 0.8382 / 0.5823 / 0.8059 / 0.6155 |
+| mouse073 | 19156 | 0 / 6867 / 5050 | – | 0.8276 | 0.5528 | 873 | 0.6902 / 0.3634 / 0.5977 / 0.4013 |
+| mouse074 | 18825 | 0 / 3595 / 2203 | – | 0.6178 | 0.7567 | 978 | 0.6873 / 0.3853 / 0.5420 / 0.3569 |
+| mouse075 | 18015 | 1920 / 2300 / 33 | 0.6223 | 0.6995 | 0.0734 | 285 | 0.4651 / 0.2994 / 0.4623 / 0.4034 |
+| mouse076 | 19710 | 3321 / 2633 / 0 | 0.7060 | 0.3152 | – | 1604 | 0.5106 / 0.3655 / 0.5529 / 0.4814 |
+| mouse077 | 18907 | 2098 / 1649 / 0 | 0.6720 | 0.3402 | – | 1287 | 0.5061 / 0.3349 / 0.5573 / 0.4239 |
+| mouse078 | 19473 | 4606 / 2826 / 0 | 0.5931 | 0.1619 | – | 3239 | 0.3775 / 0.3220 / 0.4722 / 0.4558 |
+| mouse079 | 17483 | 685 / 8353 / 0 | 0.3860 | 0.6867 | – | 260 | 0.5364 / 0.3221 / 0.5884 / 0.4122 |
+| mouse080 | 6179 | 0 / 2496 / 786 | – | 0.6709 | 0.5938 | 396 | 0.6324 / 0.3515 / 0.6113 / 0.4247 |
+| mouse081 | 4932 | 0 / 363 / 0 | – | 0.4482 | – | 0 | 0.4482 / 0.5057 / 0.4183 / 0.5476 |
+| mouse082 | 7115 | 0 / 2336 / 682 | – | 0.5870 | 0.4165 | 885 | 0.5017 / 0.2626 / 0.5801 / 0.3492 |
+| mouse083 | 4881 | 0 / 1172 / 597 | – | 0.4498 | 0.5068 | 963 | 0.4783 / 0.2972 / 0.6605 / 0.4151 |
+| mouse084 | 5626 | 0 / 395 / 1138 | – | 0.3400 | 0.6571 | 561 | 0.4985 / 0.3348 / 0.5798 / 0.5088 |
+| mouse085 | 19200 | 0 / 2802 / 6884 | – | 0.5268 | 0.7398 | 1148 | 0.6333 / 0.4799 / 0.6576 / 0.5501 |
+| mouse086 | 8617 | 0 / 671 / 3237 | – | 0.2557 | 0.6398 | 618 | 0.4478 / 0.3524 / 0.4699 / 0.3965 |
+| mouse087 | 11915 | 0 / 7174 / 125 | – | 0.7539 | 0.1400 | 1584 | 0.4469 / 0.2115 / 0.4908 / 0.2733 |
+| mouse088 | 8825 | 0 / 3927 / 497 | – | 0.6779 | 0.2521 | 1157 | 0.4650 / 0.2295 / 0.5915 / 0.4528 |
+| mouse089 | 11274 | 0 / 2739 / 1313 | – | 0.5647 | 0.6316 | 567 | 0.5982 / 0.4534 / 0.5810 / 0.5377 |
+
+Observations, all visible in the table:
+- Attack appears only in mouse075-079. Within those videos,  attack F1 ranges from 0.3860 to 0.7060.
+- Every one of the other 14 videos except mouse081 contains predicted-attack false positives: 260 to 1,604
+  frames per video, 18,190 pooled.
+- Investigation F1 is lowest in the attack videos mouse076-078 (0.16-0.34), where investigation is confused
+  with attack.
+- Mount F1 is high where mount is common (mouse072 0.8799, mouse074 0.7567) and low where it is rare (mouse075
+  33 GT frames 0.0734, mouse087 0.1400).
+
+### 12.2 Demo clip: the requested rule cannot be met on the test set
+
+The rule, fixed in `eval/demo_clip.py` before it ran:
+- windows of 120, 180, 240, or 300 s, starting on 10 s multiples;
+- at least 3 attack bouts **and** at least 3 mount bouts in the ground truth, each 0.5 s or longer;
+- within each video, the window with the highest  macro F1;
+- videos ranked by that F1.
+
+**No window in any test video qualifies** (logged run `analysis-test-20261028T175934Z-222a75`). Attack and mount
+barely co-occur in the CalMS21 test set: mount is absent from all of mouse076-079, and mouse075 has exactly
+**one** mount bout (33 frames, 1.1 s). The evaluator then ran an unlogged, label-only count of bouts per video
+(no predictions), which is disclosed here, followed by three relaxed rules, each a separate logged execution.
+
+| Run | Rule (ground-truth bouts of 0.5 s or longer) | Videos with a qualifying window |
+|---|---|---|
+| `analysis-test-20261028T175934Z-222a75` | attack >= 3 and mount >= 3 | 0 |
+| `analysis-test-20261028T180007Z-cdf519` | attack >= 3 and mount >= 1 | 1 (mouse075) |
+| `analysis-test-20261028T180007Z-5a24de` | attack >= 3 | 5 (mouse075-079) |
+| `analysis-test-20261028T180008Z-072925` | mount >= 3 | 13 |
+
+**Candidates.** Window F1 is , frame-level, computed inside the window only. Bout counts are ground-truth
+bouts of 0.5 s or longer, with all bouts in parentheses.
+
+| # | Video, segment | Attack bouts | Mount bouts | Investigation bouts |  F1 in window: attack / investigation / mount | Whole-video  F1: attack / investigation / mount |
+|---|---|---|---|---|---|---|
+| **1 (recommended if one clip must show both)** | **mouse075, 0-300 s** (frames 0-9000) | 11 (11) | **1** (1) | 17 (22) | 0.5283 / 0.7544 / 0.0810 | 0.6223 / 0.6995 / 0.0734 |
+| 2 (attack-rich) | mouse076, 230-350 s (frames 6900-10500) | 9 (11) | 0 | 12 (22) | 0.7595 / 0.5000 / – | 0.7060 / 0.3152 / – |
+| 2b (best attack window) | mouse075, 240-360 s (frames 7200-10800) | 3 | 0 | 9 | 0.8833 / 0.8288 / – | as row 1 |
+| 3 (mount-rich) | mouse072, 340-460 s (frames 10200-13800) | 0 | 3 | 8 | – / 0.8050 / 0.9687 | – / 0.7964 / 0.8799 |
+
+Further qualifying windows (these runs' full candidate lists are in `runs.jsonl`):
+- Attack, with window attack F1: mouse079 80-200 s (0.5859), mouse077 140-260 s (0.7357), mouse078 110-230 s
+  (0.6856).
+- Mount, with window mount F1: mouse085 20-140 s (0.8568), mouse071 20-140 s (0.8200), and 10 more.
+
+**Recommendation (the demo choice is the lead's and Aniket's):**
+- If the live clip must show both attack and mount, the only test option is **candidate 1, mouse075 0-300 s**.
+  It has plenty of attack and investigation, but mount is one 1.1 s bout. Etho finds that bout (it predicts
+  mount at frames 545-578 against ground truth 552-585), but it also calls parts of several attack bouts
+  "mount", so mount F1 in the window is 0.0810.
+- "Clear mount" is therefore **not available alongside attack in any test video**. Alternatives:
+  - run candidate 2 or 2b live for attack, and show candidate 3 precomputed for mount;
+  - use a dev or train video that has both behaviors. That video was used for tuning and must be labeled so.
+- **Selection bias, to disclose in the demo.** Windows were ranked by Etho's own F1, so every candidate is
+  favorable to Etho by construction. A clip's F1 must never be shown as representative. Show the pooled test
+  numbers instead.
+
+### 12.3 Exported aligned arrays (git-ignored, under `data/demo/`)
+
+Each export is a per-frame (30 fps) array of `gt` (CalMS21 annotator 1), `zs_t1`, and `zs_rules`. The coding is
+attack 0, investigation 1, mount 2, other 3. Each comes as an npz plus a json that also records frame_start,
+fps, vocab, and the source and attribution.
+
+| Path | sha256 |
+|---|---|
+| data/demo/attack-3_mount-1/mouse075_task1_annotator1_0_9000.npz (**candidate 1**) | d19c35c311574f7dc0cd3132a7492077dd8c12b7008c7c2fa6a5540ac4c5754d |
+| data/demo/attack-3_mount-1/mouse075_task1_annotator1_0_9000.json | 8cad072901f0cc51ce008e351a84d241ab2912c5176fa2e4aec5189bb5d6dc40 |
+| data/demo/attack-3/mouse075_task1_annotator1_7200_10800.{npz,json} (2b) | 13fb1b80... / 20cc4677... |
+| data/demo/attack-3/mouse079_task1_annotator1_2400_6000.{npz,json} | 0182ce6e... / ee7cc6af... |
+| data/demo/attack-3/mouse077_task1_annotator1_4200_7800.{npz,json} | 832e0e1e... / b9fec828... |
+| data/demo/mount-3/mouse072_task1_annotator1_10200_13800.{npz,json} (3) | dd924b24... / f5190b6f... |
+| data/demo/mount-3/mouse085_task1_annotator1_600_4200.{npz,json} | dee2205f... / 28cf9c47... |
+| data/demo/mount-3/mouse071_task1_annotator1_600_4200.{npz,json} | e9f6ca59... / b0ab5a6a... |
+
+Candidate 2 (mouse076, 230-350 s) was not exported, because each run exports only its top 3 by F1. It can be
+produced with `--min-bouts attack=3 --n-candidates 5`.
+
+**License.** The Caltech data record
+(`https://data.caltech.edu/api/records/s0vdx-0k302`, re-checked 2026-10-28) gives `rights`:
+`cc-by-4.0`. CC BY 4.0 allows redistribution of derived annotations with attribution (Sun et al. 2021) and an
+indication of changes. However, the project rule in CLAUDE.md is "never commit raw data". These arrays are a
+verbatim excerpt of the annotations, so the evaluator kept them in the git-ignored `data/demo/` and did **not**
+commit them. Committing them, or rendering them in a public repo or app, is a license and data question for
+Aniket (CLAUDE.md escalation item 3). Rendering the annotation timeline inside the demo video, with attribution,
+is within CC BY 4.0.
+
+### 12.4 One Etho error inside candidate 1, traced to the rule and the tier-1 call
+
+All verdicts below come from `data/runs/T1/verdicts_test_zs_t1.jsonl`. Tier-1 windows are given in 10 fps
+samples s0-s1, where frame = 3 x sample. The restricted cascade (frozen config, `tier1.allow =
+[investigation, none]`, confidence >= 0.6) applies a tier-1 verdict only if it says investigation or none.
+
+**Error A, the type requested: expert investigation labeled attack (the known over-prediction).**
+- **Where:** mouse075, frames 686-721 (22.87-24.03 s; 35 frames, 1.17 s). Ground truth is investigation, then
+  attack from frame 721. Etho predicts attack from frame 686, so this is an attack onset about 1.2 s too early.
+  It is the largest attack-on-investigation run in the clip; the only other one of 0.5 s or longer is frames
+  911-937.
+- **Rule:** the zero-shot attack detector (`configs/detectors/R1_zero_shot.json`, behavior `attack`). The
+  rules-only arm labels all 35 frames attack, and the tier-1 window was raised with `rule_label: attack`.
+- **Tier-1 call:** window s0 229-259 (frames 687-777), verdict **"mount"**, confidence 0.88, reason "Resident
+  is hunched over intruder from rear grasping it in final frames, matching mount definition."
+- **Why the error survived:** "mount" is not an allowed tier-1 label, so the rule's attack was kept. Here tier
+  1 was also wrong (the expert says investigation, then attack).
+
+**Error B, an alternative that is longer and clearer: expert attack labeled mount.**
+- **Where:** mouse075, frames 1124-1304 (37.47-43.47 s; 180 frames, 6.0 s). Etho predicts mount; the expert
+  labels 138 of those frames attack and 42 investigation.
+- **Rule:** the zero-shot mount detector fired. The rules-only arm labels all 180 frames mount.
+- **Tier-1 calls:**
+  - s0 375-405: rule mount, verdict **"attack"**, confidence 0.92, reason "Resident in sustained close
+    tussling/biting contact with intruder across all frames, consistent with high-intensity attack not passive
+    sniffing or rear mount."
+  - s0 405-435: rule mount, verdict **"attack"**, confidence 0.92.
+- **Why the error survived:** tier 1 was **right**, but the restricted cascade discards attack verdicts, so
+  the rule's mount stood.
+- This traces a real design trade-off. The restriction was chosen on dev, where restricted tier-1 scored
+  macro 0.4820 against 0.4063 unrestricted (section 6, item 1).
+
+For the demo, B shows the audit trail more clearly. A matches the over-prediction the demo plan names. Neither
+may be described as typical.
+
+### 12.5 Logging
+
+The four `analysis` executions are in `eval/results/runs.jsonl`, each a `started` record followed by an `ok`
+record. They use `split: test` with purpose `demo-clip-selection`, so the test-run accounting (`test-1`,
+`test-2`) is unaffected. Code: `eval/demo_clip.py` and `eval/tests/test_demo_clip.py` (commits 2979eb8 and
+189c24c).
