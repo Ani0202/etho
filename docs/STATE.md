@@ -52,11 +52,10 @@ _Updated 2026-10-28 21:00 UTC (17:00 ET)._
 1. App: an optional fix for discarded tier-1 verdicts, dev-tested and never claimed in the test numbers.
 2. `docs/architecture.svg` for the demo's code beat.
 3. Oct 30 ET checkpoint report.
-4. README polish, and the pre-submission audit (deadline Nov 4 12:00 PM ET).
+4. README polish, and the pre-submission audit (internal target Nov 4 12:00 PM ET; official deadline 9:00 PM ET).
 
 ### Waiting on Aniket
 - The remaining submission-form fields.
-- The CLAUDE.md deadline update (proposed internal target Nov 4 9:00 AM ET).
 - The sudo steps for hosting.
 
 ## Day-by-day plan (ET)

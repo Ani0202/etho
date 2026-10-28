@@ -241,3 +241,15 @@ exported arrays stay uncommitted in gitignored `data/demo/` unless you want them
    - the video is Unlisted on YouTube, checked logged out;
    - only Aniket is listed;
    - **submit by Nov 4 12:00 PM ET; late submissions are not considered.**
+
+## 2026-10-28 ~18:05 ET: Aniket's answers (deadline, form fields, accuracy final, ADR-005, script)
+1. **Deadline:** the official deadline is Nov 4, 9:00 PM ET; 12:00 PM ET is the internal target (keep it, don't
+   move it earlier). Aniket is confirming the time zone on the participants page. CLAUDE.md already states both;
+   SUBMISSION.md, DEMO_PLAN.md and STATE.md are corrected.
+2. **Form fields** received (track, problem statement, Most Viral X link, description, repo, video, use of Meta
+   products, why Meta's models, Meta feedback, partner feedback: Fireworks, Modal, Baseten). Drafts are in
+   docs/SUBMISSION.md for Aniket to edit. Aniket does the hosting sudo steps (read-only) and section 7 checks.
+3. **Accuracy is final:** no test-2, no further CalMS21 tuning.
+4. **ADR-005** (pre-freeze additions: "Ask your experiment", live-product polish, other): recommend one, get
+   approval, don't start before approval. OPEN.
+5. Send the full v3 voice-over script. Sent.

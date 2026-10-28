@@ -8,7 +8,7 @@
   (1:05-1:20) shows the architecture diagram and our own gateway and cascade code, not only the rules the model
   wrote.
 - **Schedule:** rough cut Nov 2 (up to $5 of `demo-reserve` unlocked for it). Final recording Nov 3.
-  Submission by Nov 4, 12:00 PM ET (`docs/SUBMISSION.md`).
+  Internal submission target Nov 4, 12:00 PM ET; official deadline Nov 4, 9:00 PM ET (`docs/SUBMISSION.md`).
 - **Sources and numbers:** every factual claim in the voice-over has a source (table below). Numbers come only
   from committed files.
 
