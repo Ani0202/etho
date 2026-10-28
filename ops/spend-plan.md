@@ -28,3 +28,9 @@
 - Frozen settings only (`configs/frozen_test_v1.json`), one run, both arms (zs_t1, fs_t1).
 - Estimate about $15 (range $7.5-23). Fireworks before the run: $9.87.
 - Guard: a watchdog stops the run if Fireworks spend passes $34.37 (start + $24.5), on top of the gateway's $90 cap.
+
+## 2026-10-28: Fly vs. Fly (ADR-002), APPROVED up to $19.5 total from `ablation` (Meta)
+- Spent so far: $3.71. That covers the probe ($0.06) and dev movies 1-2, mid5 at 30 fps ($3.65).
+- Lunge GO path: train movies 3-5 mid5 at 30 fps ~$5.47, then test 6-10 ~$9.12, plus LLM ~$1. Total ~$19.3.
+- Lunge NO-GO path: train 1-5 and test 6-10, mid10 at 10 fps, ~$6.1 each, plus LLM. Total ~$16.4.
+- Each tracking job is run separately; the gateway's `ablation` tag tracks the total.

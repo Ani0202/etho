@@ -138,3 +138,28 @@ Codex's own stricter version is in `ops/codex/ask-20261028-165452-293961.md`.
 Etho Local. *Blocking:* only the spare-movie tracking. Meanwhile I'll do the lunge decision, the definitions and
 the Codex critique of the fly eval plan, all within the approved $13.60. *Fallback if no reply in 2 h:* stay
 within $13.60, so path B if lunge is NO-GO; if lunge is GO, wait for your reply.
+
+### Answers from Aniket (2026-10-28, ~13:50 ET)
+1. **Fly budget APPROVED:** up to $19.5 total from `ablation`. Etho Local is dropped. The Oct 31 ET time limit and
+   the pre-registered go/no-go still apply.
+2. **Headline APPROVED in two versions:**
+   - README and report: the full wording, including the complete footnote with the test-label-summaries
+     disclosure.
+   - Demo slide: "Training-free: plain-English behavior definitions, no labeled examples given to the models, no
+     model training." Footnote: "Tuned on 13 labeled dev videos; scored once on the 19 official test videos.
+     Full disclosure in README."
+   - Accuracy line everywhere: "0.58 F1 with no training; supervised methods reach 0.79–0.86", citing all three
+     baselines.
+   - Speed line: "scores a video unattended in about its own length (0.88× real time on test; worst 1.54×);
+     manual scoring takes 3–4×". No "14–18× faster" wording anywhere.
+3. **Speed:** explain why test (0.88×) was ~4× slower than dev (0.22×), with a breakdown by stage, and propose a
+   cheap fix if one exists. Measure on fresh clips only; never re-score test.
+4. **ADR-003 APPROVED with changes:**
+   - public read-only showcase;
+   - live uploads only behind an access code that goes in the submission notes, not on the public page;
+   - kill switch; $3/day and $20 total from `demo-reserve`; auto-off Nov 10 ET;
+   - Tailscale Funnel, not a Cloudflare quick tunnel;
+   - privacy notice: uploads are processed by Meta in Standard mode (not used for training) and deleted after
+     24 h;
+   - a separate Unix user: give Aniket the exact sudo commands to run.
+5. **Demo plan:** Aniket is reviewing it and will reply separately.
