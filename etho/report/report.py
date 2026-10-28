@@ -132,7 +132,7 @@ def build(inp: ReportInput, out: Path, *, codes: dict[str, int], gw: Gateway | N
 <style>{CSS}</style></head><body class="viz-root">
 <div class="card"><h1>{html.escape(inp.title)}</h1>
 <div class="sub">{html.escape(str(inp.meta.get("video", "")))} | {len(inp.labels) / inp.fps / 60:.1f} min scored at
-{inp.fps:g} fps | zero labeled training frames</div></div>
+{inp.fps:g} fps | training-free: no labeled examples given to the models, no model training</div></div>
 <div class="card"><h2>Ethogram</h2>{ethogram_svg(m, len(inp.labels), inp.fps)}</div>
 <div class="card"><h2>Per-behavior metrics</h2><table>
 <tr><th>behavior</th><th>bouts</th><th>total s</th><th>% of video</th><th>latency to first s</th>

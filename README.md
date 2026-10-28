@@ -1,10 +1,15 @@
 # Etho
 
-Zero-shot animal behavior scoring. Upload lab video, write behavior definitions in plain English,
-and get a scored ethogram, metrics, and an auditable methods report, with no labeled training frames.
-Built for the Meta Global AI Developer Hackathon (Push the Frontier).
+Training-free animal behavior scoring: plain-English behavior definitions, no labeled examples given to
+the models, no model training.¹ Upload lab video, write behavior definitions in plain English, and get a
+scored ethogram, metrics, and an auditable methods report. Built for the Meta Global AI Developer Hackathon
+(Push the Frontier).
 
-**Status:** early development (Phase 0/1: infrastructure and feasibility spike). See `docs/STATE.md`.
+¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
+videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling
+rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`.
+
+**Status:** active development. See `docs/STATE.md`.
 
 ## Setup
 
