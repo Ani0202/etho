@@ -68,7 +68,7 @@ The frame check actually answered "attack", but a rule in the cascade set it asi
 
 18
 00:01:40,748 --> 00:01:42,817
-Nothing is a black box.
+No label goes unexplained.
 
 19
 00:01:44,300 --> 00:01:44,714

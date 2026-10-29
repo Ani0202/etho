@@ -13,7 +13,7 @@
   from committed files.
 
 ## Script (v4, Aniket's text, adopted 2026-10-28)
-391 words. At 145 words/min that is 2:42 of speech; the timeline below adds pauses for on-screen moments and ends
+390 words. At 145 words/min that is 2:42 of speech; the timeline below adds pauses for on-screen moments and ends
 at 2:57, leaving 3 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
 recording on Nov 2 (`docs/demo_captions_v4.srt` is a draft at 145 wpm, one caption per sentence, 32 captions).
 
@@ -23,8 +23,8 @@ Source check of the two new phrases (2026-10-28):
   The rules alone go from the 0.134 random reference to 0.375 (+0.240), which is larger than +0.205, so "largest
   single gain" is not supported. Among the steps added on top of the rules, the frame check is the largest
   measured gain (test: +0.205; corrections inconclusive; dev: video tier +0.005, medium effort -0.011).
-- Flagged for Aniket: "Nothing is a black box." The models themselves are black boxes; what is traceable is
-  each label. Suggested: "No label goes unexplained." Kept as written until Aniket decides.
+- "Nothing is a black box." replaced by "No label goes unexplained." (Aniket, 2026-10-29): the models themselves
+  are black boxes; what is traceable is each label. 390 words; the beat timings stand.
 
 | Beat | Time | Words | Speech |
 |---|---|---|---|
@@ -32,7 +32,7 @@ Source check of the two new phrases (2026-10-28):
 | Who it's for, the gap | 0:20-0:35 | 34 | 14.1 s |
 | Live run | 0:35-1:04 | 64 | 26.5 s |
 | Code beat | 1:04-1:21 | 38 | 15.7 s |
-| Results and traced error | 1:21-1:44 | 52 | 21.5 s |
+| Results and traced error | 1:21-1:44 | 51 | 21.1 s |
 | Correction loop | 1:44-1:55 | 20 | 8.3 s |
 | Evidence card | 1:55-2:27 | 74 | 30.6 s |
 | Second species | 2:27-2:41 | 29 | 12.0 s |
@@ -64,7 +64,7 @@ planner card shows the phrases Muse Spark proposed and the one SAM confirmed)
 **1:21-1:44, results and one real error** (on screen: Etho's ethogram over the expert's; the trace panel)
 > Here's Etho beside the expert's labels. Every label is traceable, including the mistakes. At thirty-eight
 > seconds, Etho says mount; the expert says attack. The frame check actually answered "attack", but a rule in the
-> cascade set it aside, and the trace shows exactly which step did it. Nothing is a black box.
+> cascade set it aside, and the trace shows exactly which step did it. No label goes unexplained.
 
 Traced-error contingency (Aniket, 2026-10-28, decided before the run):
 - If the live run shows a different real error, use it and rewrite this line to match.
@@ -117,6 +117,9 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v4.s
     is transparent (test1_report §12).
   - The traced error is at frames 1124-1304 (37.5-43.5 s).
   - The app may get a fix for discarded verdicts later; the test numbers never claim it.
+  - The rules stage takes about 0.7 s on camera: the dataset authors' exact definitions reuse the rules Muse Spark
+    wrote for the benchmark (configs/detectors/R1_zero_shot.json). Shown as is, and the voice-over line stays
+    accurate (Aniket, 2026-10-29).
   - Recorded live; waits are cut with a visible "time skipped" tag. If the live run fails on the day, use the
     precomputed run, labeled "precomputed".
 - **Human annotation timeline:** the real CalMS21 labels for the clip, rendered like Etho's ethogram, credited

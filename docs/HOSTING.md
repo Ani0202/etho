@@ -486,7 +486,7 @@ GitHub Actions workflow once the repo is public (best-effort, every 5 minutes at
 | delete every upload right now | `sudo systemctl stop etho-app && sudo rm -rf /var/lib/etho-app/data/jobs /var/lib/etho-app/data/gateway_cache /var/lib/etho-app/data/work /var/lib/etho-app/data/tmp && sudo systemctl start etho-app` |
 | take it offline | `sudo systemctl disable --now etho-app etho-app-watchdog.timer && sudo tailscale funnel reset` |
 | read the log | `sudo journalctl -u etho-app -f` |
-| deploy new code | the unit runs the checkout in place. Pull or merge (mind the `chattr +a` note in section 3), `uv sync`, then `sudo systemctl restart etho-app`. Do not edit tracked files in the checkout while it serves (modules loaded lazily on the first job would pick the edit up). |
+| deploy new code | Claude may restart after a merge (sudoers rule below); **Nov 4-9 ET it pushes Aniket a notification before any restart**. The unit runs the checkout in place. Pull or merge (mind the `chattr +a` note in section 3), `uv sync`, then `sudo systemctl restart etho-app`. Do not edit tracked files in the checkout while it serves (modules loaded lazily on the first job would pick the edit up). |
 
 The caps are computed from the ledger, so they persist across restarts, and each admitted job reserves its ceiling.
 
@@ -562,3 +562,9 @@ Not deleted or not guaranteed, in full:
   belong to your own jobs on `demo-reserve`.
 * **Shared bucket without a real client IP** (section 7, check 1).
 * **The videos' pixels reach Meta and Fireworks** as the privacy notice says; this site cannot recall them.
+
+## 12. Passwordless restart for the lead session (Aniket, 2026-10-29)
+`/etc/sudoers.d/etho-app-restart` lets the `ubuntu` user run exactly `/usr/bin/systemctl restart etho-app` with no
+password, and nothing else (no stop, no other unit, no extra arguments). Claude restarts the app after merges. During
+the judging window (Nov 4-9 ET) it sends Aniket a push notification before any restart. Remove the rule with
+`sudo rm /etc/sudoers.d/etho-app-restart`.

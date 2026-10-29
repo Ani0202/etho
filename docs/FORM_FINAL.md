@@ -26,7 +26,7 @@ Push the Frontier
 <X post URL, only if you post it>
 ```
 
-Draft X post: 261 characters without the handle/hashtag, counting the video link at 23 characters as X does, so a handle or hashtag of up to 18 characters fits. Replace `<handle/hashtag>` with any required hackathon handle or hashtag from the participants page; if it doesn't fit, drop the video link and attach the video to the post instead.
+Draft X post: 261 characters without the handle/hashtag, counting the video link at 23 characters as X does, so a handle or hashtag of up to 18 characters fits. Replace `<handle/hashtag>` with the official hackathon tag from the participants page, or `@AIatMeta` (9 characters) if there is none (Aniket, 2026-10-29; Aniket verifies the handle); if it doesn't fit, drop the video link and attach the video to the post instead.
 
 ```
 Many labs still hand-score animal behavior, at 3-4x the video's length. I built Etho: plain-English definitions in, scored behavior out, no training. 0.58 F1 on CalMS21's test set (supervised: 0.79-0.86). On Meta's SAM 3.1 + Muse Spark. <handle/hashtag> <video URL>

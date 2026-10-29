@@ -260,3 +260,14 @@ demo-reserve (code + tests); Nov 3 Discord question on public pages / private no
 impact sentence (ICH S7A; OECD TG 424) in #4 short and full; #9 flagged lines kept and reworded; #10 429 line
 reworded, no-JSON kept, n>1 cut; X post rewritten with a hook and a handle/hashtag placeholder. Open: the
 handle/hashtag (Aniket checking the participants page).
+
+## 2026-10-29 ~01:00 ET: Aniket's answers
+1. Restart once after the Codex-fix merge (morning); a sudoers rule for `systemctl restart etho-app` only, after
+   which Claude restarts after merges; push a notification before any restart Nov 4-9.
+2. Phone check on cellular and section 7 after the restart.
+3. X post tag: the official one from the participants page, else `@AIatMeta` (Aniket verifies).
+4. Script: "No label goes unexplained." replaces "Nothing is a black box."
+5. Code beat / live run: show the 0.7 s rules step.
+6. Discord questions on Nov 3 as planned.
+Requirement: the retention fix and the revision-report wording fix are live and verified on the hosted app before
+the Nov 3 go-live; the Oct 31 status reports it.
