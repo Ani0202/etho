@@ -214,7 +214,10 @@ class JobManager:
                     ids = {j.id for j in self.jobs.values() if j.project_id == d.name} | {d.name}
                 try:
                     ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
-                    purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway())
+                    with self._cv:
+                        others = {j.id for j in self.jobs.values() if j.project_id != d.name}
+                    purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway(),
+                                  other_job_ids=others)
                     tuning.forget_under(d)
                     removed.append(d.name)
                 finally:

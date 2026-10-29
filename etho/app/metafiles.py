@@ -39,12 +39,16 @@ def record_undeleted(cfg: AppConfig, file_id: str, project: str) -> None:
 
 
 def delete_job_files(cfg: AppConfig, ledger: AppLedger, gw, job_ids: list[str], *, caller: str,
-                     project: str | None = None, record_failures: bool = False) -> dict:
+                     project: str | None = None, record_failures: bool = False,
+                     skip_keys: frozenset[str] | set[str] = frozenset()) -> dict:
     """Delete the Files API copies for these jobs through `gw` (a Gateway). Returns counts. Failures are logged and,
     with `record_failures`, appended to `meta_files_undeleted.jsonl` (the retention pass does this; the early pass
-    leaves them for the retention pass to retry)."""
+    leaves them for the retention pass to retry). Uploads whose key is in `skip_keys` (content-addressed: a live job
+    of another project uploaded the same bytes and uses the same file) are left alone."""
     rep = {"deleted": 0, "failed": 0}
     for key in upload_keys(ledger, job_ids):
+        if key in skip_keys:
+            continue
         try:
             rec = gw.cache.get_json(key)
         except Exception:

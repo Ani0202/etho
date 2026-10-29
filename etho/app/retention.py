@@ -107,11 +107,40 @@ def _meta_file_id(root: Path, key: str) -> str | None:
         return None
 
 
-def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str], gw=None) -> dict:
+def project_job_ids(d: Path) -> set[str]:
+    """Ids of the jobs a project directory holds: its analysis (named like the directory) and its revisions."""
+    ids = {d.name}
+    ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
+    return ids
+
+
+def _live_keys(cfg: AppConfig, ledger: AppLedger, d: Path, extra_job_ids) -> set[str]:
+    """Request keys that a project OTHER than `d` still references: every other project directory (not yet purged,
+    so not expired or still being worked on) and the ids of jobs the manager knows that belong to other projects.
+    Cache entries are content-addressed, so two projects with the same inputs share them."""
+    ids = set(extra_job_ids)
+    if cfg.jobs_dir.is_dir():
+        for o in cfg.jobs_dir.iterdir():
+            if o.is_dir() and o.name != d.name:
+                ids |= project_job_ids(o)
+    keys: set[str] = set()
+    for jid in ids:
+        for r in ledger.job_rows(jid):
+            k = r.get("request_key")
+            if isinstance(k, str) and KEY_RE.match(k):
+                keys.add(k)
+    return keys
+
+
+def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str], gw=None,
+                  other_job_ids=()) -> dict:
     """Delete one project's Meta Files copies (when `gw` is a gateway), chunk dirs and gateway-cache entries, then
     its directory. Order matters: the directory goes last, so a crash in between leaves it (and the record of what to
-    delete) for the next pass."""
-    rep = {"project": d.name, "cache_entries": 0, "chunk_dirs": 0, "meta_files_recorded": 0, "meta_files_deleted": 0}
+    delete) for the next pass. A cache entry (and its lock file, and the Meta file it points at) that a project
+    which is not being purged also references is left alone: another job may be reading it or about to, and
+    deleting it would break that job or make it pay again. `other_job_ids`: jobs of other projects the caller knows."""
+    rep = {"project": d.name, "cache_entries": 0, "chunk_dirs": 0, "meta_files_recorded": 0, "meta_files_deleted": 0,
+           "shared_keys_kept": 0}
     refs = read_json(d / CHUNK_REFS, {}) or {}
     chunk_root = cfg.chunk_cache_dir
     for c in refs.get("chunk_dirs", []):
@@ -129,18 +158,22 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
                 k = r.get("request_key")
                 if isinstance(k, str) and KEY_RE.match(k):
                     keys[k] = keys.get(k, False) or r.get("endpoint") == "/files"
+        shared = _live_keys(cfg, ledger, d, set(other_job_ids) - set(job_ids)) & set(keys)
+        rep["shared_keys_kept"] = len(shared)
         if gw is not None:     # ask Meta to delete whatever the early pass did not; list only the failures
             who = caller_for(d.name, "etho.app.retention", cfg.caller_prefix)
             r = delete_job_files(cfg, ledger, gw, job_ids, caller=who,
-                                 project=d.name, record_failures=True)
+                                 project=d.name, record_failures=True, skip_keys=shared)
             rep["meta_files_deleted"], rep["meta_files_recorded"] = r["deleted"], r["failed"]
         else:                  # no gateway to ask: keep the ids so they can be deleted by hand
-            ids = [_meta_file_id(root, k) for k, is_file in keys.items() if is_file]
+            ids = [_meta_file_id(root, k) for k, is_file in keys.items() if is_file and k not in shared]
             ids = [i for i in ids if i]
             for i in ids:
                 record_undeleted(cfg, i, d.name)
             rep["meta_files_recorded"] = len(ids)
         for k in keys:
+            if k in shared:
+                continue
             for p in cache_files(root, k):
                 if p.exists():
                     p.unlink(missing_ok=True)
