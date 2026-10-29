@@ -271,3 +271,9 @@ handle/hashtag (Aniket checking the participants page).
 6. Discord questions on Nov 3 as planned.
 Requirement: the retention fix and the revision-report wording fix are live and verified on the hosted app before
 the Nov 3 go-live; the Oct 31 status reports it.
+
+## 2026-10-29 ~15:00 ET: hosted unit, two go-live blockers (Aniket's sudo)
+1. bwrap cannot mount /proc under the unit's hardening, so live mode would stay read-only. Proposed: a drop-in with
+   `ProtectKernelTunables=no` after the section-5 pre-flight passes without it.
+2. app.env sets the daily cap explicitly ($3, not raised Nov 4-9) and total $20. Proposed: delete the
+   ETHO_APP_DAILY_CAP_USD line and set ETHO_APP_TOTAL_CAP_USD=30 (approved caps).
