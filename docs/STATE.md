@@ -1,8 +1,28 @@
 # Etho state
 
-_Updated 2026-10-28 23:25 UTC (19:25 ET)._
+_Updated 2026-10-29 07:00 UTC (03:00 ET)._
 
-## Latest (evening Oct 28)
+## Latest (night Oct 28-29)
+- **Overnight Codex review fixes merged** (d0a9e83): fly slow-velocity margin, retention keeps shared cache keys and
+  Meta files (per-key lock + recheck; lock files left to the idle sweep), revision reports/views no longer claim "no
+  labeled examples". Two Claude reviewer rounds; 700 passed, lint clean. Codex second opinion queued
+  (20261029T050548-review-fd07b4). **Not live yet: Aniket restarts in the morning** (then phone check on cellular +
+  section 7). Must be live and verified on the hosted app before the Nov 3 go-live (report in the Oct 31 status).
+- **Sudoers:** `ubuntu` already has `NOPASSWD: ALL` (cloud-init default); Aniket has the commands for a
+  restart-only rule and for removing the blanket rule. Claude restarts only after he confirms it is installed.
+- **Reliability pass, done so far (all no spend):**
+  - Fresh clone from GitHub (e8d831b): `uv sync` + `make check` 683 passed, 17 skipped. 13 skips were bwrap,
+    because the clone was under /tmp (the sandbox's private /tmp hides the .venv); a clone in ~ passes the sandbox
+    tests (25 passed). README note added (781a73b). The other 4 skips need gitignored data.
+  - Cap-hit drill (separate public instance on :8772, total/daily cap $0.05): upload refused with 429 `daily_cap`
+    and the friendly fallback message; showcase still listed; 0 ledger rows.
+  - Kill-switch drill (same instance): health `mode: killed`, upload refused 503 `killed`, showcase page and sample
+    clip 200; removing the file returns to `live`. No errors in the log; the access code never appears in it.
+  - Still to do: the same drills on the hosted unit after the restart, and the judge path from a phone on cellular.
+- **Aniket decisions (Oct 29):** "No label goes unexplained."; 0.7 s seeded rules step shown; X tag official or
+  `@AIatMeta`; push before any restart Nov 4-9.
+
+## Earlier (evening Oct 28)
 - **Hosting:** Aniket ran the sudo steps; `etho-app` is active in read-only mode at the Funnel URL (ops/public-url,
   untracked). It still runs pre-merge code: **needs `sudo systemctl restart etho-app`** to load the cap schedule,
   the ADR-005 bundle and the new showcase. The VM cannot reach its own Funnel URL (known loopback limit), so external
