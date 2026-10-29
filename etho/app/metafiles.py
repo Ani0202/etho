@@ -40,27 +40,41 @@ def record_undeleted(cfg: AppConfig, file_id: str, project: str) -> None:
 
 def delete_job_files(cfg: AppConfig, ledger: AppLedger, gw, job_ids: list[str], *, caller: str,
                      project: str | None = None, record_failures: bool = False,
-                     skip_keys: frozenset[str] | set[str] = frozenset()) -> dict:
+                     is_live=None) -> dict:
     """Delete the Files API copies for these jobs through `gw` (a Gateway). Returns counts. Failures are logged and,
     with `record_failures`, appended to `meta_files_undeleted.jsonl` (the retention pass does this; the early pass
-    leaves them for the retention pass to retry). Uploads whose key is in `skip_keys` (content-addressed: a live job
-    of another project uploaded the same bytes and uses the same file) are left alone."""
-    rep = {"deleted": 0, "failed": 0}
+    leaves them for the retention pass to retry).
+
+    The cache entry holds the file id and is content-addressed: another job with identical bytes shares the entry and
+    the file. Each key is therefore handled under its cache lock (the lock `Gateway.upload_file` holds while it
+    reads the entry and writes its ledger row), and `is_live(key)` is asked INSIDE it: a True answer (a live job
+    still uses the file) leaves both the Meta file and the entry alone. A job that hit the cache before we took the
+    lock has its ledger row by now; one that comes after finds no entry and uploads afresh. The delete is made
+    without `request_key` (the gateway would take the same, non-reentrant lock to forget the entry), and the entry
+    is forgotten here once Meta confirms. Returns also `kept`: the keys skipped because they were live."""
+    rep = {"deleted": 0, "failed": 0, "kept": 0}
     for key in upload_keys(ledger, job_ids):
-        if key in skip_keys:
-            continue
+        fid, ok = None, False
         try:
-            rec = gw.cache.get_json(key)
-        except Exception:
-            rec = None
-        fid = rec.get("id") if isinstance(rec, dict) else None
-        if not fid:                                   # already deleted (the entry was forgotten) or never stored
-            continue
-        try:
-            ok = bool(gw.delete_file(str(fid), tag=cfg.tag, caller=caller, request_key=key))
+            with gw.cache.lock(key):
+                if is_live is not None and is_live(key):
+                    rep["kept"] += 1
+                    continue
+                try:
+                    rec = gw.cache.get_json(key)
+                except Exception:
+                    rec = None
+                fid = rec.get("id") if isinstance(rec, dict) else None
+                if not fid:                           # already deleted (the entry was forgotten) or never stored
+                    continue
+                ok = bool(gw.delete_file(str(fid), tag=cfg.tag, caller=caller, request_key=None))
+                if ok:
+                    gw.cache.delete_json(key)
         except Exception as e:                        # a policy refusal (tag locked, no key): not deleted
             log.warning("Meta file delete refused: %s", str(e)[:200])
             ok = False
+            if not fid:
+                continue
         if ok:
             rep["deleted"] += 1
         else:
