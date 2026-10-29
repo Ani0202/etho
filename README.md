@@ -22,7 +22,8 @@ Model-written detector code runs in a sandbox: an AST check, rlimits, and (when 
 isolation with no network and a minimal read-only filesystem. Install it with `sudo apt install bubblewrap`.
 `ETHO_SANDBOX=bwrap` requires it (jobs fail if it is unusable), `ETHO_SANDBOX=rlimit` forces the weaker
 rlimit-only mode, and unset picks bwrap when it works and logs a warning when it does not. The mode in effect
-is shown in `/api/config` and in each project's audit view.
+is shown in `/api/config` and in each project's audit view. Clone outside `/tmp`: the sandbox gives detector code a
+private `/tmp`, so a `.venv` under `/tmp` is invisible to it and bubblewrap is reported unusable.
 
 API keys go in `~/.config/etho/secrets.env` (outside the repo):
 
