@@ -149,7 +149,7 @@ def finalize_fly(t: dict[str, np.ndarray], fps: float, bl: float) -> dict[str, n
         d2 = np.diff(2 * t[f"{p}_angle"], prepend=np.nan)  # the axis is pi-periodic, so double the angle
         da = np.abs((d2 + np.pi) % (2 * np.pi) - np.pi) / 2
         t[f"{p}_ang_speed"] = smooth(da, k_fast) * fps
-    ok_f, ok_s = edge_ok(t, k_fast), edge_ok(t, k_slow, k_jump=k_fast)
+    ok_f, ok_s = edge_ok(t, k_fast), edge_ok(t, k_slow)
     t["vel_ok"], t["vel_ok_s"] = ok_f.astype(float), ok_s.astype(float)
     for p in ("a", "b"):
         for c in ("speed", "toward_speed", "ang_speed"):
@@ -165,13 +165,13 @@ def finalize_fly(t: dict[str, np.ndarray], fps: float, bl: float) -> dict[str, n
     return t
 
 
-def edge_ok(t: dict[str, np.ndarray], k: int, k_jump: int | None = None) -> np.ndarray:
+def edge_ok(t: dict[str, np.ndarray], k: int) -> np.ndarray:
     """False within +-k samples of an identity-epoch change, of either edge of an id_unknown run, or of an
     abrupt mask-area change (> SHAPE_JUMP): a velocity smoothed over k samples there could straddle a swap
-    of the two flies, or a wing appearing in the mask, and show a fake jump."""
+    of the two flies, or a wing appearing in the mask, and show a fake jump. The margin is the smoother's
+    support (k) for every kind of edge, so a slow (k_slow) velocity is excluded as far as its own window reaches."""
     n = len(t["a_cx"])
     bad = np.zeros(n, bool)
-    k_jump = k if k_jump is None else k_jump
     edges = []
     if "id_epoch" in t:
         e = np.nan_to_num(t["id_epoch"], nan=-1.0)
@@ -184,7 +184,7 @@ def edge_ok(t: dict[str, np.ndarray], k: int, k_jump: int | None = None) -> np.n
         with np.errstate(invalid="ignore", divide="ignore"):
             jump = np.abs(np.diff(a)) / np.maximum(a[:-1], 1.0) > SHAPE_JUMP
         for i in np.nonzero(np.nan_to_num(jump, nan=0.0) > 0)[0] + 1:
-            bad[max(0, i - k_jump - 1):i + k_jump + 1] = True
+            bad[max(0, i - k - 1):i + k + 1] = True
     for i in edges:
         bad[max(0, i - k - 1):i + k + 1] = True
     return ~bad

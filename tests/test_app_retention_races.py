@@ -138,12 +138,12 @@ def test_a_revision_cannot_be_queued_while_its_project_is_being_purged(tmp_path,
     seen = {}
     real = J.purge_project
 
-    def racing(cfg, ledger, d, ids, gw=None):
+    def racing(cfg, ledger, d, ids, gw=None, **kw):
         try:                                        # a revise arriving at exactly this moment
             c.manager.submit(Job(f"{jid}-r9", jid, "revise", d, rev=9, est_cost_usd=0.1))
         except QueueFull as e:
             seen["refused"] = str(e)
-        return real(cfg, ledger, d, ids, gw)
+        return real(cfg, ledger, d, ids, gw, **kw)
     monkeypatch.setattr(J, "purge_project", racing)
     c.manager.cleanup(time.time() + 25 * 3600)
     assert "being deleted" in seen["refused"] and f"{jid}-r9" not in c.manager.jobs

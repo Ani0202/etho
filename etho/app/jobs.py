@@ -146,6 +146,8 @@ class JobManager:
         self._thread: threading.Thread | None = None
         self._files_thread: threading.Thread | None = None
         self._purging: set[str] = set()      # projects retention is deleting right now
+        self.shared_keys_kept = 0
+        self._needs_upload: set[str] = set()   # analyses started and not yet done with their Files API uploads
 
     # ---- lifecycle ------------------------------------------------------------------------
     def start(self) -> None:
@@ -197,6 +199,7 @@ class JobManager:
         now = now or time.time()
         limit = self.cfg.retention_hours * 3600
         removed = []
+        self.shared_keys_kept = 0          # cache keys left in place this pass because another project uses them
         if not self.cfg.jobs_dir.exists():
             return removed
         for d in list(self.cfg.jobs_dir.iterdir()):
@@ -214,7 +217,9 @@ class JobManager:
                     ids = {j.id for j in self.jobs.values() if j.project_id == d.name} | {d.name}
                 try:
                     ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
-                    purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway())
+                    rep = purge_project(self.cfg, self.ledger, d, sorted(ids), gw=self._files_gateway(),
+                                        other_job_ids=lambda name=d.name: self._live_job_ids(name))
+                    self.shared_keys_kept += rep.get("shared_keys_kept", 0)
                     tuning.forget_under(d)
                     removed.append(d.name)
                 finally:
@@ -224,6 +229,14 @@ class JobManager:
             for jid in [k for k, j in self.jobs.items() if j.project_id in removed]:
                 del self.jobs[jid]
         return removed
+
+    def _live_job_ids(self, purging: str) -> set[str]:
+        """Jobs the manager holds for OTHER projects whose directory still exists. A project purged earlier in the
+        same pass stays in `self.jobs` until the pass ends but its directory is gone, so it does not count."""
+        with self._cv:
+            pids = {j.project_id for j in self.jobs.values()} - {purging} - self._purging
+            ids_by_pid = {pid: [j.id for j in self.jobs.values() if j.project_id == pid] for pid in pids}
+        return {i for pid, ids in ids_by_pid.items() if (self.cfg.jobs_dir / pid).is_dir() for i in ids}
 
     # ---- Meta Files API copies ------------------------------------------------------------
     def _files_gateway(self):
@@ -235,9 +248,23 @@ class JobManager:
                 return None
         return self._gw
 
+    def _upload_in_use(self, key: str) -> bool:
+        """Does a job that has not finished tracking have a ledger row for this upload key? (Called under the key's
+        cache lock; the job's row is written under that lock when it hits the cache.)"""
+        with self._cv:
+            ids = list(self._needs_upload)
+        return any(r.get("request_key") == key for jid in ids for r in self.ledger.job_rows(jid))
+
     def delete_uploaded_files(self, job: Job) -> dict | None:
         """Delete the Files API copies this job uploaded. Only for a deployment with its own gateway cache (the
-        cache entry holding the id is forgotten afterwards, which a shared cache must not lose). Idempotent."""
+        cache entry holding the id is forgotten afterwards, which a shared cache must not lose). Idempotent.
+
+        The file is content-addressed: another job with identical bytes may be using it. A file is deleted only when
+        no other job that still needs its upload (one that has not itself finished tracking) has a ledger row for
+        its key, checked under the key's cache lock. The last of the jobs to finish tracking therefore deletes it;
+        retention deletes it at the latest."""
+        with self._cv:
+            self._needs_upload.discard(job.id)
         if not self.cfg.private_gateway_cache:
             return None
         gw = self._files_gateway()
@@ -245,7 +272,7 @@ class JobManager:
             return None
         try:
             who = caller_for(job.id, "etho.app.metafiles", self.cfg.caller_prefix)
-            return delete_job_files(self.cfg, self.ledger, gw, [job.id], caller=who)
+            return delete_job_files(self.cfg, self.ledger, gw, [job.id], caller=who, is_live=self._upload_in_use)
         except Exception:
             return None
 
@@ -379,6 +406,8 @@ class JobManager:
                 if job.status != "queued":
                     continue
                 job.status, job.started_mono = "running", time.monotonic()
+                if job.kind == "analyze":
+                    self._needs_upload.add(job.id)
                 self._touch_locked(job)
             try:
                 self._run(job)

@@ -170,5 +170,22 @@ def test_abrupt_mask_area_change_invalidates_nearby_velocity():
     t["b_cx"], t["b_cy"] = np.full(n, 90.0), np.full(n, 40.0)
     ok = edge_ok(t, 3)
     assert not ok[50] and not ok[48] and ok[40] and ok[60]
-    # slow columns keep the short margin for shape jumps
-    assert edge_ok(t, 15, k_jump=3)[60]
+    # the shape-jump margin scales with the smoother's support, like the identity-edge margin
+    assert not edge_ok(t, 15)[60] and edge_ok(t, 15)[30]
+
+
+def test_slow_velocity_is_invalid_wherever_a_shape_jump_leaks_into_its_smoothing_window():
+    # stationary fly whose centroid shifts 10 px while its mask area jumps 60% (a wing appears)
+    n = 200
+    t = blank(n)
+    t["a_cx"], t["a_cy"] = np.full(n, 40.0), np.full(n, 40.0)
+    t["a_cx"][100:] += 10.0
+    t["a_area"][100:] = 210.0 * 1.6
+    t["b_cx"], t["b_cy"] = np.full(n, 190.0), np.full(n, 40.0)
+    fin(t)
+    valid_slow = np.isfinite(t["a_speed_s"])
+    assert np.nanmax(t["a_speed_s"]) < 1.0           # no fake motion survives on a valid sample
+    assert valid_slow[10] and not valid_slow[100] and not valid_slow[100 - 15] and not valid_slow[100 + 14]
+    assert np.array_equal(valid_slow, t["vel_ok_s"] > 0)
+    # fast features keep their short margin
+    assert np.isfinite(t["a_speed"][100 + 6]) and not np.isfinite(t["a_speed"][100])

@@ -67,8 +67,16 @@
         h("div", { class: "s" }, `${fmt.usd(c.total_usd / Math.max(mins, 1e-9))} per video-minute` + (c.estimated ? " (list-price estimate)" : (p.kind !== "showcase" && c.ledger_usd != null && Math.abs(c.total_usd - c.ledger_usd) < 0.01) ? " (matches the gateway ledger)" : (c.source ? ` (${c.source})` : "")))),
       h("div", { class: "tile" }, h("div", { class: "k" }, "Bouts scored"), h("div", { class: "v" }, String(bouts)),
         h("div", { class: "s" }, `${names().length} behaviors, ${S.ver ? "revision " + S.ver : "original rules"}`)),
-      h("div", { class: "tile" }, h("div", { class: "k" }, TXT().tile_title), h("div", { class: "v" }, TXT().tile_value),
-        h("div", { class: "s" }, TXT().tile_sub)));
+      labelTile());
+  }
+
+  // A revision's rules were rewritten from the researcher's corrected bouts, so it must not claim "0 labeled frames".
+  function labelTile() {
+    if (!S.ver) return h("div", { class: "tile" }, h("div", { class: "k" }, TXT().tile_title), h("div", { class: "v" }, TXT().tile_value),
+      h("div", { class: "s" }, TXT().tile_sub));
+    const d = V().diff, n = d && d.corrections ? d.corrections.n : null;
+    return h("div", { class: "tile" }, h("div", { class: "k" }, "Researcher-corrected bouts"), h("div", { class: "v" }, n === null ? "n/a" : String(n)),
+      h("div", { class: "s" }, "Rules were revised from these corrections; no model training"));
   }
 
 // ---- planner card: what the perception planner proposed and what SAM 3.1 found for each phrase

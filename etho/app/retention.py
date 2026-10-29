@@ -33,6 +33,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from etho.gateway.cache import DiskCache
+
 from .config import AppConfig
 from .jobgw import AppLedger, caller_for
 from .metafiles import delete_job_files, record_undeleted
@@ -107,11 +109,40 @@ def _meta_file_id(root: Path, key: str) -> str | None:
         return None
 
 
-def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str], gw=None) -> dict:
+def project_job_ids(d: Path) -> set[str]:
+    """Ids of the jobs a project directory holds: its analysis (named like the directory) and its revisions."""
+    ids = {d.name}
+    ids |= {f"{d.name}-r{x.name}" for x in (d / "revisions").glob("*") if x.name.isdigit()}
+    return ids
+
+
+def key_in_use_by_other_projects(cfg: AppConfig, ledger: AppLedger, d: Path, extra_job_ids, key: str) -> bool:
+    """Does a project OTHER than `d` still reference this request key? Every other project directory counts (it is
+    not yet purged, so it is unexpired, busy, or later in the same pass), plus `extra_job_ids` (callable or iterable:
+    jobs the manager knows that belong to other projects whose directory still exists). Cache entries are content-
+    addressed, so two projects with the same inputs share them. Evaluated afresh on every call: callers hold the
+    key's lock, and a job that registered the key since an earlier look has its ledger row by then."""
+    ids = set(extra_job_ids() if callable(extra_job_ids) else extra_job_ids)
+    if cfg.jobs_dir.is_dir():
+        for o in cfg.jobs_dir.iterdir():
+            if o.is_dir() and o.name != d.name:
+                ids |= project_job_ids(o)
+    return any(r.get("request_key") == key for jid in ids for r in ledger.job_rows(jid))
+
+
+def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str], gw=None,
+                  other_job_ids=()) -> dict:
     """Delete one project's Meta Files copies (when `gw` is a gateway), chunk dirs and gateway-cache entries, then
     its directory. Order matters: the directory goes last, so a crash in between leaves it (and the record of what to
-    delete) for the next pass."""
-    rep = {"project": d.name, "cache_entries": 0, "chunk_dirs": 0, "meta_files_recorded": 0, "meta_files_deleted": 0}
+    delete) for the next pass. A cache entry (and the Meta file it points at) that a project which is not being
+    purged also references is left alone: another job may be reading it or about to, and deleting it would break
+    that job or make it pay again. Each key is handled under its cache lock (the one `Gateway.upload_file` holds
+    while it writes its ledger row), and re-checked inside it, so a job that registered the key after an earlier
+    look is seen. Lock files are never unlinked here: a job may be waiting on one, and two inodes for one key would
+    let two uploads run at once (the retention sweep removes them, only while no job is busy).
+    `other_job_ids`: jobs of other projects the caller knows (a callable is evaluated at each check)."""
+    rep = {"project": d.name, "cache_entries": 0, "chunk_dirs": 0, "meta_files_recorded": 0, "meta_files_deleted": 0,
+           "shared_keys_kept": 0}
     refs = read_json(d / CHUNK_REFS, {}) or {}
     chunk_root = cfg.chunk_cache_dir
     for c in refs.get("chunk_dirs", []):
@@ -129,22 +160,36 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
                 k = r.get("request_key")
                 if isinstance(k, str) and KEY_RE.match(k):
                     keys[k] = keys.get(k, False) or r.get("endpoint") == "/files"
+        own = set(job_ids)
+        kept: set[str] = set()
+
+        def is_live(k: str) -> bool:
+            live = key_in_use_by_other_projects(
+                cfg, ledger, d, lambda: set(other_job_ids() if callable(other_job_ids) else other_job_ids) - own, k)
+            if live:
+                kept.add(k)
+            return live
+
         if gw is not None:     # ask Meta to delete whatever the early pass did not; list only the failures
             who = caller_for(d.name, "etho.app.retention", cfg.caller_prefix)
             r = delete_job_files(cfg, ledger, gw, job_ids, caller=who,
-                                 project=d.name, record_failures=True)
+                                 project=d.name, record_failures=True, is_live=is_live)
             rep["meta_files_deleted"], rep["meta_files_recorded"] = r["deleted"], r["failed"]
-        else:                  # no gateway to ask: keep the ids so they can be deleted by hand
-            ids = [_meta_file_id(root, k) for k, is_file in keys.items() if is_file]
-            ids = [i for i in ids if i]
-            for i in ids:
-                record_undeleted(cfg, i, d.name)
-            rep["meta_files_recorded"] = len(ids)
-        for k in keys:
-            for p in cache_files(root, k):
-                if p.exists():
-                    p.unlink(missing_ok=True)
-                    rep["cache_entries"] += p.suffix == ".gz"
+        cache = gw.cache if gw is not None else DiskCache(root)
+        for k, is_file in keys.items():
+            with cache.lock(k):
+                if k in kept or is_live(k):   # kept by the Meta pass: never forget an id whose file was not deleted
+                    continue
+                if gw is None and is_file:      # no gateway to ask: keep the id so it can be deleted by hand
+                    fid = _meta_file_id(root, k)
+                    if fid:
+                        record_undeleted(cfg, fid, d.name)
+                        rep["meta_files_recorded"] += 1
+                for p in cache_files(root, k)[:2]:
+                    if p.exists():
+                        p.unlink(missing_ok=True)
+                        rep["cache_entries"] += 1
+        rep["shared_keys_kept"] = len(kept)
     shutil.rmtree(d, ignore_errors=True)
     return rep
 
@@ -212,10 +257,12 @@ class Retention:
                     swept["gateway_cache_files"] = _sweep_files(cfg.gateway_cache_root, limit, now)
                 swept["chunk_files"] = _sweep_files(cfg.chunk_cache_dir, limit, now)   # the app's own chunk dir
                 swept["tmp_entries"] = sweep_tmp(cfg, now, 0.0 if startup else TMP_MAX_AGE_S)
+            kept = int(getattr(self.manager, "shared_keys_kept", 0) or 0)
             self.last = {"at": datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds"),
                          "removed_projects": len(removed), "retention_hours": cfg.retention_hours, **swept}
-            if removed or any(v for v in swept.values() if v is not True):
-                log.info("retention: removed %d project(s), swept %s", len(removed), swept)
+            if removed or kept or any(v for v in swept.values() if v is not True):
+                log.info("retention: removed %d project(s), kept %d shared cache key(s) another project uses, "
+                         "swept %s", len(removed), kept, swept)
             return self.last
 
     def start(self) -> None:
