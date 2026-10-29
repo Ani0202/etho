@@ -563,7 +563,7 @@ Not deleted or not guaranteed, in full:
 * **Shared bucket without a real client IP** (section 7, check 1).
 * **The videos' pixels reach Meta and Fireworks** as the privacy notice says; this site cannot recall them.
 
-## 12. Passwordless restart for the lead session (Aniket, 2026-10-29)
+## 14. Passwordless restart for the lead session (Aniket, 2026-10-29)
 `/etc/sudoers.d/etho-app-restart` lets the `ubuntu` user run exactly `/usr/bin/systemctl restart etho-app` with no
 password, and nothing else (no stop, no other unit, no extra arguments). Claude restarts the app after merges. During
 the judging window (Nov 4-9 ET) it sends Aniket a push notification before any restart. Remove the rule with
