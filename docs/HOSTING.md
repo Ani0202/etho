@@ -217,7 +217,8 @@ ReadWritePaths=/var/lib/etho-app /home/ubuntu/work/etho/ops
 # hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
-ProtectKernelTunables=no    # =yes overmounts /proc/sys, so bwrap cannot mount a fresh /proc (etho-vm, 2026-10-29)
+# =yes overmounts /proc/sys, so bwrap cannot mount a fresh /proc (etho-vm, 2026-10-29)
+ProtectKernelTunables=no
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 ProtectClock=yes
