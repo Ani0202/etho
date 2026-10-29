@@ -217,7 +217,7 @@ ReadWritePaths=/var/lib/etho-app /home/ubuntu/work/etho/ops
 # hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
-ProtectKernelTunables=yes
+ProtectKernelTunables=no    # =yes overmounts /proc/sys, so bwrap cannot mount a fresh /proc (etho-vm, 2026-10-29)
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 ProtectClock=yes
@@ -246,7 +246,7 @@ applied, and prints OK only if the child ran:
 ```
 sudo systemd-run --uid=etho-app --gid=etho-app --wait --pipe --collect \
   -p NoNewPrivileges=yes -p PrivateTmp=yes -p ProtectSystem=strict -p ProtectHome=tmpfs \
-  -p ProtectKernelTunables=yes -p ProtectKernelModules=yes -p ProtectControlGroups=yes -p ProtectClock=yes \
+  -p ProtectKernelModules=yes -p ProtectControlGroups=yes -p ProtectClock=yes \
   -p RestrictRealtime=yes -p RestrictSUIDSGID=yes -p LockPersonality=yes -p SystemCallArchitectures=native \
   -p "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" \
   /usr/bin/bwrap --unshare-all --ro-bind /usr /usr --symlink usr/lib /lib --symlink usr/lib64 /lib64 \
@@ -256,6 +256,8 @@ sudo systemd-run --uid=etho-app --gid=etho-app --wait --pipe --collect \
 If it fails, drop properties one at a time (delete one `-p ...`, rerun) until it passes; the usual suspects are
 `ProtectKernelTunables` and `ProtectControlGroups` (they can affect mounting `--proc`), and a missing `AF_NETLINK`
 gives a "loopback: Failed RTM_NEWADDR" style error. Whatever you drop, delete the same line from the unit. The
+On etho-vm (2026-10-29) `ProtectKernelTunables=yes` was the culprit ("Can't mount proc on /newroot/proc: Operation
+not permitted"); it is off via the drop-in `/etc/systemd/system/etho-app.service.d/bwrap-proc.conf`. The
 definitive check is still `/api/health` showing `"sandbox": {"mode": "bwrap"}` for the running service (section 8).
 
 Then start it:

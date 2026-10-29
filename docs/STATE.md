@@ -5,7 +5,10 @@ _Updated 2026-10-29 07:00 UTC (03:00 ET)._
 ## Latest (night Oct 28-29)
 - **Oct 29 18:58 UTC: restarted by Claude** (restart-only sudo rule installed; blanket NOPASSWD removed). Showcase,
   sample clip (CC BY 4.0 credit) and read-only 403 verified on 127.0.0.1:8000; the two Codex fixes are now running.
-  **Two go-live blockers found in the startup log (need Aniket's sudo):**
+  **Both go-live blockers below FIXED 19:06 UTC** (Aniket: pre-flight OK, drop-in ProtectKernelTunables=no, app.env
+  caps; Claude restarted): log shows "rule sandbox: bwrap isolation active" and "caps $3.00 per 24 h ($8.00 in the
+  judging window) and $30.00 in total". Still read-only on purpose (READ_ONLY set, no access code file) until Nov 3.
+  Were:
   1. bwrap unusable under the unit: "Can't mount proc on /newroot/proc: Operation not permitted" (most likely
      `ProtectKernelTunables=yes`; HOSTING.md section 5 pre-flight). Public live mode stays read-only until fixed.
   2. app.env still has the old caps: "$3.00 per 24 h (unchanged in the judging window) and $20.00 in total", so the
