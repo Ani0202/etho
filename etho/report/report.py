@@ -101,6 +101,17 @@ def ethogram_svg(m: dict, n: int, fps: float, width: int = 1040) -> str:
     return "".join(parts)
 
 
+def training_note(meta: dict) -> str:
+    """The header's claim about labels and training. A revised version's rule-revision prompts contain the
+    researcher's corrected bouts, so it is not 'no labeled examples'; it is still not model training."""
+    if not meta.get("version"):
+        return "training-free: no labeled examples given to the models, no model training"
+    n = meta.get("n_corrections")
+    src = (f"rules revised from {n} researcher-corrected bout{'s' if n != 1 else ''}"
+           if isinstance(n, int) and n > 0 else "rules revised from researcher-corrected bouts")
+    return f"{src}; no model training"
+
+
 def methods_paragraph(inp: ReportInput, m: dict, gw: Gateway | None, public_data: bool) -> tuple[str, float]:
     facts = {"video": inp.meta.get("video"), "duration_s": round(len(inp.labels) / inp.fps, 1),
              "sample_fps": inp.fps, "pipeline": inp.meta.get("pipeline"),
@@ -132,7 +143,7 @@ def build(inp: ReportInput, out: Path, *, codes: dict[str, int], gw: Gateway | N
 <style>{CSS}</style></head><body class="viz-root">
 <div class="card"><h1>{html.escape(inp.title)}</h1>
 <div class="sub">{html.escape(str(inp.meta.get("video", "")))} | {len(inp.labels) / inp.fps / 60:.1f} min scored at
-{inp.fps:g} fps | training-free: no labeled examples given to the models, no model training</div></div>
+{inp.fps:g} fps | {html.escape(training_note(inp.meta))}</div></div>
 <div class="card"><h2>Ethogram</h2>{ethogram_svg(m, len(inp.labels), inp.fps)}</div>
 <div class="card"><h2>Per-behavior metrics</h2><table>
 <tr><th>behavior</th><th>bouts</th><th>total s</th><th>% of video</th><th>latency to first s</th>

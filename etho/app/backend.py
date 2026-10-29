@@ -382,6 +382,8 @@ class Backend:
                              "bouts from frame strips"] + (["Detectors revised from researcher corrections"]
                                                           if ctx.version else []),
                 "behavior_definitions": ctx.state["defs"], "version": ctx.version,
+                **({"n_corrections": len(ctx.state["corrections"])} if ctx.version and ctx.state.get("corrections")
+                   else {}),
                 "costs_usd": {k: round(x, 4) for k, x in ctx.gw.stage_cost.items()},
                 "timings_s": {s.name: round(s.elapsed_s, 1) for s in job.stages if s.status == "done"},
                 "stage_timeline_s": {s.name: [s.start_s, s.end_s] for s in job.stages

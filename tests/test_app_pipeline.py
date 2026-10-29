@@ -143,6 +143,10 @@ def test_correction_loop_revises_and_reports_the_change(tmp_path, monkeypatch):
     # rev files exist; v0 untouched; revised overlay re-rendered with the new labels
     assert (c.cfg.jobs_dir / jid / "revisions" / "1" / "overlay.mp4").exists()
     assert client.get(f"/api/projects/{jid}/overlay?v=1").status_code == 200
+    rep1 = (c.cfg.jobs_dir / jid / "revisions" / "1" / "report.html").read_text()
+    assert "rules revised from 2 researcher-corrected bouts; no model training" in rep1
+    assert "no labeled examples" not in rep1
+    assert "no labeled examples given to the models" in (c.cfg.jobs_dir / jid / "report.html").read_text()
     assert client.get(f"/api/projects/{jid}").json()["versions"][0]["bouts"]["investigation"] == [[50, 60]]
     a = client.get(f"/api/projects/{jid}/audit?v=1").json()
     assert any(x["stage"] == "revise" and x["version"] == 1 for x in a["calls"])
