@@ -69,7 +69,10 @@ def delete_job_files(cfg: AppConfig, ledger: AppLedger, gw, job_ids: list[str], 
                     continue
                 ok = bool(gw.delete_file(str(fid), tag=cfg.tag, caller=caller, request_key=None))
                 if ok:
-                    gw.cache.delete_json(key)
+                    try:                              # the file is gone; a stale entry only costs a re-upload
+                        gw.cache.delete_json(key)
+                    except Exception as e:
+                        log.warning("cache entry for a deleted Meta file not removed: %s", str(e)[:200])
         except Exception as e:                        # a policy refusal (tag locked, no key): not deleted
             log.warning("Meta file delete refused: %s", str(e)[:200])
             ok = False

@@ -178,7 +178,7 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
         cache = gw.cache if gw is not None else DiskCache(root)
         for k, is_file in keys.items():
             with cache.lock(k):
-                if is_live(k):
+                if k in kept or is_live(k):   # kept by the Meta pass: never forget an id whose file was not deleted
                     continue
                 if gw is None and is_file:      # no gateway to ask: keep the id so it can be deleted by hand
                     fid = _meta_file_id(root, k)

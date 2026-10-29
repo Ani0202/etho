@@ -170,3 +170,32 @@ def test_two_projects_expiring_in_the_same_pass_both_release_a_shared_key(tmp_pa
     assert sorted(c.manager.cleanup(time.time() + 25 * 3600)) == sorted([j1, j2])   # one call, both expired
     assert not entry(root, key).exists()                  # the second purge saw no live project and released it
     assert "file-shared" in c.gw.deleted                  # and deleted the Meta file (not left unrecorded)
+
+
+def test_a_file_key_kept_by_the_meta_pass_is_not_forgotten_by_the_unlink_pass(tmp_path):
+    cfg, ledger, root = setup(tmp_path)
+    gw, seen = FakeGw(root), []
+
+    def on_lock(k):                      # the other project disappears between the Meta pass and the unlink pass
+        if k == FILE_SHARED:
+            seen.append(k)
+            if len(seen) == 2:
+                (cfg.jobs_dir / "new").rmdir()
+
+    gw.cache.on_lock = on_lock
+    purge_project(cfg, ledger, cfg.jobs_dir / "old", ["old"], gw=gw)
+    assert gw.deleted == [] and entry(root, FILE_SHARED).exists()   # the id of the undeleted file is still on disk
+
+
+def test_a_cache_unlink_failure_after_a_confirmed_delete_is_not_recorded_as_undeleted(tmp_path):
+    cfg, ledger, root = setup(tmp_path)
+    (cfg.jobs_dir / "new").rmdir()
+    gw = FakeGw(root)
+
+    def boom(key):
+        raise OSError("disk")
+
+    gw.cache.delete_json = boom
+    rep = purge_project(cfg, ledger, cfg.jobs_dir / "old", ["old"], gw=gw)
+    assert gw.deleted == [f"file-{FILE_SHARED[:6]}"]
+    assert rep["meta_files_deleted"] == 1 and rep["meta_files_recorded"] == 0
