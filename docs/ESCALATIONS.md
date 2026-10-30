@@ -277,3 +277,9 @@ the Nov 3 go-live; the Oct 31 status reports it.
    `ProtectKernelTunables=no` after the section-5 pre-flight passes without it.
 2. app.env sets the daily cap explicitly ($3, not raised Nov 4-9) and total $20. Proposed: delete the
    ETHO_APP_DAILY_CAP_USD line and set ETHO_APP_TOTAL_CAP_USD=30 (approved caps).
+
+## 2026-10-30 ~01:00 ET: showcase representativeness (Aniket decides)
+The pre-stated rule says the mouse075 showcase is far below average (macro 0.4193 vs 25th percentile 0.4650; mount F1
+0, 14 false mount bouts covering 23.8 s, 68% of it expert attack). The rule's replacement is mouse077 0-300 s (median
+0.5061), which has no expert mount. Options: keep mouse075 with its own F1 shown; switch to mouse077 (new live run,
+about $0.90 from dev; the traced-error beat follows the contingency); or a different rule (post hoc, must be labelled so).
