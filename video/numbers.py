@@ -151,7 +151,7 @@ def numeric_tokens(text: str) -> list[str]:
 
 
 # Numeric tokens that are names or citations, not results: model versions, citation year, licence version.
-NAME_TOKENS = {"3.1", "2021", "4.0", "2.0"}
+NAME_TOKENS = {"3.1", "1.3", "2021", "4.0", "2.0"}   # model names (SAM 3.1, Muse Spark 1.3), years, licences
 
 
 def untraceable(text: str, N: Numbers) -> list[str]:

@@ -175,7 +175,58 @@ def close_html(N: Numbers) -> str:
 """)
 
 
-CARDS = {"title": title_html, "evidence": evidence_html, "close": close_html}
+# ------------------------------------------------------------------------------------------------ model stack
+STACK = (("SAM 3.1", "Tracking", "masks and identity for both animals, every frame"),
+         ("Muse Spark 1.3", "Planner, rules, report", "picks what to track; turns each definition into a Python rule"),
+         ("Muse Spark Open", "Frame-strip check", "double-checks borderline moments from strips of frames"))
+
+
+def model_stack_html(N: Numbers) -> str:
+    rows = "".join(
+        f"<div class=tile style='position:relative;margin-bottom:24px;padding:22px 40px'>"
+        f"<div style='font-size:60px;font-weight:700;line-height:1.1'>{H.escape(m)}"
+        f"<span style='font-size:46px;font-weight:400;color:{C.ACCENT};margin-left:28px'>{H.escape(role)}</span></div>"
+        f"<div style='font-size:44px;color:{C.TEXT2};margin-top:6px'>{H.escape(what)}</div></div>" for m, role, what in STACK)
+    return page(f"""
+<div class=brand><i></i>ETHO</div>
+<div class=abs style='left:80px;top:130px;font-size:60px;font-weight:700'>Built on Meta's models</div>
+<div class=abs style='left:80px;top:220px;width:1760px'>{rows}</div>
+""")
+
+
+# ---------------------------------------------------------------------------------------------------- closing
+def closing_html(N: Numbers) -> str:
+    ph = ("display:inline-block;margin-right:40px;border:3px dashed {c};border-radius:22px;padding:18px 34px;"
+          "font-size:48px;color:{c}").format(c=C.GOLD)
+    return page(f"""
+<div class=brand><i></i>ETHO</div>
+<div class=abs style='left:80px;top:220px;width:1760px;font-size:96px;font-weight:700;line-height:1.12'>
+ For every lab that still scores behavior by hand.</div>
+<div class=abs style='left:80px;top:500px;font-size:60px;color:{C.TEXT2}'>Open source. Try it live.</div>
+<div class=abs style='left:80px;top:610px'><span style='{ph}'>REPO: [placeholder: public repo URL]</span></div>
+<div class=abs style='left:80px;top:720px'><span style='{ph}'>LIVE: [placeholder: live app URL]</span></div>
+<div class=abs style='left:80px;top:840px;font-size:36px;color:{C.MUTED}'>Apache-2.0. Benchmark data: {H.escape(C.CREDIT_CARD)}.</div>
+""")
+
+
+CARDS = {"title": title_html, "evidence": evidence_html, "close": close_html, "model_stack": model_stack_html,
+         "closing": closing_html}
+
+# docs/video_assets/<name>.png <- card name (committed copies for the video app; numbers come from Numbers)
+DOCS_ASSETS = {"title": "title", "results": "evidence", "model_stack": "model_stack", "closing": "closing"}
+
+
+def export_docs(N: Numbers, out=None) -> list:
+    """Render the cards Aniket's video app uses into docs/video_assets/ (1920x1080 PNG) and the score badge."""
+    out = C.Path(out or C.ROOT / "docs" / "video_assets")
+    out.mkdir(parents=True, exist_ok=True)
+    made = []
+    for dst, card in DOCS_ASSETS.items():
+        C.html_to_png(CARDS[card](N), out / f"{dst}.png")
+        made.append(out / f"{dst}.png")
+    badge_png(N, out / "badge_clip_score.png")
+    made.append(out / "badge_clip_score.png")
+    return made
 
 
 def card_text(html: str) -> str:
@@ -214,6 +265,11 @@ if __name__ == "__main__":
     if not C.have_render_tools():
         sys.exit("need Chromium (playwright cache) and ffmpeg")
     N = Numbers()
+    if "--docs-assets" in sys.argv:
+        for f in export_docs(N):
+            print(f)
+        print(N.source_map())
+        sys.exit(0)
     build_all(N)
     print(N.source_map())
     print("cards in", C.CARDS)
