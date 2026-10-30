@@ -199,3 +199,46 @@ def test_a_cache_unlink_failure_after_a_confirmed_delete_is_not_recorded_as_unde
     rep = purge_project(cfg, ledger, cfg.jobs_dir / "old", ["old"], gw=gw)
     assert gw.deleted == [f"file-{FILE_SHARED[:6]}"]
     assert rep["meta_files_deleted"] == 1 and rep["meta_files_recorded"] == 0
+
+
+class OneShotManager:
+    """Just enough manager for Retention.run_once: the expired project is purged (as Manager.cleanup does), the newer
+    one stays, and nothing is busy so the shared-dir sweeps run."""
+
+    shared_keys_kept = 0
+
+    def __init__(self, cfg, ledger, gw):
+        self.cfg, self.ledger, self.gw = cfg, ledger, gw
+
+    def cleanup(self, now):
+        rep = purge_project(self.cfg, self.ledger, self.cfg.jobs_dir / "old", ["old"], gw=self.gw)
+        self.shared_keys_kept = rep["shared_keys_kept"]
+        return ["old"]
+
+    def busy(self):
+        return False
+
+
+def test_the_mtime_sweep_after_a_purge_keeps_entries_the_newer_project_still_uses(tmp_path):
+    import os
+    import time
+
+    from etho.app.retention import Retention
+    cfg, ledger, root = setup(tmp_path)
+    assert cfg.private_gateway_cache
+    orphan = "12" * 32                       # nobody references it: an old orphan the sweep must still remove
+    entry(root, orphan).parent.mkdir(parents=True, exist_ok=True)
+    entry(root, orphan).write_bytes(gzip.compress(json.dumps({"id": "file-orphan"}).encode()))
+    lock(root, orphan).write_bytes(b"")
+    old = time.time() - 48 * 3600            # all older than the 24 h window: cache hits never refresh mtimes
+    for p in root.rglob("*"):
+        os.utime(p, (old, old))
+    gw = FakeGw(root)
+    out = Retention(cfg, OneShotManager(cfg, ledger, gw), ledger).run_once()
+    assert out["removed_projects"] == 1 and not (cfg.jobs_dir / "old").exists() and (cfg.jobs_dir / "new").exists()
+    for k in (SHARED, FILE_SHARED):          # the newer project's entries, their locks and the Meta file record
+        assert entry(root, k).exists() and lock(root, k).exists(), k
+    assert gw.deleted == []
+    assert not entry(root, ONLY_OLD).exists() and not lock(root, ONLY_OLD).exists()      # only the purged project used it
+    assert not entry(root, orphan).exists() and not lock(root, orphan).exists()          # unreferenced and old: swept
+    assert out["gateway_cache_files"] >= 3

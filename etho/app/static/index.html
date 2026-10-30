@@ -28,8 +28,7 @@
 
   <section class="card sample" id="sample-card" aria-labelledby="sample-h" style="margin-top:20px">
     <h2 id="sample-h">Try it yourself: a 60 s sample clip</h2>
-    <p class="sub" style="margin:0 0 8px">Download this clip, unlock live uploads below with the access code, and score it with the definitions
-      shown here. The whole pipeline takes about 90 s on this clip. The clip is from the dataset's development split.</p>
+    <p class="sub" style="margin:0 0 8px">Download this clip to see the definitions it is scored with. The whole pipeline takes about 90 s on this clip. The clip is from the dataset's development split.</p>
     <p class="attr" style="margin:0 0 4px">Clip from CalMS21 (Sun et al. 2021, Caltech), licensed CC BY 4.0</p>
     <p class="hint" style="margin:0 0 8px">Links: <a href="https://data.caltech.edu/records/s0vdx-0k302" target="_blank" rel="noopener noreferrer">CalMS21 dataset</a>,
       <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0 licence</a>.
@@ -74,7 +73,14 @@
       resident-intruder definitions (Segalin et al., MARS, eLife 2021).</p>
     <div id="behs"></div>
     <button type="button" class="small" id="add">+ Add behavior</button>
-    <div class="note" id="privacy" style="margin-top:16px"><strong>Privacy notice.</strong>
+    <div class="row">
+      <div class="fit"><button type="submit" class="primary" id="go">Score video</button></div>
+      <div id="est" class="sub"></div>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+
+  <div class="note" id="privacy" style="margin-top:20px"><strong>Privacy notice.</strong>
       Uploads are processed by Meta's Model API in Standard mode. Meta states that it "does not use your Content from
       Standard Services to train Meta Models" and keeps API content as described in its Terms and Privacy Policy
       (<a href="https://dev.meta.ai/legal/commitments" target="_blank" rel="noopener noreferrer">Meta Model API Data
@@ -88,12 +94,6 @@
       job links. Revising a showcase also uses the Standard models. Only upload video you have the right to share.
       Detector code runs in a local sandbox. The app estimates the cost before starting and refuses a job that would
       pass its spend cap.</div>
-    <div class="row">
-      <div class="fit"><button type="submit" class="primary" id="go">Score video</button></div>
-      <div id="est" class="sub"></div>
-    </div>
-    <div class="err" id="err" role="alert"></div>
-  </form>
 
   <div class="card" id="recent-card" hidden>
     <h2>Your recent jobs</h2>

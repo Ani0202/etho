@@ -249,8 +249,8 @@
         h("td", {}, st.elapsed_s === null ? "-" : fmt.time(st.elapsed_s)), h("td", {}, fmt.usd(st.cost_usd)));
     });
     const anyOverlap = stages.some(s => (s.overlaps || []).length || (s.substeps || []).length);
-    return h("div", { class: "card" }, h("h2", {}, S.ver ? `Timing and cost of revision ${S.ver}` : "Per-stage timing and cost"),
-      h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "stage"), h("th", { class: "l" }, have ? `timeline (0 to ${fmt.time(span)})` : ""), h("th", {}, "time"), h("th", {}, "cost"))),
+    return h("div", { class: "card stagecard" }, h("h2", {}, S.ver ? `Timing and cost of revision ${S.ver}` : "Per-stage timing and cost"),
+      h("table", { class: "stagetbl" }, h("thead", {}, h("tr", {}, h("th", {}, "stage"), h("th", { class: "l" }, have ? `timeline (0 to ${fmt.time(span)})` : ""), h("th", {}, "time"), h("th", {}, "cost"))),
         h("tbody", {}, ...rows),
         h("tfoot", {}, h("tr", {}, h("td", {}, h("strong", {}, "total (job end minus job start)")), h("td", {}), h("td", {}, h("strong", {}, timing.wall_s === null ? "n/a" : fmt.time(timing.wall_s))),
           h("td", {}, h("strong", {}, fmt.usd((S.ver ? V() : P()).cost.total_usd)))))),
@@ -317,7 +317,9 @@
     if (!ul) return;
     ul.replaceChildren(...S.pending.map((c, i) => h("li", {}, h("span", {}, c.text), h("button", { class: "link", onclick: () => { S.pending.splice(i, 1); drawPending(); drawEtho(); } }, "remove"))));
     const btn = document.getElementById("revbtn");
-    if (btn) { btn.disabled = !S.pending.length || !isLatest() || !!P().active_job || !!S.progress || !canRevise(); btn.textContent = S.pending.length ? `Revise rules (${S.pending.length})` : "Revise rules"; }
+    if (btn) { btn.disabled = !S.pending.length || !isLatest() || !!P().active_job || !!S.progress || !canRevise(); btn.textContent = S.pending.length ? `Revise rules (${S.pending.length})` : "Revise rules";
+      const why = document.getElementById("revwhy"); if (why) why.textContent = canRevise() ? "" : "Live use is off";
+      btn.title = canRevise() ? "" : "Live use is off"; }
   }
 
   // Revising makes paid model calls: it works only when live use is on and this visitor has the access code.
@@ -332,7 +334,7 @@
 
   function reviseBar(disabled) {
     const err = h("div", { class: "err", role: "alert", id: "reverr" });
-    const btn = h("button", { class: "primary", id: "revbtn", disabled: true, onclick: async () => {
+    const btn = h("button", { class: "primary", id: "revbtn", disabled: true, title: canRevise() ? "" : "Live use is off", onclick: async () => {
       err.textContent = ""; btn.disabled = true;
       try {
         const r = await api(`/api/projects/${encodeURIComponent(pid)}/revise`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -349,7 +351,7 @@
         } else btn.disabled = false;
       }
     } }, "Revise rules");
-    return h("div", {}, reviseBlockedNote(), h("div", { class: "row" }, h("div", { class: "fit" }, btn),
+    return h("div", {}, reviseBlockedNote(), h("div", { class: "row" }, h("div", { class: "fit" }, btn, h("div", { class: "why-off", id: "revwhy" }, canRevise() ? "" : "Live use is off")),
       h("div", { class: "sub" }, `Calls Muse Spark (effort high) once per affected behavior, then the tier-1 check on the new windows. Costs are shown live.${P().kind === "showcase" ? " Revising a showcase makes your own private copy first; the showcase itself never changes." : ""}`)), err);
   }
 

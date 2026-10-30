@@ -195,14 +195,30 @@ def purge_project(cfg: AppConfig, ledger: AppLedger, d: Path, job_ids: list[str]
 
 
 # ---- sweeps ---------------------------------------------------------------------------------------------------
-def _sweep_files(root: Path, older_than_s: float, now: float) -> int:
-    """Delete files under `root` last modified more than `older_than_s` ago, then empty directories."""
+def surviving_keys(cfg: AppConfig, ledger: AppLedger) -> set[str]:
+    """Request keys that a project directory still on disk references (its analysis and revisions). Cache hits do not
+    refresh a file's mtime, so an entry a newer project shares can look old: the mtime sweep must leave these."""
+    keys: set[str] = set()
+    if cfg.jobs_dir.is_dir():
+        for o in cfg.jobs_dir.iterdir():
+            if o.is_dir():
+                for jid in project_job_ids(o):
+                    keys |= {r["request_key"] for r in ledger.job_rows(jid)
+                             if isinstance(r.get("request_key"), str) and KEY_RE.match(r["request_key"])}
+    return keys
+
+
+def _sweep_files(root: Path, older_than_s: float, now: float, keep_keys: frozenset | set = frozenset()) -> int:
+    """Delete files under `root` last modified more than `older_than_s` ago, then empty directories. Files named for
+    a key in `keep_keys` (`<key>.json.gz`, `<key>.txt.gz`, `<key>.lock`) are left alone."""
     n = 0
     if not root.is_dir():
         return 0
     for p in sorted(root.rglob("*"), key=lambda x: len(x.parts), reverse=True):
         try:
             if p.is_symlink() or p.is_file():
+                if p.name.split(".", 1)[0] in keep_keys:
+                    continue
                 if now - p.lstat().st_mtime > older_than_s:
                     p.unlink(missing_ok=True)
                     n += 1
@@ -254,7 +270,8 @@ class Retention:
                 swept["sweeps_skipped"] = True
             else:
                 if cfg.private_gateway_cache:
-                    swept["gateway_cache_files"] = _sweep_files(cfg.gateway_cache_root, limit, now)
+                    swept["gateway_cache_files"] = _sweep_files(cfg.gateway_cache_root, limit, now,
+                                                            surviving_keys(cfg, self.ledger))
                 swept["chunk_files"] = _sweep_files(cfg.chunk_cache_dir, limit, now)   # the app's own chunk dir
                 swept["tmp_entries"] = sweep_tmp(cfg, now, 0.0 if startup else TMP_MAX_AGE_S)
             kept = int(getattr(self.manager, "shared_keys_kept", 0) or 0)

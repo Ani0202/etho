@@ -22,6 +22,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from etho.app.headmw import HeadMiddleware
 from etho.gateway import Gateway, GatewayConfig
 from etho.rules.sandbox import SandboxUnavailable, isolation_status
 
@@ -235,6 +236,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         if "content-security-policy" not in resp.headers:
             resp.headers["Content-Security-Policy"] = PAGE_CSP
         return resp
+
+    app.add_middleware(HeadMiddleware)           # added last = outermost: HEAD is served as GET, minus the body
 
     # ---- pages -------------------------------------------------------------------------------
     @app.get("/", include_in_schema=False)
