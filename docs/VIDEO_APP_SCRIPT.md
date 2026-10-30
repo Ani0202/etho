@@ -12,7 +12,7 @@ Rules this script follows:
   behind cards, title styling, transitions.
 - **Every number on screen** comes from a committed file; the table at the end lists each one. Approved wording
   and footnotes are unchanged.
-- **Live-run numbers are "FILL AFTER THE NOV 3 RECORDING"** (DEMO_PLAN, "Nov 3 order of operations"): record the
+- **Live-run numbers are "FILL AFTER THE NOV 2 LIVE RUN"** (DEMO_PLAN, "Nov 3 order of operations"): record the
   live run, recompute its score with `eval/showcase_check.py`, update the voice-over line and captions, then record
   the final voice-over.
 
@@ -84,7 +84,7 @@ drawn as an ethogram timeline, from `data/demo/expert_mouse075_task1_annotator1.
 
 ---
 
-## Scene 3: Live run (0:35-1:04): numbers FILL AFTER THE NOV 3 RECORDING
+## Scene 3: Live run (0:35-1:04): numbers FILL AFTER THE NOV 2 LIVE RUN
 
 **Voice-over**
 > This is a test video Etho was never tuned on. I paste the dataset authors' own definitions of attack,
@@ -103,7 +103,7 @@ Waits are cut and tagged "time skipped". If the live run fails on the day, use t
 
 **On-screen text**
 - The app's own UI text, and a "time skipped" tag at each cut.
-- Wall-clock time, total cost and per-stage numbers: **FILL AFTER THE NOV 3 RECORDING**. These are whatever the
+- Wall-clock time, total cost and per-stage numbers: **FILL AFTER THE NOV 2 LIVE RUN**. These are whatever the
   recorded run's timing card shows. The stand-in shows the showcase run, 2:09 and $0.89, from
   `data/showcase/calms21-mouse075-live/result.json`.
 
@@ -170,9 +170,9 @@ Waits are cut and tagged "time skipped". If the live run fails on the day, use t
   - "Trace: mount 0:37.5 to 0:38.0 (original rules)";
   - "SET ASIDE BY THE RESTRICTION · window 37.5-38.0 s: rules said 'mount', tier 1 said 'attack' (confidence 0.96)";
   - "Decided by: Rules".
-- **0.42 and the trace: CONFIRM AFTER THE NOV 3 RECORDING.** They belong to the showcase run. If the video shows the
-  Nov 3 run, recompute with `eval/showcase_check.py`, re-render the badge, and re-check that the traced bout's first
-  verdict matches the line (DEMO_PLAN, Nov 3 step 3).
+- **0.42 and the trace: CONFIRM AFTER THE NOV 2 LIVE RUN.** They belong to the showcase run. If the video shows the
+  Nov 2 run, recompute with `eval/showcase_check.py`, re-render the badge, and re-check that the traced bout's first
+  verdict matches the line (DEMO_PLAN, live-run step 3).
 
 **Transition:** 0.5 s crossfade, animation to trace recording.
 
@@ -342,15 +342,16 @@ on (the link at top right); page zoom 140%; hide bookmarks and extensions; curso
 7. **R4, optional editor code (Mac, 10 min).**
 8. **Rough cut in the video app (Mac, 30-60 min).** Lay out scenes 1-9 with the assets above, use R2 and R3 (or the
    fallbacks), and the stand-in for scene 3, labeled "precomputed". Check that the total is 2:54 or less.
-9. **Nov 3, first thing: R1, the live run.** This follows DEMO_PLAN's order of operations, and demo-reserve opens at
-   Nov 3 00:00 ET.
-   - Lead starts the local live instance and the tunnel. Record R1.
-   - Lead recomputes the score (`eval/showcase_check.py`), re-renders the badge, re-checks the traced bout, and
-     updates the voice-over and captions.
-   - Then you record the final voice-over and replace any app narration.
-   - Recording R1 on Nov 2 instead is possible, with a local instance on the `dev` tag (about $0.90, like the showcase
-     run), but only if you approve it.
-
+9. **R1, the live run (Nov 2, approved: local instance, `dev`, up to $0.90).**
+   - Lead starts the local live instance on :8770, with a fresh gateway cache so the run is real and not replayed from
+     cache, and the job ceiling set to the approved amount. Aniket opens the tunnel and records R1.
+   - Same day, lead:
+     - scores the run with `eval/showcase_check.py`;
+     - re-renders the badge;
+     - re-checks the traced bout against the line;
+     - updates the voice-over line and captions;
+     - commits all of it.
+10. **Nov 3:** Aniket records the final voice-over (replacing any app narration); final assembly.
 ---
 
 ## Sources for every number on screen
@@ -364,10 +365,10 @@ on (the link at top right); page zoom 140%; hide bookmarks and extensions; curso
 | 0.88× real time, worst 1.54× | 7 | `eval/results/test1_report.md` §11.3 (pooled 0.8777×, max 1.5421×), §11.1 speed line |
 | Manual scoring 3-4× (Segalin et al. 2021) | 7 | `eval/results/test1_report.md` §11.1 speed line; DEMO_PLAN sources table |
 | $11.25 per hour of video | 7 | `eval/results/test1_report.md` §11.1 cost line |
-| this clip 0.42 | 5 | `eval/results/showcase_mouse075_check.json` (showcase.final.macro); **confirm after Nov 3** |
-| Trace: 37.5-38.0 s, tier 1 "attack" (confidence 0.96), set aside, decided by rules | 5 | `data/showcase/calms21-mouse075-live/verdicts.jsonl` (app trace endpoint); bout table in `eval/results/showcase_mouse075_check.md` §5; **confirm after Nov 3** |
+| this clip 0.42 | 5 | `eval/results/showcase_mouse075_check.json` (showcase.final.macro); **confirm after the Nov 2 live run** |
+| Trace: 37.5-38.0 s, tier 1 "attack" (confidence 0.96), set aside, decided by rules | 5 | `data/showcase/calms21-mouse075-live/verdicts.jsonl` (app trace endpoint); bout table in `eval/results/showcase_mouse075_check.md` §5; **confirm after the Nov 2 live run** |
 | Traced error 37.5-44.0 s (Etho mount, expert attack) | 5 | `eval/results/showcase_mouse075_check.md` §5 |
-| Live-run wall time, cost, stage timings | 3 | **FILL AFTER THE NOV 3 RECORDING** (the recorded job's `result.json`); stand-in 2:09 / $0.89 from `data/showcase/calms21-mouse075-live/result.json` |
+| Live-run wall time, cost, stage timings | 3 | **FILL AFTER THE NOV 2 LIVE RUN** (the recorded job's `result.json`); stand-in 2:09 / $0.89 from `data/showcase/calms21-mouse075-live/result.json` |
 | pytest count | 4 | a real `uv run pytest` run on Nov 2 (shot 2), recorded in DEMO_PLAN's sources table |
 | Commit dates | 4 | `git log` |
 | SAM 3.1, Muse Spark 1.3, Muse Spark Open (roles) | 4, 9 | `docs/architecture.svg`; CLAUDE.md model table |
