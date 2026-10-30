@@ -2,8 +2,9 @@
 
 Both Oct 28-29 outages were a manual `tailscale funnel reset`. This runs from cron every 5 minutes (no sudo to read the
 status; `sudo -n` only to re-enable). `ops/funnel-off` is the operator's "stay offline" marker and wins over everything.
-At most one re-enable attempt per 10 minutes, state in ops/.funnel-state.json. Rows go to ops/funnel.jsonl; operator
-notifications go to ops/notify.jsonl.
+At most one re-enable attempt per 10 minutes, state in ops/.funnel-state.json (attempt time, fail_count,
+last_error, last_notify). A failure notifies the first time, when the error changes, then at most every 6 h; 3 straight
+unreadable statuses notify too. Rows go to ops/funnel.jsonl; operator notifications go to ops/notify.jsonl.
 
 `tailscale funnel status --json` shape on this machine (Funnel on):
   {"TCP": {"443": {"HTTPS": true}},
@@ -67,27 +68,64 @@ def _log(root: Path, now: datetime, **kw) -> None:
         f.write(json.dumps({"time": now.isoformat(timespec="seconds"), **kw}) + "\n")
 
 
+NOTIFY_EVERY_S = 6 * 3600
+STATUS_ERRORS_BEFORE_NOTIFY = 3
+
+
+def _load_state(f: Path) -> dict:
+    try:
+        d = json.loads(f.read_text())
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _ts(v: object) -> datetime | None:
+    try:
+        d = datetime.fromisoformat(str(v))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def _should_notify(state: dict, error: str, now: datetime) -> bool:
+    """First failure, a changed error, or at most once per 6 h."""
+    last = _ts(state.get("last_notify"))
+    return (last is None or state.get("last_error") != error
+            or (now - last).total_seconds() >= NOTIFY_EVERY_S)
+
+
 def run_once(root: Path = ROOT, *, run=subprocess.run, now: datetime | None = None) -> str:
     """Returns: offline-marker, serving, rate-limited, status-error, reenabled or reenable-failed."""
     now = now or datetime.now(timezone.utc)
     ops = root / "ops"
     ops.mkdir(parents=True, exist_ok=True)
-    if (ops / "funnel-off").exists():
+    marker, state_f = ops / "funnel-off", ops / ".funnel-state.json"
+    if marker.exists():
         return "offline-marker"
+    state = _load_state(state_f)
     status, err = read_status(run)
     if err is not None:      # cannot tell: do not re-enable blindly, leave a trace
         _log(root, now, event="status-error", error=err)
+        state["status_errors"] = int(state.get("status_errors") or 0) + 1
+        if state["status_errors"] >= STATUS_ERRORS_BEFORE_NOTIFY and _should_notify(state, err, now):
+            notify(ops / "notify.jsonl", "funnel", "down",
+                   f"Funnel status unreadable {state['status_errors']} times: {err}", now)
+            state["last_notify"], state["last_error"] = now.isoformat(timespec="seconds"), err
+        state_f.write_text(json.dumps(state))
         return "status-error"
+    state["status_errors"] = 0
     if is_serving(status):
+        state_f.unlink(missing_ok=True)       # healthy: forget failures and the attempt time
         return "serving"
-    state_f = ops / ".funnel-state.json"
-    try:
-        last = datetime.fromisoformat(json.loads(state_f.read_text())["last_attempt"])
-    except (OSError, ValueError, KeyError, TypeError):
-        last = None
+    last = _ts(state.get("last_attempt"))
     if last is not None and (now - last).total_seconds() < MIN_GAP_S:
+        state_f.write_text(json.dumps(state))
         return "rate-limited"
-    state_f.write_text(json.dumps({"last_attempt": now.isoformat(timespec="seconds")}))
+    if marker.exists():                       # the operator may have chosen offline while we were reading status
+        return "offline-marker"
+    state["last_attempt"] = now.isoformat(timespec="seconds")
+    state_f.write_text(json.dumps(state))
     try:
         p = run(SUDO_CMD, capture_output=True, text=True, timeout=60)
         rc, out = p.returncode, ((p.stderr or "") + (p.stdout or "")).strip()
@@ -96,10 +134,16 @@ def run_once(root: Path = ROOT, *, run=subprocess.run, now: datetime | None = No
     if rc == 0:
         _log(root, now, event="reenabled", ok=True)
         notify(ops / "notify.jsonl", "funnel", "reenabled", "Funnel was off; re-enabled", now)
+        state_f.unlink(missing_ok=True)
         return "reenabled"
     detail = " ".join(out.split())[:90]
+    error = f"rc {rc} {detail}"
     _log(root, now, event="reenable-failed", ok=False, rc=rc, error=detail)
-    notify(ops / "notify.jsonl", "funnel", "down", f"Funnel off and could not re-enable: rc {rc} {detail}", now)
+    state["fail_count"] = int(state.get("fail_count") or 0) + 1
+    if _should_notify(state, error, now):
+        notify(ops / "notify.jsonl", "funnel", "down", f"Funnel off and could not re-enable: {error}", now)
+        state["last_notify"], state["last_error"] = now.isoformat(timespec="seconds"), error
+    state_f.write_text(json.dumps(state))
     return "reenable-failed"
 
 

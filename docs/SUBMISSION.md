@@ -49,3 +49,4 @@ participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10
 - [ ] Pre-submission audit: the Claude reviewer plus `bin/codex-ask --gate pre-submission`.
 - [ ] Every number in the README, video and app matches a committed results file.
 - [ ] `bin/spend` and `bin/codex-usage` summaries are in the final STATE.md.
+- [ ] `ops/funnel-off` does not exist and `crontab -l` shows funnel-keepalive and uptime-check.

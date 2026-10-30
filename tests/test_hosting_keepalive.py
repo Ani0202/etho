@@ -1,7 +1,10 @@
 """Uptime down/up alerts and the Funnel keepalive. No network, no tailscale, no sudo: subprocess is faked."""
 
 import json
+import re
+import subprocess
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 from etho.app import uptime
@@ -142,6 +145,75 @@ def test_sudo_failure_notifies_and_is_rate_limited_to_one_attempt_per_10_min(tmp
     assert "password" in n[0]["message"]
     assert funnel.run_once(tmp_path, run=r, now=T0 + timedelta(minutes=11)) == "reenable-failed"
     assert len(r.sudo_calls()) == 2
+    assert len(notes(tmp_path)) == 1                       # same error: no second notification
+    state = json.loads((tmp_path / "ops" / ".funnel-state.json").read_text())
+    assert state["fail_count"] == 2 and "password" in state["last_error"]
+    funnel.run_once(tmp_path, run=r, now=T0 + timedelta(hours=7))
+    assert len(notes(tmp_path)) == 2                       # again after 6 h
+    r.sudo_err = "sudo: another error"
+    funnel.run_once(tmp_path, run=r, now=T0 + timedelta(hours=8))
+    assert len(notes(tmp_path)) == 3                       # a changed error notifies at once
+    r.status = ON
+    assert funnel.run_once(tmp_path, run=r, now=T0 + timedelta(hours=9)) == "serving"
+    assert not (tmp_path / "ops" / ".funnel-state.json").exists()
+
+
+def test_marker_created_during_status_read_wins(tmp_path):
+    marker = tmp_path / "ops" / "funnel-off"
+
+    class R(Runner):
+        def __call__(self, cmd, **kw):
+            res = super().__call__(cmd, **kw)
+            marker.write_text("")                          # operator acts while we read the status
+            return res
+    r = R(status={})
+    assert funnel.run_once(tmp_path, run=r, now=T0) == "offline-marker"
+    assert r.sudo_calls() == [] and not (tmp_path / "ops" / ".funnel-state.json").exists()
+
+
+def test_naive_state_timestamp_is_utc(tmp_path):
+    (tmp_path / "ops").mkdir()
+    (tmp_path / "ops" / ".funnel-state.json").write_text(json.dumps({"last_attempt": "2026-10-30T11:58:00"}))
+    r = Runner(status={})
+    assert funnel.run_once(tmp_path, run=r, now=T0) == "rate-limited"
+
+
+def test_persistent_status_error_notifies_after_three_then_rate_limited(tmp_path):
+    r = Runner(status_rc=1)
+    for i in range(2):
+        funnel.run_once(tmp_path, run=r, now=T0 + timedelta(minutes=5 * i))
+    assert notes(tmp_path) == []
+    for i in range(2, 6):
+        funnel.run_once(tmp_path, run=r, now=T0 + timedelta(minutes=5 * i))
+    assert len(notes(tmp_path)) == 1 and "unreadable" in notes(tmp_path)[0]["message"]
+    assert r.sudo_calls() == []
+
+
+def test_every_bin_script_in_install_autostart_is_executable_in_git():
+    root = Path(__file__).resolve().parents[1]
+    names = set(re.findall(r"\$root/bin/([\w-]+)", (root / "bin" / "install-autostart").read_text()))
+    assert {"lead-watchdog", "codex-queue", "uptime-check", "funnel-keepalive"} <= names
+    out = subprocess.run(["git", "ls-files", "-s", "--"] + [f"bin/{n}" for n in sorted(names)], cwd=root,
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    modes = {line.split("\t")[1]: line.split()[0] for line in out}
+    assert modes == {f"bin/{n}": "100755" for n in names}
+
+
+def test_alert_failure_does_not_break_check_and_garbage_lines_are_tolerated(tmp_path, monkeypatch, capsys):
+    log = tmp_path / "ops" / "uptime.jsonl"
+    log.parent.mkdir()
+    log.write_bytes(b'garbage\n[1]\n5\n{"time": "2026-10-30T11:30:00", "ok": false, "error": "x"}\n{"time": "2026-10')
+    monkeypatch.setattr(uptime, "fetch", fake_fetch([False]))
+    row = uptime.check_once(URL, log=log, now=T0)
+    assert row["ok"] is False
+    lines = log.read_text().splitlines()
+    assert json.loads(lines[-1])["time"] == T0.isoformat()          # truncated line did not swallow the new row
+    n = [json.loads(x) for x in (log.parent / "notify.jsonl").read_text().splitlines()]
+    assert len(n) == 1 and n[0]["kind"] == "down"                  # naive earlier timestamp read as UTC
+    monkeypatch.setattr(uptime, "_alert", lambda *a: 1 / 0)
+    monkeypatch.setattr(uptime, "fetch", fake_fetch([True]))
+    assert uptime.check_once(URL, log=log, now=T0 + timedelta(minutes=15))["ok"] is True
+    assert "alert failed" in capsys.readouterr().err
 
 
 def test_status_command_failure_does_not_re_enable(tmp_path):

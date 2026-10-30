@@ -488,7 +488,9 @@ point at `https://<url>/api/health` and treat `"ok":true` as up.
 `sudo -n /usr/bin/tailscale funnel --bg 8000` (needs the sudoers rule below), appends to `ops/funnel.jsonl` and writes a
 `ops/notify.jsonl` row ("Funnel was off; re-enabled", or "Funnel off and could not re-enable: ..."). At most one
 re-enable attempt per 10 minutes (state in `ops/.funnel-state.json`); a failing `sudo -n` is logged and notified, never
-retried in a loop. If the status command itself fails it only logs, and does not re-enable blindly.
+retried in a loop. A failing re-enable notifies the first time, when the error changes, then at most every 6 h (state in
+`ops/.funnel-state.json`, cleared once Funnel serves again). If the status command itself fails it only logs, and does
+not re-enable blindly; three consecutive failures notify (same rate limit).
 **`ops/funnel-off` is the operator's offline marker: while it exists the keepalive does nothing.** Every "stop publishing"
 instruction therefore starts with `touch /home/ubuntu/work/etho/ops/funnel-off`, before `tailscale funnel reset`.
 
@@ -503,12 +505,14 @@ Shape of `tailscale funnel status --json` on this machine with Funnel on (the ke
 is `true` under `AllowFunnel` and whose `/` handler proxies to 127.0.0.1:8000. The Funnel-off shape was not captured
 (Funnel is live and was not reset to look); the code treats a missing `Web`/`AllowFunnel` as off.
 
-Sudoers rule for the keepalive (Aniket; same validated-install style as section 14, a separate file, exactly one command):
+Sudoers rule for the keepalive (Aniket; validated install like section 14, but in a separate file, with exactly one command):
 
 ```
-echo 'ubuntu ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8000' > /tmp/etho-funnel
-sudo visudo -cf /tmp/etho-funnel
-sudo install -m 0440 /tmp/etho-funnel /etc/sudoers.d/etho-funnel
+f=$(mktemp)
+echo 'ubuntu ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8000' > "$f"
+visudo -cf "$f"
+sudo install -m 0440 -o root -g root "$f" /etc/sudoers.d/etho-funnel
+rm "$f"
 sudo visudo -c
 ```
 
