@@ -8,6 +8,9 @@ _Updated 2026-10-29 07:00 UTC (03:00 ET)._
   (video/numbers.py, source map, tests). Captures come from video/capture/*. The live-run beat is a showcase
   stand-in until the Nov 3 recording. capture/trace.mp4 is trimmed to 11.5-20.5 s of trace_full.mp4, so the panel
   shows. Sent to Aniket.
+- **Video app script** docs/VIDEO_APP_SCRIPT.md (9408bae) + cards in docs/video_assets/ (e3bbe32). video/ lint fixed
+  (4c43874): `make check` passes again. Open with Aniket: R1 live run Nov 3 (or Nov 2 on dev, needs approval),
+  rough-cut notes, fly-beat choice, ADR-006 approval, phone check.
 - **README first screen** (ba7fcd7): tracking GIF, headline table, Try it live.
 - **ADR-006:** the lead decided C (skip); awaiting Aniket's approval.
 
