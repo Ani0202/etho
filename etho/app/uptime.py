@@ -28,6 +28,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+from etho.hosting.notify import notify
+
 ROOT = Path(os.environ.get("ETHO_ROOT") or Path(__file__).resolve().parents[2])
 LOG = "ops/uptime.jsonl"
 DOH = "https://1.1.1.1/dns-query"
@@ -103,7 +105,29 @@ def check_once(url: str, *, timeout: float = 10.0, public_dns: bool = True, log:
     f.parent.mkdir(parents=True, exist_ok=True)
     with f.open("a") as out:
         out.write(json.dumps(row) + "\n")
+    _alert(f, f.parent / "notify.jsonl")
     return row
+
+
+def _alert(log: Path, notify_file: Path) -> None:
+    """One `down` row on the 2nd consecutive failure (once per outage), one `up` row on the first ok after >= 2."""
+    rows = read_rows(log)
+    if not rows:
+        return
+    last = rows[-1]
+    run: list[dict] = []                      # the failures immediately before the newest row
+    for r in reversed(rows[:-1]):
+        if r.get("ok"):
+            break
+        run.append(r)
+    run.reverse()
+    now = datetime.fromisoformat(last["time"])
+    if not last.get("ok") and len(run) == 1:  # the newest failure is the 2nd in a row
+        message = f"public site down for 2 checks since {run[0]['time']}: {last.get('error')}"
+        notify(notify_file, "uptime", "down", message, now)
+    elif last.get("ok") and len(run) >= 2:
+        mins = round((now - datetime.fromisoformat(run[0]["time"])).total_seconds() / 60)
+        notify(notify_file, "uptime", "up", f"back up after {len(run)} failed checks (~{mins} min)", now)
 
 
 # ---- report ---------------------------------------------------------------------------------------------------
