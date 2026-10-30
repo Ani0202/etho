@@ -65,7 +65,9 @@ def frame_codes(wing: np.ndarray, lunge: np.ndarray) -> np.ndarray:
 
 
 def fixed_window(root: Path) -> tuple[int, int, int]:
-    """(movie, first source frame, stop source frame) from the pre-registered window file; nothing else is read from it."""
+    """(movie, first source frame, stop source frame) from the pre-registered window file.
+
+    Nothing else is read from it."""
     ch = json.loads((root / WINDOW_JSON).read_text())["chosen"]
     a, b = ch["source_frames_half_open"]
     return int(ch["movie"]), int(a), int(b)
@@ -73,7 +75,10 @@ def fixed_window(root: Path) -> tuple[int, int, int]:
 
 def pick_window(codes: np.ndarray, fps: float, pre_s: float = PRE_S,
                 post_s: float = POST_S) -> tuple[int, int, tuple[int, int]]:
-    """UNUSED since the window became rule-fixed (fixed_window); kept for reference. (start, stop, bout): the window around the longest predicted bout (earliest on ties), clamped to the array."""
+    """UNUSED since the window became rule-fixed (fixed_window); kept for reference.
+
+    (start, stop, bout): the window around the longest predicted bout (earliest on ties), clamped to the array.
+    """
     bouts = runs_of(codes)
     if not bouts:
         raise ValueError("no predicted bout to center the clip on")
@@ -225,7 +230,8 @@ def render(out: Path, stills: bool = False) -> dict:
          "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(tmp)], stdin=subprocess.PIPE)
     n_src, rep, shown = g1 - g0, int(round(1 / SPEED)), 0
     active_i = [i for i in range(n_src) if codes[g0 + i]]
-    still_at = {n_src // 6, n_src * 3 // 4, *( [active_i[len(active_i) // 2]] if active_i else [] ), *( [active_i[0]] if active_i else [])}
+    extra = [active_i[len(active_i) // 2], active_i[0]] if active_i else []
+    still_at = {n_src // 6, n_src * 3 // 4, *extra}
     try:
         for i in range(n_src):
             ok, fr = cap.read()
@@ -251,8 +257,9 @@ def render(out: Path, stills: bool = False) -> dict:
         if proc.poll() is None:
             proc.kill()
         tmp.unlink(missing_ok=True)
-    return {"out": str(out), "frames": shown, "seconds": shown / C.FPS, "movie": movie, "samples": [g0, g1], "source_frames": [f0, f1],
-            "predicted_runs_in_window": {n: [(a, b) for a, b in runs_of(codes[g0:g1] == c)] for c, n in ((1, "wing_threat"), (2, "lunge"))}}
+    runs = {n: [(a, b) for a, b in runs_of(codes[g0:g1] == c)] for c, n in ((1, "wing_threat"), (2, "lunge"))}
+    return {"out": str(out), "frames": shown, "seconds": shown / C.FPS, "movie": movie, "samples": [g0, g1],
+            "source_frames": [f0, f1], "predicted_runs_in_window": runs}
 
 
 def main() -> None:

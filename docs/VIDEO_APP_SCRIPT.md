@@ -238,14 +238,15 @@ attack)", and the button label. No accuracy number (no gain claim).
 > Same pipeline, new animal: fruit flies, from one sentence, with no retraining. It's a preview: it hasn't cleared
 > the confidence bar we set, so there's no number here.
 
-**Visual:** `data/video/capture/fly.mp4`, 14 s, trimmed to 13 s. It shows the real SAM 3.1 masks on two flies in Fly vs.
-Fly training movie 1, with Etho's tag from the frozen gate predictions (one lunge), played at 0.5x and labeled.
+**Visual:** `data/video/capture/fly.mp4`, 15 s at real speed: the real SAM 3.1 masks on two flies in Fly vs. Fly training
+movie 4, 992.0-1007.0 s. The window was fixed by Aniket's rule from expert labels only (DECISIONS 2026-10-30 20:29 UTC;
+`eval/results/fly_clip_window.json`). Etho's tag and strip are its frozen gate predictions for that window.
 
 **On-screen text**
 - "Qualitative preview: not scored".
 - "Fruit flies, same pipeline"; "One-sentence definitions, no retraining".
-- "Etho's behavior tag: Lunge" (or "No behavior detected").
-- Legend "wing threat · lunge"; "Tracking: SAM 3.1 · detectors written by Muse Spark"; "0.5x slow motion".
+- "Etho's behavior tag": "Lunge", "Wing threat" or "No behavior detected".
+- Legend "wing threat · lunge"; "Tracking: SAM 3.1 · detectors written by Muse Spark"; the movie clock "movie 4, time 16:32.0-16:47.0".
 - Credit "Video: Fly vs. Fly (Eyjolfsdottir et al. 2014), CC0".
 - **No accuracy number** (ADR-004).
 
@@ -372,6 +373,6 @@ on (the link at top right); page zoom 140%; hide bookmarks and extensions; curso
 | pytest count | 4 | a real `uv run pytest` run on Nov 2 (shot 2), recorded in DEMO_PLAN's sources table |
 | Commit dates | 4 | `git log` |
 | SAM 3.1, Muse Spark 1.3, Muse Spark Open (roles) | 4, 9 | `docs/architecture.svg`; CLAUDE.md model table |
-| "0.5x slow motion", "movie 1" | 8 | `video/fly_clip.py` (playback setting; Fly vs. Fly movie 1); no result number in this scene |
+| "movie 4", clock 16:32.0-16:47.0 | 8 | `eval/results/fly_clip_window.json` (rule-fixed window, source frames 29760-30210 at 30 fps); no result number in this scene |
 | Spoken only: "0.2 F1" (frame check lift) | 7 | `eval/results/test1_report.md` (zs_t1 − zs_rules +0.205, CI excludes 0) |
 | Spoken only: "six frames at low effort" | 7 | `etho/adjudication/tier1.py` FRAMES_PER_STRIP = 6; `configs/frozen_test_v1.json` (effort low) |

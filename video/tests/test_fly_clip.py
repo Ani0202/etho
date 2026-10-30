@@ -46,7 +46,8 @@ def test_draw_masks_marks_active_fly_thicker():
 
 def test_fixed_window_reads_only_the_chosen_span(tmp_path):
     (tmp_path / "eval/results").mkdir(parents=True)
-    (tmp_path / F.WINDOW_JSON).write_text('{"chosen": {"movie": 4, "source_frames_half_open": [29760, 30210], "bouts": []}}')
+    (tmp_path / F.WINDOW_JSON).write_text(
+        '{"chosen": {"movie": 4, "source_frames_half_open": [29760, 30210], "bouts": []}}')
     assert F.fixed_window(tmp_path) == (4, 29760, 30210)
 
 
