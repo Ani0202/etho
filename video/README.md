@@ -20,3 +20,5 @@ xfade), and the repo venv (OpenCV + NumPy). Outputs go to `data/video/` (git-ign
 - Captions: `docs/demo_captions_v5.srt` converted to ASS at PlayRes 1920x1080 (52 px, dark box, bottom safe area)
   and burned in with libass. Draft timings: retime from the real voice-over.
 - Behavior colors and fill patterns are the app's dark theme (`etho/app/static/app.css`, `ethogram.js`).
+
+- `fly_clip.py`: the qualitative fruit-fly beat (`python -m video.fly_clip`, writes `data/video/capture/fly.mp4`, 14 s). Reuses the stored SAM 3.1 masks and the frozen gate predictions for Fly vs. Fly movie 1; no model calls, no accuracy number on screen (ADR-004). Window choice is explained in its docstring.
