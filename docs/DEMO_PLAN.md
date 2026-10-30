@@ -1,4 +1,4 @@
-# Demo video plan (v4 script: Aniket's text, adopted 2026-10-28; plan v3 APPROVED 2026-10-28)
+# Demo video plan (v5 script: v4 plus Aniket's harder-clip line, 2026-10-30; plan v3 APPROVED 2026-10-28)
 
 - **Hard limit 3:00.** Aniket records the voice-over; captions are burned in.
 - **Finals are watched live on a shared screen:** large fonts (UI zoom 150% or more, captions at least 48 px at
@@ -12,10 +12,15 @@
 - **Sources and numbers:** every factual claim in the voice-over has a source (table below). Numbers come only
   from committed files.
 
-## Script (v4, Aniket's text, adopted 2026-10-28)
-390 words. At 145 words/min that is 2:42 of speech; the timeline below adds pauses for on-screen moments and ends
-at 2:57, leaving 3 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
-recording on Nov 2 (`docs/demo_captions_v4.srt` is a draft at 145 wpm, one caption per sentence, 32 captions).
+## Script (v5, 2026-10-30)
+v5 = v4 plus Aniket's line in the results beat ("This is one of the harder clips: ..."; showcase option A, 2026-10-30),
+with trims elsewhere to stay near 400 words: "actually" and "did it" (results); "On the nineteen official test
+videos" -> "On the test set" (the new line already says all 19), "unattended," and ", the biggest gain of any step on
+top of the rules" (evidence card); "from a one-sentence definition" -> "from one sentence" (flies).
+394 words. At 145 words/min that is 2:43 of speech; the timeline below adds 11.7 s for on-screen moments and ends
+at 2:54, leaving 6 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
+recording on Nov 2 (`docs/demo_captions_v5.srt` is a draft at 145 wpm, one caption per sentence, 34 captions;
+the v4 file is kept for reference).
 
 Source check of the two new phrases (2026-10-28):
 - "more than six hundred tests": supported. `uv run pytest` gives 662 passed (all written during the event).
@@ -32,11 +37,11 @@ Source check of the two new phrases (2026-10-28):
 | Who it's for, the gap | 0:20-0:35 | 34 | 14.1 s |
 | Live run | 0:35-1:04 | 64 | 26.5 s |
 | Code beat | 1:04-1:21 | 38 | 15.7 s |
-| Results and traced error | 1:21-1:44 | 51 | 21.1 s |
-| Correction loop | 1:44-1:55 | 20 | 8.3 s |
-| Evidence card | 1:55-2:27 | 74 | 30.6 s |
-| Second species | 2:27-2:41 | 29 | 12.0 s |
-| Close | 2:41-2:57 | 33 | 13.7 s |
+| Results and traced error | 1:21-1:50 | 70 | 29.0 s |
+| Correction loop | 1:50-2:00 | 20 | 8.3 s |
+| Evidence card | 2:00-2:26 | 60 | 24.8 s |
+| Second species | 2:26-2:39 | 28 | 11.6 s |
+| Close | 2:39-2:54 | 33 | 13.7 s |
 
 **0:00-0:20, hook** (on screen: two mice; title "Etho · Push the Frontier"; slide footnote with the headline)
 > In behavior labs, someone still watches every second of video and labels it by hand. For social behavior, that
@@ -61,37 +66,41 @@ planner card shows the phrases Muse Spark proposed and the one SAM confirmed)
 > identity code, a locked-down sandbox for the model-written rules, and the two-step check, with more than six
 > hundred tests.
 
-**1:21-1:44, results and one real error** (on screen: Etho's ethogram over the expert's; the trace panel)
-> Here's Etho beside the expert's labels. Every label is traceable, including the mistakes. At thirty-eight
-> seconds, Etho says mount; the expert says attack. The frame check actually answered "attack", but a rule in the
-> cascade set it aside, and the trace shows exactly which step did it. No label goes unexplained.
+**1:21-1:50, results and one real error** (on screen: Etho's ethogram over the expert's; "this clip 0.42 · all 19
+test videos 0.58" next to it; the trace panel)
+> Here's Etho beside the expert's labels. This is one of the harder clips: 0.42 here, against 0.58 across all 19
+> test videos. Mount is where it struggles most. Every label is traceable, including the mistakes. At thirty-eight
+> seconds, Etho says mount; the expert says attack. The frame check answered "attack", but a rule in the cascade
+> set it aside, and the trace shows exactly which step. No label goes unexplained.
 
 Traced-error contingency (Aniket, 2026-10-28, decided before the run):
 - If the live run shows a different real error, use it and rewrite this line to match.
+- The 0.42 is the packaged showcase run (eval/results/showcase_mouse075_check.md). If the run shown on screen is a
+  different run, recompute its F1 with `eval/showcase_check.py` ($0) and use that number.
 - If no clear error appears, show the trace from the committed test report, labeled "from the test run".
 - Never re-roll runs to get a particular error.
 
-**1:44-1:55, correction loop** (no gain claim)
+**1:50-2:00, correction loop** (no gain claim)
 > Disagree? Mark a few bouts. Etho rewrites the rule and shows you exactly what changed. The researcher stays in
 > control.
 
-**1:55-2:27, evidence card** (on screen: macro F1 0.58 with per-behavior attack 0.449, investigation 0.635,
+**2:00-2:26, evidence card** (on screen: macro F1 0.58 with per-behavior attack 0.449, investigation 0.635,
 mount 0.656; supervised .793, .829, .864; "0.88× real time on test; worst 1.54×; manual scoring takes 3-4×";
 $11.25 per hour of video; slide footnote)
-> On the nineteen official test videos, scored once: 0.58 F1, with no training. Supervised methods, trained on
-> labeled data and given pose keypoints, reach 0.79 to 0.86. Etho works from raw video, unattended, in about the
-> video's own length, for about eleven dollars per hour of footage. Our biggest surprise: Muse Spark Open, looking
-> at six frames at low effort, added 0.2 F1, the biggest gain of any step on top of the rules.
+> On the test set, scored once: 0.58 F1, with no training. Supervised methods, trained on labeled data and given
+> pose keypoints, reach 0.79 to 0.86. Etho works from raw video, in about the video's own length, for about eleven
+> dollars per hour of footage. Our biggest surprise: Muse Spark Open, looking at six frames at low effort, added
+> 0.2 F1.
 
-**2:27-2:41, second species** (qualitative clip; no F1 on screen; wing gate NO-GO, eval/flies_decision.json)
-> Same pipeline, new animal: fruit flies, from a one-sentence definition, with no retraining. It's a preview: it
+**2:26-2:39, second species** (qualitative clip; no F1 on screen; wing gate NO-GO, eval/flies_decision.json)
+> Same pipeline, new animal: fruit flies, from one sentence, with no retraining. It's a preview: it
 > hasn't cleared the confidence bar we set, so there's no number here.
 
-**2:41-2:57, close** (on screen: Meta model stack, who it's for, repo and live link)
+**2:39-2:54, close** (on screen: Meta model stack, who it's for, repo and live link)
 > Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open. It's for every lab that still scores
 > behavior by hand. It's open source. Try it live at the link below.
 
-Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v4.srt`).
+Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v5.srt`).
 
 ## Sources for every claim (all in the repo or cited)
 | Claim | Source |
@@ -107,8 +116,9 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v4.s
 | Gateway caps every dollar and caches every call | etho/gateway/ (ledger, caps, cache); CLAUDE.md budget caps |
 | Fly definitions from the literature | configs/flies_definitions.json (Chen et al. 2002, PNAS, Table 1) |
 | "More than six hundred tests" | `uv run pytest`: 662 passed (2026-10-28) |
-| "Biggest gain of any step on top of the rules" | test1_report §11 paired differences: tier-1 lift +0.205 (CI excludes 0); fs_t1 vs zs_t1 inconclusive; dev video tier +0.005 and medium effort -0.011 (README "What we learned") |
+| (v4 only, cut in v5) "Biggest gain of any step on top of the rules" | test1_report §11 paired differences: tier-1 lift +0.205 (CI excludes 0); fs_t1 vs zs_t1 inconclusive; dev video tier +0.005 and medium effort -0.011 (README "What we learned") |
 | Fly "hasn't cleared the confidence bar we set" | ADR-004; eval/flies_decision.json (wing CI lower 0.009 <= random reference 0.043) |
+| "One of the harder clips: 0.42 here, against 0.58 across all 19"; "mount is where it struggles most" | eval/results/showcase_mouse075_check.md: showcase macro 0.4193 (attack 0.5755, investigation 0.6825, mount 0.0000), below the 25th percentile of the 19 per-video macros (0.4650); pooled test macro 0.5800 (test1_report §11.1). Rounded to 2 decimals |
 | "Keeps them apart even when they're tangled together" | test1_report: identity error 0.29%; DECISIONS chunk-length table (both mice labeled on 100% of mount frames) |
 
 ## Production

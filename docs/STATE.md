@@ -3,6 +3,10 @@
 _Updated 2026-10-29 07:00 UTC (03:00 ET)._
 
 ## Latest (Oct 30)
+- **Showcase: option A** (Aniket, Oct 30). Script v5 (394 words, 2:54) and the showcase page note are done.
+- **X post: parked until Nov 3. Do not remind Aniket before then** (his instruction, Oct 30).
+- Aniket is checking his Mac history for the Oct 29 05:35 `funnel reset`, doing the phone check today, and
+  installing the Funnel sudoers rule. Cron (uptime + keepalive) is installed: 54/54 uptime checks ok.
 - **Notify check:** an in-session cron (every 20 min, :07/:27/:47) pushes unsent rows of ops/notify.jsonl to Aniket.
   It is session-only and expires Nov 6. **Re-create it after any session restart, and before Nov 6** (CronCreate).
   At session start, also read ops/notify.jsonl.
