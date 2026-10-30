@@ -8,8 +8,12 @@ _Updated 2026-10-29 07:00 UTC (03:00 ET)._
   At session start, also read ops/notify.jsonl.
 - **Funnel outages (Oct 28 22:41, Oct 29 05:35 UTC):** both were `sudo tailscale funnel reset` from SSH sessions on
   pts/1 (128.135.204.122; 73.9.100.228), not tailscaled or VM events. Funnel was back Oct 30 04:03 UTC.
-- In progress: uptime cron + down alerts + funnel keepalive (implementer); HEAD, privacy notice, read-only UI,
-  retention sweep P2 (implementer); showcase representativeness numbers (evaluator; rule pre-stated in DECISIONS).
+- **Merged and live (04:41 UTC restart by Claude):** uptime down/up alerts + Funnel keepalive (244d819; needs
+  Aniket's funnel sudoers rule + `bin/install-autostart`); HEAD 200 on all GET routes (also via the public Funnel IP),
+  privacy notice in every mode, read-only wording, Revise disabled with the real reason, timing card width, retention
+  sweep keeps shared keys (Codex P2) (f89836d, 128ad72). 730 passed. Log: bwrap active, caps $3 ($8 judging) / $30.
+- **Showcase representativeness:** rule says far below (0.4193 < 0.4650); replacement mouse077 has no mount.
+  Escalated (A keep + show clip F1 [recommended] / B switch / C other rule).
 
 - **Oct 29 18:58 UTC: restarted by Claude** (restart-only sudo rule installed; blanket NOPASSWD removed). Showcase,
   sample clip (CC BY 4.0 credit) and read-only 403 verified on 127.0.0.1:8000; the two Codex fixes are now running.
