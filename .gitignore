@@ -36,4 +36,5 @@ ops/funnel.jsonl
 ops/funnel-keepalive.log
 ops/funnel-off
 ops/.funnel-state.json
+ops/.uptime.lock
 ops/public-url
