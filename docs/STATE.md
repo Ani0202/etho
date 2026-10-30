@@ -2,7 +2,15 @@
 
 _Updated 2026-10-29 07:00 UTC (03:00 ET)._
 
-## Latest (Oct 30)
+## Latest (Oct 30 evening)
+- **Video rough cut v1** (data/video/rough_cut_v1.mp4, silent, 2:54, captions burned in, no placeholders): built by
+  `uv run python -m video.assemble --no-cards`. Cards and animations are rendered from committed numbers
+  (video/numbers.py, source map, tests). Captures come from video/capture/*. The live-run beat is a showcase
+  stand-in until the Nov 3 recording. capture/trace.mp4 is trimmed to 11.5-20.5 s of trace_full.mp4, so the panel
+  shows. Sent to Aniket.
+- **README first screen** (ba7fcd7): tracking GIF, headline table, Try it live.
+- **ADR-006:** the lead decided C (skip); awaiting Aniket's approval.
+
 - **Showcase: option A** (Aniket, Oct 30). Script v5 (394 words, 2:54) and the showcase page note are done.
 - **Sudo (verified by Aniket, Oct 30):** exactly two NOPASSWD rules (systemctl restart etho-app; tailscale funnel
   --bg 8000), password for everything else. Correct check in HOSTING.md section 10 (not `sudo -n -l <cmd>`).
