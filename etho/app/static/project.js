@@ -318,12 +318,20 @@
     ul.replaceChildren(...S.pending.map((c, i) => h("li", {}, h("span", {}, c.text), h("button", { class: "link", onclick: () => { S.pending.splice(i, 1); drawPending(); drawEtho(); } }, "remove"))));
     const btn = document.getElementById("revbtn");
     if (btn) { btn.disabled = !S.pending.length || !isLatest() || !!P().active_job || !!S.progress || !canRevise(); btn.textContent = S.pending.length ? `Revise rules (${S.pending.length})` : "Revise rules";
-      const why = document.getElementById("revwhy"); if (why) why.textContent = canRevise() ? "" : "Live use is off";
-      btn.title = canRevise() ? "" : "Live use is off"; }
+      const why = document.getElementById("revwhy"); if (why) why.textContent = whyOff();
+      btn.title = whyOff(); }
   }
 
   // Revising makes paid model calls: it works only when live use is on and this visitor has the access code.
   function canRevise() { const lv = window.ETHO_CFG && window.ETHO_CFG.live; return !lv || lv.can_submit; }
+  // Short reason shown next to a disabled "Revise rules" (same cases as reviseBlockedNote).
+  function whyOff() {
+    const lv = window.ETHO_CFG && window.ETHO_CFG.live;
+    if (!lv || lv.can_submit) return "";
+    if (lv.mode === "live" && lv.access_required && !lv.access_granted) return "Needs the access code";
+    if (lv.mode === "live") return "Live budget used up for now";
+    return "Live use is off";
+  }
   function reviseBlockedNote() {
     const lv = window.ETHO_CFG && window.ETHO_CFG.live;
     if (!lv || lv.can_submit) return null;
@@ -334,7 +342,7 @@
 
   function reviseBar(disabled) {
     const err = h("div", { class: "err", role: "alert", id: "reverr" });
-    const btn = h("button", { class: "primary", id: "revbtn", disabled: true, title: canRevise() ? "" : "Live use is off", onclick: async () => {
+    const btn = h("button", { class: "primary", id: "revbtn", disabled: true, title: whyOff(), onclick: async () => {
       err.textContent = ""; btn.disabled = true;
       try {
         const r = await api(`/api/projects/${encodeURIComponent(pid)}/revise`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -351,7 +359,7 @@
         } else btn.disabled = false;
       }
     } }, "Revise rules");
-    return h("div", {}, reviseBlockedNote(), h("div", { class: "row" }, h("div", { class: "fit" }, btn, h("div", { class: "why-off", id: "revwhy" }, canRevise() ? "" : "Live use is off")),
+    return h("div", {}, reviseBlockedNote(), h("div", { class: "row" }, h("div", { class: "fit" }, btn, h("div", { class: "why-off", id: "revwhy" }, whyOff())),
       h("div", { class: "sub" }, `Calls Muse Spark (effort high) once per affected behavior, then the tier-1 check on the new windows. Costs are shown live.${P().kind === "showcase" ? " Revising a showcase makes your own private copy first; the showcase itself never changes." : ""}`)), err);
   }
 

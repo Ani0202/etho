@@ -25,7 +25,11 @@ def test_sample_card_does_not_invite_visitors_to_unlock():
 
 def test_revise_button_states_why_it_is_off_and_has_a_disabled_style():
     js, css = (STATIC / "project.js").read_text(), (STATIC / "app.css").read_text()
-    assert js.count("Live use is off") >= 3 and 'id: "revwhy"' in js and "disabled: true" in js
+    assert 'id: "revwhy"' in js and "disabled: true" in js
+    # the reason names the actual cause (server.py: can_submit = live and granted and not capped)
+    for reason in ("Live use is off", "Needs the access code", "Live budget used up for now"):
+        assert f'"{reason}"' in js
+    assert js.count("whyOff()") >= 4
     assert "button:disabled" in css and "button.primary:disabled" in css
 
 
