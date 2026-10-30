@@ -1,0 +1,418 @@
+{
+ "rule": {
+  "commit": "095af8d",
+  "file": "docs/DECISIONS.md",
+  "entry": "Fly-beat window rule",
+  "committed_utc": "2026-10-30T20:29:26Z",
+  "text": "the earliest 15 s window in Fly vs. Fly movies 2-5 with the most expert-labeled lunge or wing-threat bouts; ties go to the earlier movie"
+ },
+ "terms": {
+  "movies": [
+   2,
+   3,
+   4,
+   5
+  ],
+  "search_space_source_frames_half_open": [
+   22500,
+   31500
+  ],
+  "fps": 30,
+  "window_s": 15,
+  "window_starts_s": [
+   0,
+   285
+  ],
+  "n_windows_per_movie": 286,
+  "score": "number of expert-labeled lunge or wing_threat bouts whose onset is inside the window [start, start + 450) source frames, both flies counted",
+  "ties": "earlier movie, then earlier start"
+ },
+ "tracked_span_check": {
+  "movie2": {
+   "tracking_json": "data/runs/F1/movie2/tracking.json",
+   "window": [
+    22500,
+    31500
+   ],
+   "matches_rule": true
+  },
+  "movie3": {
+   "tracking_json": "data/runs/F1/movie3/tracking.json",
+   "window": [
+    22500,
+    31500
+   ],
+   "matches_rule": true
+  },
+  "movie4": {
+   "tracking_json": "data/runs/F1/movie4/tracking.json",
+   "window": [
+    22500,
+    31500
+   ],
+   "matches_rule": true
+  },
+  "movie5": {
+   "tracking_json": "data/runs/F1/movie5/tracking.json",
+   "window": [
+    22500,
+    31500
+   ],
+   "matches_rule": true
+  }
+ },
+ "chosen": {
+  "movie": 4,
+  "score": 17,
+  "span_offset_s": [
+   242,
+   257
+  ],
+  "span_offset_frames_half_open": [
+   7260,
+   7710
+  ],
+  "source_frames_half_open": [
+   29760,
+   30210
+  ],
+  "source_frames_inclusive": [
+   29760,
+   30209
+  ],
+  "source_time_s": [
+   992.0,
+   1007.0
+  ],
+  "bouts": [
+   {
+    "behavior": "lunge",
+    "fly": 0,
+    "start": 30038,
+    "end": 30042,
+    "onset_span_offset_s": 251.26666666666668
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29768,
+    "end": 29772,
+    "onset_span_offset_s": 242.26666666666668
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29773,
+    "end": 29777,
+    "onset_span_offset_s": 242.43333333333334
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29778,
+    "end": 29782,
+    "onset_span_offset_s": 242.6
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29784,
+    "end": 29788,
+    "onset_span_offset_s": 242.8
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29793,
+    "end": 29797,
+    "onset_span_offset_s": 243.1
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29806,
+    "end": 29810,
+    "onset_span_offset_s": 243.53333333333333
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 29816,
+    "end": 29820,
+    "onset_span_offset_s": 243.86666666666667
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 30001,
+    "end": 30005,
+    "onset_span_offset_s": 250.03333333333333
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 30010,
+    "end": 30014,
+    "onset_span_offset_s": 250.33333333333334
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 30032,
+    "end": 30036,
+    "onset_span_offset_s": 251.06666666666666
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 30080,
+    "end": 30084,
+    "onset_span_offset_s": 252.66666666666666
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 30103,
+    "end": 30107,
+    "onset_span_offset_s": 253.43333333333334
+   },
+   {
+    "behavior": "lunge",
+    "fly": 1,
+    "start": 30147,
+    "end": 30151,
+    "onset_span_offset_s": 254.9
+   },
+   {
+    "behavior": "wing_threat",
+    "fly": 1,
+    "start": 30125,
+    "end": 30135,
+    "onset_span_offset_s": 254.16666666666666
+   },
+   {
+    "behavior": "wing_threat",
+    "fly": 1,
+    "start": 30158,
+    "end": 30162,
+    "onset_span_offset_s": 255.26666666666668
+   },
+   {
+    "behavior": "wing_threat",
+    "fly": 1,
+    "start": 30180,
+    "end": 30258,
+    "onset_span_offset_s": 256.0
+   }
+  ],
+  "unknown_frames_in_window": {
+   "n_frames": 13,
+   "runs_source_frames_half_open": [
+    [
+     30135,
+     30148
+    ]
+   ],
+   "note": "frames where either fly is 'unknown'; the scorer excludes them from counts. No bout in this window lost its onset to them (bouts are dropped only when every frame is unknown)."
+  },
+  "by_behavior": {
+   "lunge": 14,
+   "wing_threat": 3
+  }
+ },
+ "top5": [
+  {
+   "movie": 4,
+   "score": 17,
+   "span_offset_s": [
+    242,
+    257
+   ],
+   "span_offset_frames_half_open": [
+    7260,
+    7710
+   ],
+   "source_frames_half_open": [
+    29760,
+    30210
+   ],
+   "source_frames_inclusive": [
+    29760,
+    30209
+   ],
+   "source_time_s": [
+    992.0,
+    1007.0
+   ]
+  },
+  {
+   "movie": 4,
+   "score": 16,
+   "span_offset_s": [
+    241,
+    256
+   ],
+   "span_offset_frames_half_open": [
+    7230,
+    7680
+   ],
+   "source_frames_half_open": [
+    29730,
+    30180
+   ],
+   "source_frames_inclusive": [
+    29730,
+    30179
+   ],
+   "source_time_s": [
+    991.0,
+    1006.0
+   ]
+  },
+  {
+   "movie": 4,
+   "score": 15,
+   "span_offset_s": [
+    240,
+    255
+   ],
+   "span_offset_frames_half_open": [
+    7200,
+    7650
+   ],
+   "source_frames_half_open": [
+    29700,
+    30150
+   ],
+   "source_frames_inclusive": [
+    29700,
+    30149
+   ],
+   "source_time_s": [
+    990.0,
+    1005.0
+   ]
+  },
+  {
+   "movie": 4,
+   "score": 14,
+   "span_offset_s": [
+    35,
+    50
+   ],
+   "span_offset_frames_half_open": [
+    1050,
+    1500
+   ],
+   "source_frames_half_open": [
+    23550,
+    24000
+   ],
+   "source_frames_inclusive": [
+    23550,
+    23999
+   ],
+   "source_time_s": [
+    785.0,
+    800.0
+   ]
+  },
+  {
+   "movie": 4,
+   "score": 14,
+   "span_offset_s": [
+    154,
+    169
+   ],
+   "span_offset_frames_half_open": [
+    4620,
+    5070
+   ],
+   "source_frames_half_open": [
+    27120,
+    27570
+   ],
+   "source_frames_inclusive": [
+    27120,
+    27569
+   ],
+   "source_time_s": [
+    904.0,
+    919.0
+   ]
+  }
+ ],
+ "tie_break": {
+  "n_windows_at_max_score": 1,
+  "used": false,
+  "rule_applied": null,
+  "tied_windows": [
+   {
+    "movie": 4,
+    "start_s": 242
+   }
+  ]
+ },
+ "per_movie": {
+  "movie2": {
+   "bouts_with_onset_in_span": 81,
+   "by_behavior": {
+    "lunge": 75,
+    "wing_threat": 6
+   },
+   "max_window_score": 10,
+   "first_start_s_at_max": 89,
+   "unknown_frames_in_span": 0,
+   "bouts_dropped_all_frames_unknown": [],
+   "bouts_running_at_span_start_not_counted": []
+  },
+  "movie3": {
+   "bouts_with_onset_in_span": 71,
+   "by_behavior": {
+    "lunge": 67,
+    "wing_threat": 4
+   },
+   "max_window_score": 9,
+   "first_start_s_at_max": 252,
+   "unknown_frames_in_span": 0,
+   "bouts_dropped_all_frames_unknown": [],
+   "bouts_running_at_span_start_not_counted": []
+  },
+  "movie4": {
+   "bouts_with_onset_in_span": 101,
+   "by_behavior": {
+    "lunge": 92,
+    "wing_threat": 9
+   },
+   "max_window_score": 17,
+   "first_start_s_at_max": 242,
+   "unknown_frames_in_span": 357,
+   "bouts_dropped_all_frames_unknown": [],
+   "bouts_running_at_span_start_not_counted": []
+  },
+  "movie5": {
+   "bouts_with_onset_in_span": 4,
+   "by_behavior": {
+    "lunge": 4,
+    "wing_threat": 0
+   },
+   "max_window_score": 2,
+   "first_start_s_at_max": 227,
+   "unknown_frames_in_span": 0,
+   "bouts_dropped_all_frames_unknown": [],
+   "bouts_running_at_span_start_not_counted": []
+  }
+ },
+ "bout_definition": "A bout is a maximal run of True in the loader's per-fly mask (eval/flies_extract.py masks_from_actions then runs), per behavior and per fly: actions.mat [start, end] (MATLAB 1-based inclusive) becomes python [start-1, end); overlapping or touching raw rows of the same fly and behavior merge into one run. Lunge and wing_threat are counted separately, fly 0 and fly 1 separately (both flies counted). Runs are taken over the full movie, so a bout already running at frame 22500 keeps its true onset and is not counted. Minimum length: none; the scorer (eval/flies_score.py _kept_runs) uses none and only drops a bout whose every frame is excluded (either fly 'unknown'); that drop is applied here. The onset is the run's first python frame.",
+ "provenance": {
+  "labels": "expert annotations only (movieN_actions.mat via eval/flies_extract.load_actions)",
+  "predictions_opened": false,
+  "test_movies_opened": false,
+  "model_calls": 0,
+  "cost_usd": 0.0,
+  "labels_previously_used": "train movies 1-5, already used under ADR-004"
+ },
+ "generated_utc": "2026-10-30T20:32:01+00:00",
+ "git_commit": "0d21fef7b3539b5644854e7a7463a3e02a799940",
+ "git_dirty": true
+}
