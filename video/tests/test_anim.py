@@ -2,7 +2,8 @@
 import numpy as np
 import pytest
 
-from video import anim, common as C, draw
+from video import anim, draw
+from video import common as C
 from video.data import expert_codes, showcase
 
 needs_showcase = pytest.mark.skipif(not (C.SHOWCASE / "result.json").exists(), reason="showcase run not on disk")
@@ -59,6 +60,7 @@ def test_view_zoom_interpolates_between_full_clip_and_error_window():
 @pytest.mark.skipif(not C.have_render_tools(), reason="needs Chromium + ffmpeg")
 def test_title_card_renders_1080p(tmp_path):
     import cv2
+
     from video import cards
     from video.numbers import Numbers
     png = C.html_to_png(cards.title_html(Numbers()), tmp_path / "t.png")

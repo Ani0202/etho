@@ -92,7 +92,7 @@ class Numbers:
         # supervised references: report 11.1 accuracy line "(... Tables 1 and 2: .793, .829, .864)"
         m = _grab(self.md, r"Tables 1 and 2: (\.\d{3}), (\.\d{3}), (\.\d{3})\)", "supervised references")
         sup = [float(x) for x in m.groups()]
-        for key, s, v in zip(("sup_1dconv", "sup_taskprog", "sup_mabe_top1"), m.groups(), sup):
+        for key, s, v in zip(("sup_1dconv", "sup_taskprog", "sup_mabe_top1"), m.groups(), sup, strict=True):
             self._add(key, s, v, REPORT_MD, "11.1 accuracy line, Tables 1 and 2")
         lo, hi = min(sup), max(sup)
         self._add("sup_lo", f"{lo:.2f}", lo, REPORT_MD, "11.1 accuracy line (min of the three, 2 dp)")
@@ -104,24 +104,29 @@ class Numbers:
         self._add("speed_pooled", f"{pooled:.2f}", pooled, REPORT_MD, "11.3 'Pooled 0.8777x'")
         self._add("speed_worst", f"{mx:.2f}", mx, REPORT_MD, "11.3 'max 1.5421x'")
         # cross-check against the 11.1 speed line "0.88x real time on test; worst 1.54x"
-        m1 = _grab(self.md, r"\(0\.88× real time on test; worst 1\.54×\); manual\s+(?:>\s*)?scoring takes (\d)–(\d)×", "speed line")
+        m1 = _grab(self.md, r"\(0\.88× real time on test; worst 1\.54×\); manual\s+(?:>\s*)?scoring takes (\d)–(\d)×",
+                   "speed line")
         if f"{pooled:.2f}" != "0.88" or f"{mx:.2f}" != "1.54":
             raise ValueError("11.3 speed rounds to something other than the approved 11.1 line (0.88 / 1.54)")
-        self._add("manual_lo", m1.group(1), int(m1.group(1)), REPORT_MD, "11.1 speed line 'manual scoring takes 3–4×'")
-        self._add("manual_hi", m1.group(2), int(m1.group(2)), REPORT_MD, "11.1 speed line 'manual scoring takes 3–4×'")
+        self._add("manual_lo", m1.group(1), int(m1.group(1)), REPORT_MD,
+                  "11.1 speed line 'manual scoring takes 3–4×'")
+        self._add("manual_hi", m1.group(2), int(m1.group(2)), REPORT_MD,
+                  "11.1 speed line 'manual scoring takes 3–4×'")
 
         m = _grab(self.md, r"\*\*\$(\d+\.\d{2}) per hour of video\*\*", "cost per hour")
         self._add("cost_per_hour", f"${m.group(1)}", float(m.group(1)), REPORT_MD, "11.1 cost line")
 
         # approved demo-slide footnote (11.2)
-        seg = _grab(self.md, r"\*\*Demo-slide version\*\*.*?\n> \*\*(Training-free:[^\n]*\n> [^\n]*?)\*\*¹\n>\n> ¹ ([^\n]+)",
+        seg = _grab(self.md,
+                    r"\*\*Demo-slide version\*\*.*?\n> \*\*(Training-free:[^\n]*\n> [^\n]*?)\*\*¹\n>\n> ¹ ([^\n]+)",
                     "demo-slide headline and footnote")
         head = re.sub(r"\n> ", " ", seg.group(1)).strip()
         foot = seg.group(2).strip()
         self._add("headline_text", head, head, REPORT_MD, "11.2 demo-slide headline")
         self._add("footnote_text", foot, foot, REPORT_MD, "11.2 demo-slide footnote")
         mm = _grab(foot, r"Tuned on (\d+) labeled dev", "dev video count")
-        self._add("n_dev_videos", mm.group(1), int(mm.group(1)), REPORT_MD, "11.2 footnote 'Tuned on 13 labeled dev videos'")
+        self._add("n_dev_videos", mm.group(1), int(mm.group(1)), REPORT_MD,
+                  "11.2 footnote 'Tuned on 13 labeled dev videos'")
         mm = re.search(r"scored once on the (\d+) official test videos", foot)
         if int(mm.group(1)) != n:
             raise ValueError("footnote test-video count differs from the test summary")

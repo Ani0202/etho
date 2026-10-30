@@ -38,7 +38,8 @@ def test_pan_expr_and_duration():
 
 
 def test_parse_pytest_summary():
-    assert ca.parse_pytest_summary("....\n662 passed, 3 skipped in 91.20s (0:01:31)\n") == "662 passed, 3 skipped in 91.20s (0:01:31)"
+    assert (ca.parse_pytest_summary("....\n662 passed, 3 skipped in 91.20s (0:01:31)\n")
+            == "662 passed, 3 skipped in 91.20s (0:01:31)")
     with pytest.raises(ValueError):
         ca.parse_pytest_summary("nothing here")
 

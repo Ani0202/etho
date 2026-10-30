@@ -53,7 +53,7 @@ def hex_bgr(h: str) -> tuple[int, int, int]:
 def runs_of(a: np.ndarray) -> list[tuple[int, int]]:
     """[start, end) of each run of non-zero entries."""
     d = np.diff(np.r_[0, (np.asarray(a) != 0).astype(int), 0])
-    return list(zip(np.where(d == 1)[0].tolist(), np.where(d == -1)[0].tolist()))
+    return list(zip(np.where(d == 1)[0].tolist(), np.where(d == -1)[0].tolist(), strict=True))
 
 
 def frame_codes(wing: np.ndarray, lunge: np.ndarray) -> np.ndarray:
@@ -61,7 +61,8 @@ def frame_codes(wing: np.ndarray, lunge: np.ndarray) -> np.ndarray:
     return np.where(np.asarray(lunge) != 0, 2, np.where(np.asarray(wing) != 0, 1, 0)).astype(np.uint8)
 
 
-def pick_window(codes: np.ndarray, fps: float, pre_s: float = PRE_S, post_s: float = POST_S) -> tuple[int, int, tuple[int, int]]:
+def pick_window(codes: np.ndarray, fps: float, pre_s: float = PRE_S,
+                post_s: float = POST_S) -> tuple[int, int, tuple[int, int]]:
     """(start, stop, bout): the window around the longest predicted bout (earliest on ties), clamped to the array."""
     bouts = runs_of(codes)
     if not bouts:
@@ -99,7 +100,8 @@ def nearest_track(xy: np.ndarray, cx: float, cy: float) -> int:
 
 
 def draw_masks(canvas: np.ndarray, objs: list, track_xy: np.ndarray, active: set[int], hot_bgr, scale: float) -> None:
-    """Outline each fly in its identity color; a fly Etho tags as performing the behavior gets a thick behavior-colored outline."""
+    """Outline each fly in its identity color; a fly Etho tags as performing the behavior gets a thick
+    behavior-colored outline."""
     for (x0, y0), m in objs:
         ys, xs = np.nonzero(m)
         if not len(xs):
@@ -128,13 +130,18 @@ class Panel:
         img = self.static = np.zeros((C.H, C.W, 3), np.uint8)
         img[:] = hex_bgr(C.PAGE)
         cv2.rectangle(img, (VID_X - 2, VID_Y - 2), (VID_X + VID_S + 1, VID_Y + VID_S + 1), hex_bgr(C.LINE), 2)
-        draw.blit(img, _t(_div(f"font-weight:700;font-size:44px;line-height:60px;color:{C.GOLD};border:3px solid {C.GOLD};"
-                               f"border-radius:10px;padding:8px 0;text-align:center", BADGE), PW, 100, "fly-badge"), PX, 40)
+        draw.blit(img, _t(_div(f"font-weight:700;font-size:44px;line-height:60px;color:{C.GOLD};"
+                               f"border:3px solid {C.GOLD};"
+                               f"border-radius:10px;padding:8px 0;text-align:center", BADGE), PW, 100, "fly-badge"),
+                  PX, 40)
         draw.blit(img, _t(_div("font-weight:700;font-size:44px;line-height:56px", "Fruit flies, same pipeline")
-                          + _div(f"font-size:32px;line-height:44px;color:{C.TEXT2}", "One-sentence definitions, no retraining"),
+                          + _div(f"font-size:32px;line-height:44px;color:{C.TEXT2}",
+                                 "One-sentence definitions, no retraining"),
                           PW, 110, "fly-sub"), PX, 170)
-        draw.blit(img, _t(_div(f"font-size:30px;line-height:40px;color:{C.MUTED}", "Etho's behavior tag"), PW, 44, "fly-tagcap"), PX, 330)
-        draw.blit(img, _t(_div("font-weight:700;font-size:36px;line-height:50px", "Etho"), 110, 56, "fly-etho"), PX, 620)
+        draw.blit(img, _t(_div(f"font-size:30px;line-height:40px;color:{C.MUTED}", "Etho's behavior tag"),
+                          PW, 44, "fly-tagcap"), PX, 330)
+        draw.blit(img, _t(_div("font-weight:700;font-size:36px;line-height:50px", "Etho"), 110, 56, "fly-etho"),
+                  PX, 620)
         self.sx0, self.sx1, self.sy0, self.sy1 = PX + 120, PX + PW, 612, 682
         cv2.rectangle(img, (self.sx0, self.sy0), (self.sx1, self.sy1), hex_bgr(C.SURFACE), -1)
         cv2.rectangle(img, (self.sx0, self.sy0), (self.sx1, self.sy1), hex_bgr(C.LINE), 2)
@@ -148,22 +155,27 @@ class Panel:
             x = PX + 120 + k * 330
             draw.fill_bar(img, x, x + 44, 770, 806, SLOT[code])
             draw.blit(img, _t(_div("font-size:30px;line-height:40px", lab), 260, 44, f"fly-leg{code}"), x + 58, 768)
-        for c, s, e in [(c, s, e) for c in (1, 2) for s, e in runs_of(codes == c)]:
+        for c, s, e in [(cc, s, e) for cc in (1, 2) for s, e in runs_of(codes == cc)]:
             x0 = self.sx0 + (self.sx1 - self.sx0) * s / self.n
             x1 = self.sx0 + (self.sx1 - self.sx0) * e / self.n
             draw.fill_bar(img, x0, max(x1, x0 + 4), self.sy0 + 4, self.sy1 - 4, SLOT[c])
         draw.blit(img, _t(_div(f"font-size:30px;line-height:42px;color:{C.TEXT2}",
-                               "Tracking: SAM 3.1 &nbsp;&middot;&nbsp; detectors written by Muse Spark"), PW, 48, "fly-stack"), PX, 880)
-        draw.blit(img, _t(_div(f"font-weight:700;font-size:32px;line-height:44px;color:{C.GOLD}", f"{SPEED:g}x slow motion"), 500, 48, "fly-slow"), PX, 984)
-        draw.blit(img, _t(_div(f"font-size:30px;line-height:40px;color:{C.TEXT2}", "movie 1, time"), 400, 44, "fly-timecap"), PX, 932)
-        draw.blit(img, _t(_div(f"font-size:28px;line-height:40px;color:{C.MUTED}", CREDIT), 1840, 44, "fly-credit"), VID_X, 1022)
+                               "Tracking: SAM 3.1 &nbsp;&middot;&nbsp; detectors written by Muse Spark"),
+                          PW, 48, "fly-stack"), PX, 880)
+        draw.blit(img, _t(_div(f"font-weight:700;font-size:32px;line-height:44px;color:{C.GOLD}",
+                               f"{SPEED:g}x slow motion"), 500, 48, "fly-slow"), PX, 984)
+        draw.blit(img, _t(_div(f"font-size:30px;line-height:40px;color:{C.TEXT2}", "movie 1, time"),
+                          400, 44, "fly-timecap"), PX, 932)
+        draw.blit(img, _t(_div(f"font-size:28px;line-height:40px;color:{C.MUTED}", CREDIT),
+                          1840, 44, "fly-credit"), VID_X, 1022)
         self.tags = {}
         for code, lab in NAMES.items():
             bg = hex_bgr(C.COLORS[SLOT[code]]) if code else hex_bgr(C.SURFACE)
             layer = np.zeros((130, PW, 3), np.uint8)
             layer[:] = bg
             draw.blit(layer, _t(_div(f"display:flex;align-items:center;height:130px;padding-left:28px;font-weight:700;"
-                                     f"font-size:{72 if code else 46}px;color:{C.TEXT if code else C.MUTED}", lab), PW, 130, f"fly-tag{code}"))
+                                     f"font-size:{72 if code else 46}px;color:{C.TEXT if code else C.MUTED}", lab),
+                              PW, 130, f"fly-tag{code}"))
             self.tags[code] = layer
         self.gl_time = draw.Glyphs(34, C.TEXT, True)
 
@@ -194,9 +206,9 @@ def render(out: Path, stills: bool = False) -> dict:
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.stem + ".part.mp4")
     proc = subprocess.Popen(
-        ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{C.W}x{C.H}", "-r", str(C.FPS),
-         "-i", "-", "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-         str(tmp)], stdin=subprocess.PIPE)
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{C.W}x{C.H}",
+         "-r", str(C.FPS), "-i", "-", "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "16",
+         "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(tmp)], stdin=subprocess.PIPE)
     n_src, rep, shown = g1 - g0, int(round(1 / SPEED)), 0
     still_at = {n_src // 6, bout[0] - g0 + 4, n_src * 3 // 4}
     try:

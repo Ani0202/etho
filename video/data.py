@@ -17,7 +17,8 @@ def showcase() -> dict:
     assert tuple(names) == BEHAVIORS, names
     fps = float(r["fps"])
     labels = z["labels"]                   # code i = names[i], code len(names) = other
-    final = r["versions"][-1]["bouts"]     # sample-index [start, end) per behavior; equals labels.npz (checked in tests)
+    # sample-index [start, end) per behavior; equals labels.npz (checked in tests)
+    final = r["versions"][-1]["bouts"]
     return {
         "fps": fps,
         "n": int(r["n_samples"]),
