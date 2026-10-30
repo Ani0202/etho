@@ -11,6 +11,8 @@ participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10
 - [ ] **Nov 3:** the form is fully filled and ready to submit, so any platform issue can be raised in Discord that
   day (Nov 3 is the last full day for submission questions and troubleshooting). Find out whether submissions
   can be edited after sending.
+- [ ] **Nov 3, after live mode is on:** test event streaming end to end. Submit a short job from the public URL
+  (phone or Mac, not the VM) and confirm the progress events arrive live, not only at the end (Aniket, 2026-10-30).
 - The pre-submission audit runs the evening of Nov 3 and the morning of Nov 4.
 
 ## Artifacts (all three are judged)
