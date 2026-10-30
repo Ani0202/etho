@@ -16,7 +16,8 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "data" / "video" / "capture"
+import os
+OUT = Path(os.environ.get("ETHO_CAPTURE_OUT") or ROOT / "data" / "video" / "capture")
 TMP = ROOT / "data" / "video" / "tmp"
 BASE = "http://127.0.0.1:8795"
 PID = "sc-calms21-mouse075-live"
@@ -129,7 +130,7 @@ def center_of(page, selector: str, text: str | None = None):
                           const b = e.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }""", [selector, text])
 
 
-TRACED_BOUT = "Etho: mount 38.4 to 44.0 seconds"   # the traced error: expert attack, frame check "attack" set aside
+TRACED_BOUT = "Etho: mount 37.5 to 38.0 seconds"   # the traced error: expert attack; frame check said "attack" (0.96), set aside by the restriction
 
 
 def live_run(pw):
@@ -162,7 +163,16 @@ def abs_top(page, selector: str, text: str | None = None) -> float:
                           return e.getBoundingClientRect().top + scrollY; }""", [selector, text])
 
 
+RING_JS = """
+([x, y, w, h]) => { const d = document.createElement('div'); d.id = '__ring';
+  d.style.cssText = `position:fixed;left:${(x - 14) / %(zoom)s}px;top:${(y - 14) / %(zoom)s}px;width:${(w + 28) / %(zoom)s}px;height:${(h + 28) / %(zoom)s}px;` +
+    'border:4px solid #e11d48;border-radius:12px;box-shadow:0 0 0 6px rgba(225,29,72,.25);z-index:2147483646;pointer-events:none';
+  document.documentElement.appendChild(d); }
+"""
+
+
 def trace(pw):
+    """The 37.5-38.0 s Etho mount bout: expert says attack, tier 1 said attack (0.96), the restriction set it aside."""
     s = Session(pw, "trace")
     s.goto()
     pg = s.page
@@ -171,22 +181,23 @@ def trace(pw):
     s.scroll_to(abs_top(pg, "svg") - 150, 1700)    # ethogram: Etho rows over the expert rows
     s.wait(2500)
     x, y = bout_center(pg, TRACED_BOUT)
+    box = pg.evaluate("""l => { const r = [...document.querySelectorAll('rect.bout')].find(e => e.getAttribute('aria-label') === l).getBoundingClientRect();
+                              return [r.x, r.y, r.width, r.height]; }""", TRACED_BOUT)
+    pg.evaluate(RING_JS % {"zoom": ZOOM}, box)     # capture-only ring: the bout is only ~14 px wide
+    s.wait(1500)
     s.move_to(x, y)
     s.wait(700)
     pg.mouse.click(x, y)                           # opens the trace panel; the video seeks to the bout
     s.wait(1200)
     s.scroll_to(abs_top(pg, "svg") - 150, 900)     # the click scrolls to the trace; come back to the ethogram
-    pg.mouse.move(x + 400, y + 300, steps=10)      # park the cursor off the bout
-    s.wait(1800)
-    s.shot("trace.png")     # hero 1: ethogram with the expert row, bout selected
-    s.scroll_to(abs_top(pg, ".trace") - 90, 1700)
-    s.wait(2800)                                   # rule result, then the first frame-strip window
-    s.scroll_to(abs_top(pg, ".trace .badge, .trace *", "SET ASIDE BY THE RESTRICTION") - 200, 1500)
+    pg.mouse.move(x + 400, y + 300, steps=10)
     s.wait(1500)
-    s.shot("trace_panel.png")   # hero 2: the window the restriction set aside
-    s.wait(3500)
-    s.scroll_to(abs_top(pg, ".trace h3, .trace *", "Decided by") - 500, 1500)
-    s.wait(3500)                                   # "Decided by: Rules ..."
+    s.shot("trace.png")                            # hero 1: ethogram with the expert row, bout ringed
+    pg.evaluate("document.getElementById('__ring').remove()")
+    s.scroll_to(abs_top(pg, ".trace") - 90, 1700)
+    s.wait(1500)
+    s.shot("trace_panel.png")                      # hero 2: the set-aside verdict, then "Decided by"
+    s.wait(5500)
     return s.finish()
 
 
