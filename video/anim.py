@@ -33,8 +33,9 @@ class FfmpegPipe:
     def __init__(self, out: Path, w: int = C.W, h: int = C.H, fps: int = C.FPS):
         out.parent.mkdir(parents=True, exist_ok=True)
         self.p = subprocess.Popen(
-            ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}", "-r", str(fps),
-             "-i", "-", "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-pix_fmt", "yuv420p", str(out)],
+            ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}",
+             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-pix_fmt", "yuv420p",
+             str(out)],
             stdin=subprocess.PIPE)
 
     def write(self, frame: np.ndarray) -> None:
@@ -53,7 +54,7 @@ def runs(codes: np.ndarray):
     edges = np.flatnonzero(np.diff(codes)) + 1
     starts = np.r_[0, edges]
     ends = np.r_[edges, len(codes)]
-    for s, e in zip(starts, ends):
+    for s, e in zip(starts, ends, strict=True):
         yield int(codes[s]), int(s), int(e)
 
 
@@ -102,12 +103,16 @@ OPEN = dict(vx=0, vy=24, vh=640, lx0=360, lx1=1840, ly_etho=(742, 794), ly_exp=(
 
 
 def opening_static(credit: bool = True) -> np.ndarray:
-    lab = lambda y, txt: (f"<div style='position:absolute;left:30px;width:310px;text-align:right;top:{y}px;font-size:44px;"
-                          f"font-weight:700;color:{C.TEXT}'>{txt}</div>")
-    legend = "".join(f"<span style='display:inline-block;width:30px;height:30px;border-radius:6px;background:{C.COLORS[b]};"
-                     f"margin:0 12px 0 34px;vertical-align:-4px'></span><span style='font-size:40px;color:{C.TEXT2}'>{b}</span>"
+    def lab(y, txt):
+        return (f"<div style='position:absolute;left:30px;width:310px;text-align:right;top:{y}px;font-size:44px;"
+                f"font-weight:700;color:{C.TEXT}'>{txt}</div>")
+
+    legend = "".join(f"<span style='display:inline-block;width:30px;height:30px;border-radius:6px;"
+                     f"background:{C.COLORS[b]};margin:0 12px 0 34px;vertical-align:-4px'></span>"
+                     f"<span style='font-size:40px;color:{C.TEXT2}'>{b}</span>"
                      for b in C.BEHAVIORS)
-    cr = (f"<div style='position:absolute;right:30px;top:690px;font-size:30px;color:{C.MUTED}'>{C.CREDIT}</div>" if credit else "")
+    cr = (f"<div style='position:absolute;right:30px;top:690px;font-size:30px;color:{C.MUTED}'>{C.CREDIT}</div>"
+          if credit else "")
     body = (f"{lab(OPEN['ly_etho'][0] - 2, 'Etho')}{lab(OPEN['ly_exp'][0] - 2, 'Expert')}"
             f"<div style='position:absolute;left:330px;top:676px;white-space:nowrap'>{legend}</div>{cr}")
     return draw.text_layer(body, C.W, C.H, name="opening")
@@ -156,7 +161,8 @@ def make_gif(src_mp4: Path, out_gif: Path, width: int = 800, fps: int = 12, max_
     out_gif.parent.mkdir(parents=True, exist_ok=True)
     pal = out_gif.with_suffix(".pal.png")
     vf = f"fps={fps},scale={width}:-1:flags=lanczos"
-    C.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src_mp4), "-vf", f"{vf},palettegen=max_colors=96:stats_mode=diff", str(pal)])
+    C.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src_mp4), "-vf",
+           f"{vf},palettegen=max_colors=96:stats_mode=diff", str(pal)])
     C.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src_mp4), "-i", str(pal), "-lavfi",
            f"{vf}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle", "-loop", "0", str(out_gif)])
     pal.unlink(missing_ok=True)
@@ -190,20 +196,29 @@ def traced_error(sc: dict, near: float = 38.0) -> tuple[float, float]:
 
 
 def results_static() -> np.ndarray:
-    names = lambda y, tag: "".join(
-        f"<div style='position:absolute;left:30px;width:310px;text-align:right;top:{y + i * (RES['row_h'] + RES['gap']) + 2}px;"
-        f"font-size:38px;color:{C.TEXT}'>{b}</div>" for i, b in enumerate(C.BEHAVIORS))
-    title = lambda y, txt: f"<div style='position:absolute;left:40px;top:{y}px;font-size:48px;font-weight:700'>{txt}</div>"
-    body = (f"<div style='position:absolute;left:40px;top:28px;font-size:64px;font-weight:700'>Etho beside the expert</div>"
+    def names(y, tag):
+        return "".join(
+            f"<div style='position:absolute;left:30px;width:310px;text-align:right;"
+            f"top:{y + i * (RES['row_h'] + RES['gap']) + 2}px;"
+            f"font-size:38px;color:{C.TEXT}'>{b}</div>" for i, b in enumerate(C.BEHAVIORS))
+
+    def title(y, txt):
+        return f"<div style='position:absolute;left:40px;top:{y}px;font-size:48px;font-weight:700'>{txt}</div>"
+
+    body = (f"<div style='position:absolute;left:40px;top:28px;font-size:64px;font-weight:700'>"
+            f"Etho beside the expert</div>"
             f"{title(RES['etho_y'] - 62, 'Etho')}{names(RES['etho_y'], 'e')}"
             f"{title(RES['exp_y'] - 62, 'Expert (CalMS21)')}{names(RES['exp_y'], 'x')}")
     return draw.text_layer(body, C.W, C.H, name="results")
 
 
 def results_note_layers():
-    mk = lambda txt, col: draw.text_layer(
-        f"<div style='font-size:46px;font-weight:700;color:{col};white-space:nowrap;padding:8px 18px;background:rgba(13,13,13,.85);"
-        f"border-radius:14px;display:inline-block'>{txt}</div>", 520, 80, name="note")
+    def mk(txt, col):
+        return draw.text_layer(
+            f"<div style='font-size:46px;font-weight:700;color:{col};white-space:nowrap;padding:8px 18px;"
+            f"background:rgba(13,13,13,.85);"
+            f"border-radius:14px;display:inline-block'>{txt}</div>", 520, 80, name="note")
+
     return mk("Etho: mount", C.COLORS["mount"]), mk("Expert: attack", C.COLORS["attack"])
 
 

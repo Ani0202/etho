@@ -109,7 +109,8 @@ _CACHE = C.OUT / "cache"
 
 def text_layer(html_body: str, w: int, h: int, name: str | None = None) -> np.ndarray:
     """Render an HTML snippet (transparent background, app fonts) into a BGRA array. Cached by content."""
-    css = f"html,body{{margin:0;background:transparent}}body{{width:{w}px;height:{h}px;font-family:'{C.FONT}',sans-serif;color:{C.TEXT}}}"
+    css = (f"html,body{{margin:0;background:transparent}}"
+           f"body{{width:{w}px;height:{h}px;font-family:'{C.FONT}',sans-serif;color:{C.TEXT}}}")
     html = f"<!doctype html><meta charset=utf-8><style>{css}</style><body>{html_body}</body>"
     key = hashlib.sha1(html.encode()).hexdigest()[:16]
     out = _CACHE / f"{name or 'txt'}-{key}.png"
@@ -129,7 +130,8 @@ class Glyphs:
         self.px = px
         self.cw = int(round(px * 0.66))
         self.ch = int(round(px * 1.35))
-        cells = "".join(f"<span style='display:inline-block;width:{self.cw}px;text-align:center'>{c if c != ' ' else '&nbsp;'}</span>"
+        cells = "".join(f"<span style='display:inline-block;width:{self.cw}px;text-align:center'>"
+                        f"{c if c != ' ' else '&nbsp;'}</span>"
                         for c in self.CHARS)
         body = (f"<div style=\"font:{'700' if bold else '400'} {px}px/{self.ch}px 'DejaVu Sans Mono',monospace;"
                 f"color:{color};white-space:nowrap\">{cells}</div>")

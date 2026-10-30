@@ -10,13 +10,13 @@ The UI is shown in presentation mode at 1.4x CSS zoom so it reads on a shared sc
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-import os
 OUT = Path(os.environ.get("ETHO_CAPTURE_OUT") or ROOT / "data" / "video" / "capture")
 TMP = ROOT / "data" / "video" / "tmp"
 BASE = "http://127.0.0.1:8795"
@@ -31,10 +31,13 @@ CURSOR_JS = """
   const d = document.createElement('div');
   d.id = '__cur';
   d.style.cssText = 'position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%%;' +
-    'background:rgba(255,200,0,.55);border:3px solid #fff;box-shadow:0 0 0 2px #222;z-index:2147483647;pointer-events:none;' +
+    'background:rgba(255,200,0,.55);border:3px solid #fff;box-shadow:0 0 0 2px #222;z-index:2147483647;' +
+    'pointer-events:none;' +
     'transition:transform .12s;display:none';
   document.addEventListener('DOMContentLoaded', () => document.documentElement.appendChild(d));
-  addEventListener('mousemove', e => { d.style.display = 'block'; d.style.left = (e.clientX / z) + 'px'; d.style.top = (e.clientY / z) + 'px'; }, true);
+  addEventListener('mousemove', e => {
+    d.style.display = 'block'; d.style.left = (e.clientX / z) + 'px'; d.style.top = (e.clientY / z) + 'px';
+  }, true);
   addEventListener('mousedown', () => { d.style.transform = 'scale(.6)'; }, true);
   addEventListener('mouseup', () => { d.style.transform = 'scale(1)'; }, true);
 })();
@@ -88,7 +91,8 @@ class Session:
     def card_y(self, h2_text: str, margin: int = 90) -> float:
         return self.page.evaluate(
             """([t, m]) => { const h = [...document.querySelectorAll('h2,h3')].find(e => e.textContent.includes(t));
-               const c = h.closest('.card') || h; return c.getBoundingClientRect().top + scrollY - m; }""", [h2_text, margin])
+               const c = h.closest('.card') || h;
+               return c.getBoundingClientRect().top + scrollY - m; }""", [h2_text, margin])
 
     def scroll_to(self, y: float, ms: int = 1400):
         self.page.evaluate(SMOOTH_JS, [y, ms])
@@ -98,9 +102,11 @@ class Session:
 
     def shot(self, name: str):
         """Hero PNG without the capture cursor."""
-        self.page.evaluate("document.getElementById('__cur') && (document.getElementById('__cur').style.visibility = 'hidden')")
+        self.page.evaluate("document.getElementById('__cur') && "
+                           "(document.getElementById('__cur').style.visibility = 'hidden')")
         self.page.screenshot(path=str(OUT / name))
-        self.page.evaluate("document.getElementById('__cur') && (document.getElementById('__cur').style.visibility = 'visible')")
+        self.page.evaluate("document.getElementById('__cur') && "
+                           "(document.getElementById('__cur').style.visibility = 'visible')")
 
     def finish(self, trim_end: float = 0.0, hero: Path | None = None) -> Path:
         t1 = time.time() - self.t_ctx
@@ -110,27 +116,31 @@ class Session:
         self.browser.close()
         out = OUT / f"{self.name}.mp4"
         cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{self.t0:.2f}", "-i", str(vid),
-               "-t", f"{t1 - self.t0 - trim_end:.2f}", "-vf", f"fps=30,scale={W}:{H}", "-c:v", "libx264", "-preset", "medium",
-               "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", str(out)]
+               "-t", f"{t1 - self.t0 - trim_end:.2f}", "-vf", f"fps=30,scale={W}:{H}", "-c:v", "libx264",
+               "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", str(out)]
         subprocess.run(cmd, check=True)
         return out
 
 
 def bout_center(page, label: str):
-    """Centre (x, y) in viewport px of the ethogram bout whose aria-label equals `label`, scrolling it into view first."""
+    """Centre (x, y) in viewport px of the ethogram bout whose aria-label equals `label`, scrolling it into view
+    first."""
     return page.evaluate(
         """l => { const r = [...document.querySelectorAll('rect.bout')].find(e => e.getAttribute('aria-label') === l);
-                  const b = r.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }""", label)
+                  const b = r.getBoundingClientRect();
+                  return [b.x + b.width / 2, b.y + b.height / 2]; }""", label)
 
 
 def center_of(page, selector: str, text: str | None = None):
     """Viewport centre of an element via getBoundingClientRect (Locator.bounding_box ignores the CSS zoom)."""
     return page.evaluate(
         """([sel, t]) => { const e = [...document.querySelectorAll(sel)].find(x => !t || x.textContent.trim() === t);
-                          const b = e.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }""", [selector, text])
+                          const b = e.getBoundingClientRect();
+                          return [b.x + b.width / 2, b.y + b.height / 2]; }""", [selector, text])
 
 
-TRACED_BOUT = "Etho: mount 37.5 to 38.0 seconds"   # the traced error: expert attack; frame check said "attack" (0.96), set aside by the restriction
+# the traced error: expert attack; frame check said "attack" (0.96), set aside by the restriction
+TRACED_BOUT = "Etho: mount 37.5 to 38.0 seconds"
 
 
 def live_run(pw):
@@ -145,7 +155,8 @@ def live_run(pw):
     s.shot("live_run.png")
     s.scroll_to(s.card_y("Ethogram synced") - 10, 1600)
     s.wait(500)
-    vx, vy = pg.evaluate("(() => { const b = document.querySelector('video').getBoundingClientRect(); return [b.x + 60, b.y + b.height - 20]; })()")
+    vx, vy = pg.evaluate("(() => { const b = document.querySelector('video').getBoundingClientRect(); "
+                         "return [b.x + 60, b.y + b.height - 20]; })()")
     s.move_to(vx, vy)
     s.wait(300)
     pg.evaluate("document.querySelector('video').play()")   # a real click on the native controls proved unreliable
@@ -165,8 +176,10 @@ def abs_top(page, selector: str, text: str | None = None) -> float:
 
 RING_JS = """
 ([x, y, w, h]) => { const d = document.createElement('div'); d.id = '__ring';
-  d.style.cssText = `position:fixed;left:${(x - 14) / %(zoom)s}px;top:${(y - 14) / %(zoom)s}px;width:${(w + 28) / %(zoom)s}px;height:${(h + 28) / %(zoom)s}px;` +
-    'border:4px solid #e11d48;border-radius:12px;box-shadow:0 0 0 6px rgba(225,29,72,.25);z-index:2147483646;pointer-events:none';
+  d.style.cssText = `position:fixed;left:${(x - 14) / %(zoom)s}px;top:${(y - 14) / %(zoom)s}px;` +
+    `width:${(w + 28) / %(zoom)s}px;height:${(h + 28) / %(zoom)s}px;` +
+    'border:4px solid #e11d48;border-radius:12px;box-shadow:0 0 0 6px rgba(225,29,72,.25);z-index:2147483646;' +
+    'pointer-events:none';
   document.documentElement.appendChild(d); }
 """
 
@@ -181,7 +194,8 @@ def trace(pw):
     s.scroll_to(abs_top(pg, "svg") - 150, 1700)    # ethogram: Etho rows over the expert rows
     s.wait(2500)
     x, y = bout_center(pg, TRACED_BOUT)
-    box = pg.evaluate("""l => { const r = [...document.querySelectorAll('rect.bout')].find(e => e.getAttribute('aria-label') === l).getBoundingClientRect();
+    box = pg.evaluate("""l => { const r = [...document.querySelectorAll('rect.bout')]
+                                .find(e => e.getAttribute('aria-label') === l).getBoundingClientRect();
                               return [r.x, r.y, r.width, r.height]; }""", TRACED_BOUT)
     pg.evaluate(RING_JS % {"zoom": ZOOM}, box)     # capture-only ring: the bout is only ~14 px wide
     s.wait(1500)

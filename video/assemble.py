@@ -14,7 +14,7 @@ import html as H
 import re
 import shutil
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from video import common as C
@@ -31,8 +31,11 @@ WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{C.FONT},{CAP_FONT_PX},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,1,0,0,0,100,100,0,0,3,12,0,2,150,150,70,1
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, \
+Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, \
+MarginV, Encoding
+Style: Default,{C.FONT},{CAP_FONT_PX},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,1,0,0,0,100,100,0,0,3,12,0,2,\
+150,150,70,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -47,7 +50,9 @@ def srt_to_ass(srt: Path, ass: Path) -> int:
         if not m:
             continue
         g = m.groups()
-        t = lambda h, mi, se, ms: f"{int(h)}:{mi}:{se}.{ms[:2]}"
+        def t(h, mi, se, ms):
+            return f"{int(h)}:{mi}:{se}.{ms[:2]}"
+
         text = g[8].strip().replace("\n", "\\N")
         lines.append(f"Dialogue: 0,{t(*g[0:4])},{t(*g[4:8])},Default,,0,0,0,,{text}")
         n += 1
@@ -80,15 +85,19 @@ PLAN = {
 }
 
 SLATE_HINTS = {
-    "live_run": "App with a visible clock; waits cut and tagged 'time skipped'; planner card shows the phrases Muse Spark proposed and the one SAM confirmed.",
-    "code": "Architecture diagram, then etho/gateway/gateway.py, etho/adjudication/tier1.py, etho/rules/sandbox.py, commit-date overlay, the pytest summary line.",
+    "live_run": ("App with a visible clock; waits cut and tagged 'time skipped'; planner card shows the phrases "
+                 "Muse Spark proposed and the one SAM confirmed."),
+    "code": ("Architecture diagram, then etho/gateway/gateway.py, etho/adjudication/tier1.py, etho/rules/sandbox.py, "
+             "commit-date overlay, the pytest summary line."),
     "trace": "The trace panel for the error: the frame check answered 'attack', a rule in the cascade set it aside.",
     "correction": "Mark a few bouts; Etho rewrites the rule and shows what changed. No gain claim.",
-    "fly": "Fruit flies, one sentence, no retraining. Qualitative preview: no F1 on screen (ADR-004). No pipeline output for flies is on disk yet.",
+    "fly": ("Fruit flies, one sentence, no retraining. Qualitative preview: no F1 on screen (ADR-004). "
+            "No pipeline output for flies is on disk yet."),
 }
-SLATE_NAME = {"live_run": "live run", "code": "code beat", "trace": "trace panel", "correction": "correction loop", "fly": "second species (flies)"}
-SLATE_WHEN = {"live_run": "recorded Nov 3", "code": "recorded Nov 3", "trace": "recorded Nov 3", "correction": "recorded Nov 3",
-              "fly": "fly run clip not produced yet"}
+SLATE_NAME = {"live_run": "live run", "code": "code beat", "trace": "trace panel", "correction": "correction loop",
+              "fly": "second species (flies)"}
+SLATE_WHEN = {"live_run": "recorded Nov 3", "code": "recorded Nov 3", "trace": "recorded Nov 3",
+              "correction": "recorded Nov 3", "fly": "fly run clip not produced yet"}
 
 
 def find_capture(name: str) -> Path | None:
@@ -103,12 +112,17 @@ def slate_html(key: str, beat: T.Beat, dur: float) -> str:
     from video.cards import page
     return page(f"""
 <div class=brand><i></i>ETHO &middot; rough cut</div>
-<div class=abs style='left:0;top:0;width:1920px;height:1080px;background:repeating-linear-gradient(135deg,rgba(217,181,58,.07) 0 28px,transparent 28px 56px)'></div>
+<div class=abs style='left:0;top:0;width:1920px;height:1080px;
+ background:repeating-linear-gradient(135deg,rgba(217,181,58,.07) 0 28px,
+transparent 28px 56px)'></div>
 <div class=abs style='left:80px;top:230px;width:1760px;font-size:80px;font-weight:700;color:{C.GOLD};line-height:1.15'>
  PLACEHOLDER: {SLATE_NAME[key]}, {SLATE_WHEN[key]}</div>
-<div class=abs style='left:80px;top:470px;width:1760px;font-size:46px;color:{C.TEXT2};line-height:1.3'>{H.escape(SLATE_HINTS[key])}</div>
-<div class=abs style='left:80px;top:720px;font-size:44px;color:{C.MUTED}'>Beat: {H.escape(beat.title)} &middot; {T.fmt(beat.start)}&ndash;{T.fmt(beat.end)} &middot; {int(dur)} s on screen</div>
-<div class=abs style='left:80px;top:790px;font-size:40px;color:{C.MUTED}'>Drop data/video/capture/{key}.mp4 (or .png) and re-run video.assemble.</div>
+<div class=abs style='left:80px;top:470px;width:1760px;font-size:46px;color:{C.TEXT2};
+line-height:1.3'>{H.escape(SLATE_HINTS[key])}</div>
+<div class=abs style='left:80px;top:720px;font-size:44px;color:{C.MUTED}'>Beat: {H.escape(beat.title)} &middot;
+{T.fmt(beat.start)}&ndash;{T.fmt(beat.end)} &middot; {int(dur)} s on screen</div>
+<div class=abs style='left:80px;top:790px;font-size:40px;color:{C.MUTED}'>Drop data/video/capture/{key}.mp4 (or .png)
+ and re-run video.assemble.</div>
 """)
 
 
@@ -151,7 +165,8 @@ def _filter_for(i: int, p: Piece, dur_total: float) -> str:
           f"setsar=1,fps={C.FPS},format=yuv420p")
     if p.src.suffix == ".png":
         return f"[{i}:v]{vf},trim=duration={dur_total},setpts=PTS-STARTPTS[v{i}]"
-    return (f"[{i}:v]{vf},tpad=stop_mode=clone:stop_duration={dur_total},trim=duration={dur_total},setpts=PTS-STARTPTS[v{i}]")
+    return (f"[{i}:v]{vf},tpad=stop_mode=clone:stop_duration={dur_total},"
+            f"trim=duration={dur_total},setpts=PTS-STARTPTS[v{i}]")
 
 
 def render(pieces: list[Piece], out: Path, srt: Path | None) -> None:
@@ -190,14 +205,16 @@ def export_stills(video: Path) -> list[Path]:
     out = []
     for i, b in enumerate(T.BEATS, 1):
         p = C.STILLS / f"{i:02d}_{b.key}.png"
-        C.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{STILL_AT[b.key]}", "-i", str(video), "-frames:v", "1", str(p)])
+        C.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{STILL_AT[b.key]}", "-i", str(video),
+               "-frames:v", "1", str(p)])
         out.append(p)
     return out
 
 
 def srt_count(path: Path) -> list[tuple[float, float]]:
     spans = []
-    for m in re.finditer(r"(\d+):(\d\d):(\d\d),(\d{3}) --> (\d+):(\d\d):(\d\d),(\d{3})", path.read_text(encoding="utf-8")):
+    text = path.read_text(encoding="utf-8")
+    for m in re.finditer(r"(\d+):(\d\d):(\d\d),(\d{3}) --> (\d+):(\d\d):(\d\d),(\d{3})", text):
         a = [int(x) for x in m.groups()]
         spans.append((a[0] * 3600 + a[1] * 60 + a[2] + a[3] / 1000, a[4] * 3600 + a[5] * 60 + a[6] + a[7] / 1000))
     return spans
@@ -206,7 +223,8 @@ def srt_count(path: Path) -> list[tuple[float, float]]:
 def write_beats_md(pieces: list[Piece], srt: Path, out: Path, total_s: float) -> None:
     caps = srt_count(srt)
     rows = ["# Rough cut v1: beat timing", "",
-            f"Total {T.fmt(total_s)} ({total_s:.1f} s), hard limit {T.HARD_LIMIT_S:.0f} s. Silent; captions from `docs/demo_captions_v5.srt` (draft timings).", "",
+            f"Total {T.fmt(total_s)} ({total_s:.1f} s), hard limit {T.HARD_LIMIT_S:.0f} s. Silent; "
+            f"captions from `docs/demo_captions_v5.srt` (draft timings).", "",
             "| # | Beat | Plan time | Dur (s) | Captions | On screen | Status |", "|---|---|---|---|---|---|---|"]
     for i, b in enumerate(T.BEATS, 1):
         ps = [p for p in pieces if p.beat == b.key]

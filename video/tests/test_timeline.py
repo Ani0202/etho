@@ -1,7 +1,8 @@
 """The beat timeline must match docs/DEMO_PLAN.md and fit the 3:00 hard limit; assembler pieces must tile it."""
 import re
 
-from video import assemble, timeline as T
+from video import assemble
+from video import timeline as T
 
 
 def test_timeline_sums_within_hard_limit():
@@ -12,7 +13,7 @@ def test_timeline_sums_within_hard_limit():
 def test_timeline_matches_plan_table():
     rows = T.parse_plan_table()
     assert len(rows) == len(T.BEATS) == 9
-    for (title, s, e), b in zip(rows, T.BEATS):
+    for (title, s, e), b in zip(rows, T.BEATS, strict=True):
         assert (title, s, e) == (b.title, b.start, b.end)
 
 
@@ -41,7 +42,7 @@ def test_captions_fit_inside_the_cut_and_are_big_enough(tmp_path):
     assert assemble.srt_to_ass(assemble.C.ROOT / "docs" / "demo_captions_v5.srt", ass) == 34
     txt = ass.read_text()
     assert "PlayResY: 1080" in txt and assemble.CAP_FONT_PX >= 48
-    style = next(l for l in txt.splitlines() if l.startswith("Style:"))
+    style = next(ln for ln in txt.splitlines() if ln.startswith("Style:"))
     assert int(style.split(",")[2]) == assemble.CAP_FONT_PX
     assert re.search(r"Dialogue: 0,0:00:00\.30,0:00:06\.50,Default", txt)
 

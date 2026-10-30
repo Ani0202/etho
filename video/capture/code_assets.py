@@ -38,11 +38,13 @@ EXCERPTS = [
 
 PAGE = """<!doctype html><meta charset="utf-8"><style>
 html,body{margin:0;background:#11131a;color:#e6e6ef;font-family:'DejaVu Sans',Arial,sans-serif}
-.slide{width:%(w)dpx;height:%(h)dpx;box-sizing:border-box;padding:34px 60px;display:flex;flex-direction:column;background:#11131a}
+.slide{width:%(w)dpx;height:%(h)dpx;box-sizing:border-box;padding:34px 60px;display:flex;
+  flex-direction:column;background:#11131a}
 h1{font-size:40px;margin:0 0 6px;font-weight:700;color:#fff}
 .cap{font-size:26px;color:#aab;margin:0 0 18px}
 .path{font-family:'DejaVu Sans Mono',monospace;font-size:26px;color:#7fd1ff;margin-bottom:10px}
-.code{background:#1b1e29;border-radius:14px;padding:22px 26px;font-family:'DejaVu Sans Mono',monospace;font-size:%(fs)dpx;line-height:1.45;flex:1;overflow:hidden}
+.code{background:#1b1e29;border-radius:14px;padding:22px 26px;font-family:'DejaVu Sans Mono',monospace;
+  font-size:%(fs)dpx;line-height:1.45;flex:1;overflow:hidden}
 .code pre{margin:0;font:inherit;white-space:pre}
 .ln{color:#5b6078;display:inline-block;width:64px;text-align:right;margin-right:26px;user-select:none}
 .gap{color:#5b6078}
@@ -89,7 +91,8 @@ def commit_info(rel: str) -> dict:
 
 
 def repo_info() -> dict:
-    r = subprocess.run(["git", "log", "--format=%ad", "--date=short"], cwd=ROOT, capture_output=True, text=True, check=True)
+    r = subprocess.run(["git", "log", "--format=%ad", "--date=short"], cwd=ROOT, capture_output=True, text=True,
+                       check=True)
     dates = [d for d in r.stdout.split() if d]
     return {"first": dates[-1], "last": dates[0], "n": len(dates)}
 
@@ -115,13 +118,15 @@ def slide_html(key: str, rel: str, title: str, caption: str, ranges, info: dict)
 
 
 def tests_html(pytest_line: str, repo: dict) -> str:
-    body = (f'<h1>Built this week, and tested</h1><div class="cap">Every module ships with tests that run with no network.</div>'
+    body = (f'<h1>Built this week, and tested</h1>'
+            f'<div class="cap">Every module ships with tests that run with no network.</div>'
             f'<div class="code" style="display:flex;flex-direction:column;justify-content:center;font-size:30px">'
             f'<pre><span class="gap">$</span> uv run pytest -q -W ignore -o addopts=""\n\n'
             f'<span style="color:#a6e22e;font-size:44px;font-weight:700">{html.escape(pytest_line)}</span></pre>'
             f'<div style="margin-top:40px;font-size:34px;color:#e6e6ef">Repository history: <b style="color:#ffd166">'
             f'{nice_date(repo["first"])} to {nice_date(repo["last"])}, 2026</b> ({repo["n"]} commits)</div></div>'
-            f'<div class="foot"><span>Event window: Oct 26 to Nov 4, 2026</span><span>All tests run offline, with the gateway mocked</span></div>')
+            f'<div class="foot"><span>Event window: Oct 26 to Nov 4, 2026</span>'
+            f'<span>All tests run offline, with the gateway mocked</span></div>')
     return PAGE % {"w": W, "h": H, "fs": FONT_PX, "css": "", "body": body}
 
 
@@ -160,13 +165,14 @@ def main():
     TMP.mkdir(parents=True, exist_ok=True)
     line = a.pytest_line or parse_pytest_summary(Path(a.pytest_file).read_text())
     pages: list[tuple[str, str]] = []
-    for key, rel, title, cap, ranges, anchor in EXCERPTS:
+    for key, rel, title, cap, ranges, _anchor in EXCERPTS:
         pages.append((f"code_{key}", slide_html(key, rel, title, cap, ranges, commit_info(rel))))
     pages.append(("code_tests", tests_html(line, repo_info())))
     with sync_playwright() as pw:
         b = pw.chromium.launch()
         pg = b.new_page(viewport={"width": W, "height": H})
-        pg.goto((ROOT / "docs" / "architecture.svg").as_uri())          # architecture diagram, rendered to PNG
+        # architecture diagram, rendered to PNG
+        pg.goto((ROOT / "docs" / "architecture.svg").as_uri())
         pg.wait_for_timeout(500)
         pg.screenshot(path=str(OUT / "code_architecture.png"))
         for name, doc in pages:
@@ -183,9 +189,11 @@ def main():
         strip.paste(Image.open(OUT / f"{n}.png").convert("RGB").resize((W, H)), (i * W, 0))
     strip.save(TMP / "code_strip.png")
     dur = pan_duration(len(names), a.hold, a.transit)
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", "30", "-i", str(TMP / "code_strip.png"),
-                    "-t", f"{dur:.2f}", "-vf", f"crop={W}:{H}:x='{pan_expr(len(names), a.hold, a.transit)}':y=0,format=yuv420p",
-                    "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-movflags", "+faststart", str(OUT / "code.mp4")], check=True)
+    crop = f"crop={W}:{H}:x='{pan_expr(len(names), a.hold, a.transit)}':y=0,format=yuv420p"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", "30",
+                    "-i", str(TMP / "code_strip.png"), "-t", f"{dur:.2f}", "-vf", crop,
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-movflags", "+faststart",
+                    str(OUT / "code.mp4")], check=True)
     print("pytest line:", line, "| code.mp4", f"{dur:.1f}s")
 
 
