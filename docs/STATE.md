@@ -4,9 +4,14 @@ _Updated 2026-10-29 07:00 UTC (03:00 ET)._
 
 ## Latest (Oct 30)
 - **Showcase: option A** (Aniket, Oct 30). Script v5 (394 words, 2:54) and the showcase page note are done.
+- **Sudo (verified by Aniket, Oct 30):** exactly two NOPASSWD rules (systemctl restart etho-app; tailscale funnel
+  --bg 8000), password for everything else. Correct check in HOSTING.md section 10 (not `sudo -n -l <cmd>`).
+- **Funnel resets:** both were Aniket's own terminal (a pasted block ending with the takedown line). HOSTING.md now
+  keeps every destructive command in section 15 (Emergency takedown), one per block, behind a warning.
+- **Nov 3 order:** record the live run, recompute its score (eval/showcase_check.py), update VO line + captions,
+  then Aniket records the VO (DEMO_PLAN.md). Script v5 has "Here, mount is where it struggles most." (395 words).
 - **X post: parked until Nov 3. Do not remind Aniket before then** (his instruction, Oct 30).
-- Aniket is checking his Mac history for the Oct 29 05:35 `funnel reset`, doing the phone check today, and
-  installing the Funnel sudoers rule. Cron (uptime + keepalive) is installed: 54/54 uptime checks ok.
+- Aniket: phone check today. Cron (uptime + keepalive) is installed: 54/54 uptime checks ok.
 - **Notify check:** an in-session cron (every 20 min, :07/:27/:47) pushes unsent rows of ops/notify.jsonl to Aniket.
   It is session-only and expires Nov 6. **Re-create it after any session restart, and before Nov 6** (CronCreate).
   At session start, also read ops/notify.jsonl.

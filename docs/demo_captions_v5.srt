@@ -60,7 +60,7 @@ This is one of the harder clips: 0.42 here, against 0.58 across all 19 test vide
 
 16
 00:01:30,428 --> 00:01:32,910
-Mount is where it struggles most.
+Here, mount is where it struggles most.
 
 17
 00:01:32,910 --> 00:01:35,807

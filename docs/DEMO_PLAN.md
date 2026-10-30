@@ -17,8 +17,8 @@ v5 = v4 plus Aniket's line in the results beat ("This is one of the harder clips
 with trims elsewhere to stay near 400 words: "actually" and "did it" (results); "On the nineteen official test
 videos" -> "On the test set" (the new line already says all 19), "unattended," and ", the biggest gain of any step on
 top of the rules" (evidence card); "from a one-sentence definition" -> "from one sentence" (flies).
-394 words. At 145 words/min that is 2:43 of speech; the timeline below adds 11.7 s for on-screen moments and ends
-at 2:54, leaving 6 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
+395 words ("Here," added, Aniket 2026-10-30). At 145 words/min that is 2:43 of speech; the timeline below adds 11.7 s for
+on-screen moments and ends at 2:55, leaving 5 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
 recording on Nov 2 (`docs/demo_captions_v5.srt` is a draft at 145 wpm, one caption per sentence, 34 captions;
 the v4 file is kept for reference).
 
@@ -37,7 +37,7 @@ Source check of the two new phrases (2026-10-28):
 | Who it's for, the gap | 0:20-0:35 | 34 | 14.1 s |
 | Live run | 0:35-1:04 | 64 | 26.5 s |
 | Code beat | 1:04-1:21 | 38 | 15.7 s |
-| Results and traced error | 1:21-1:50 | 70 | 29.0 s |
+| Results and traced error | 1:21-1:50 | 71 | 29.4 s |
 | Correction loop | 1:50-2:00 | 20 | 8.3 s |
 | Evidence card | 2:00-2:26 | 60 | 24.8 s |
 | Second species | 2:26-2:39 | 28 | 11.6 s |
@@ -69,14 +69,14 @@ planner card shows the phrases Muse Spark proposed and the one SAM confirmed)
 **1:21-1:50, results and one real error** (on screen: Etho's ethogram over the expert's; "this clip 0.42 · all 19
 test videos 0.58" next to it; the trace panel)
 > Here's Etho beside the expert's labels. This is one of the harder clips: 0.42 here, against 0.58 across all 19
-> test videos. Mount is where it struggles most. Every label is traceable, including the mistakes. At thirty-eight
+> test videos. Here, mount is where it struggles most. Every label is traceable, including the mistakes. At thirty-eight
 > seconds, Etho says mount; the expert says attack. The frame check answered "attack", but a rule in the cascade
 > set it aside, and the trace shows exactly which step. No label goes unexplained.
 
 Traced-error contingency (Aniket, 2026-10-28, decided before the run):
 - If the live run shows a different real error, use it and rewrite this line to match.
-- The 0.42 is the packaged showcase run (eval/results/showcase_mouse075_check.md). If the run shown on screen is a
-  different run, recompute its F1 with `eval/showcase_check.py` ($0) and use that number.
+- The 0.42 is the packaged showcase run (eval/results/showcase_mouse075_check.md). The video uses the number of the
+  run it shows; see "Nov 3 order of operations" below.
 - If no clear error appears, show the trace from the committed test report, labeled "from the test run".
 - Never re-roll runs to get a particular error.
 
@@ -102,6 +102,14 @@ $11.25 per hour of video; slide footnote)
 
 Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v5.srt`).
 
+## Nov 3 order of operations (Aniket, 2026-10-30)
+1. Record the live run.
+2. Recompute that run's score with `eval/showcase_check.py` (labels only, no model calls, $0).
+3. Update the voice-over line ("0.42 here", per-behavior if shown) and the captions with that number. If the score no
+   longer makes it one of the harder clips (25th-percentile rule in DECISIONS 2026-10-30), flag it to Aniket before
+   step 4. The showcase page note follows the run the page shows.
+4. Aniket records the final voice-over.
+
 ## Sources for every claim (all in the repo or cited)
 | Claim | Source |
 |---|---|
@@ -118,7 +126,7 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v5.s
 | "More than six hundred tests" | `uv run pytest`: 662 passed (2026-10-28) |
 | (v4 only, cut in v5) "Biggest gain of any step on top of the rules" | test1_report §11 paired differences: tier-1 lift +0.205 (CI excludes 0); fs_t1 vs zs_t1 inconclusive; dev video tier +0.005 and medium effort -0.011 (README "What we learned") |
 | Fly "hasn't cleared the confidence bar we set" | ADR-004; eval/flies_decision.json (wing CI lower 0.009 <= random reference 0.043) |
-| "One of the harder clips: 0.42 here, against 0.58 across all 19"; "mount is where it struggles most" | eval/results/showcase_mouse075_check.md: showcase macro 0.4193 (attack 0.5755, investigation 0.6825, mount 0.0000), below the 25th percentile of the 19 per-video macros (0.4650); pooled test macro 0.5800 (test1_report §11.1). Rounded to 2 decimals |
+| "One of the harder clips: 0.42 here, against 0.58 across all 19"; "here, mount is where it struggles most" | eval/results/showcase_mouse075_check.md: showcase macro 0.4193 (attack 0.5755, investigation 0.6825, mount 0.0000), below the 25th percentile of the 19 per-video macros (0.4650); pooled test macro 0.5800 (test1_report §11.1). Rounded to 2 decimals |
 | "Keeps them apart even when they're tangled together" | test1_report: identity error 0.29%; DECISIONS chunk-length table (both mice labeled on 100% of mount frames) |
 
 ## Production

@@ -324,10 +324,8 @@ sudo tailscale funnel --bg 8000
 tailscale funnel status                                    # prints https://<machine>.<tailnet>.ts.net
 ```
 
-To stop publishing: `touch /home/ubuntu/work/etho/ops/funnel-off` FIRST (the keepalive in section 10 would otherwise turn
-Funnel back on within 5 minutes), then `sudo tailscale funnel reset`. To publish again: `rm` the marker, then
-`sudo tailscale funnel --bg 8000` (or wait for the keepalive). Write the URL where the uptime check
-reads it: `echo https://<machine>.<tailnet>.ts.net > /home/ubuntu/work/etho/ops/public-url`.
+Write the URL where the uptime check reads it: `echo https://<machine>.<tailnet>.ts.net > /home/ubuntu/work/etho/ops/public-url`.
+Stopping the public URL is in section 15 (Emergency takedown), on purpose kept away from every setup block.
 
 Two things that must be checked once the URL is up, because they were unverifiable in advance (Tailscale's Funnel page
 does not say whether HTTPS requests reach the app with `X-Forwarded-For`):
@@ -444,7 +442,7 @@ systemctl list-timers etho-app-watchdog.timer --no-pager
 
 Tuning (set `Environment=` lines in the service): `ETHO_WATCHDOG_TIMEOUT` (10), `ETHO_WATCHDOG_FAILS` (2),
 `ETHO_WATCHDOG_MIN_GAP` (120), `ETHO_HEALTH_URL`. Logs: `journalctl -t etho-app-watchdog` and
-`ops/app-watchdog.log`. Pause it with `sudo systemctl stop etho-app-watchdog.timer`. Re-run the `install` line after
+`ops/app-watchdog.log`. Pausing it: section 15. Re-run the `install` line after
 changing `bin/app-watchdog`. A read-only, killed or expired app answers health with `ok: true`, so it is not restarted.
 `tests/test_app_watchdog_uptime.py` runs the script against a fake server and a fake `systemctl`.
 
@@ -492,7 +490,7 @@ retried in a loop. A failing re-enable notifies the first time, when the error c
 `ops/.funnel-state.json`, cleared once Funnel serves again). If the status command itself fails it only logs, and does
 not re-enable blindly; three consecutive failures notify (same rate limit).
 **`ops/funnel-off` is the operator's offline marker: while it exists the keepalive does nothing.** Every "stop publishing"
-instruction therefore starts with `touch /home/ubuntu/work/etho/ops/funnel-off`, before `tailscale funnel reset`.
+instruction (section 15) therefore starts with `touch /home/ubuntu/work/etho/ops/funnel-off`, before the reset.
 
 Root cause of the two outages (Oct 28 22:41 UTC and Oct 29 05:35 UTC): each was a manual `sudo tailscale funnel reset`
 typed in an SSH session (the second right after a login), not a tailscaled restart (tailscaled has run since Oct 28
@@ -516,21 +514,35 @@ rm "$f"
 sudo visudo -c
 ```
 
-Remove with `sudo rm /etc/sudoers.d/etho-funnel`. Until it exists, the keepalive can only notify.
+Verify (Aniket, 2026-10-30). `sudo -n -l <command>` cannot show whether a command needs a password: `ubuntu` is
+still permitted everything WITH a password, and once any NOPASSWD rule exists listing needs no password (sudo's
+`listpw` default), so it always prints the command. Check instead:
+
+```
+sudo -k; sudo -n /usr/bin/true && echo "BAD: no password needed" || echo "GOOD: password required"
+sudo -k; sudo -n -l   # expect exactly two NOPASSWD lines (systemctl restart etho-app; tailscale funnel --bg 8000) and no "NOPASSWD: ALL"
+```
+Expected `sudo -n -l` rules, exactly (Aniket's result on 2026-10-30, with GOOD from the first line):
+```
+    (ALL : ALL) ALL
+    (root) NOPASSWD: /usr/bin/systemctl restart etho-app
+    (root) NOPASSWD: /usr/bin/tailscale funnel --bg 8000
+```
+The first rule still needs your password; anything else marked NOPASSWD, or "NOPASSWD: ALL", is wrong.
+
+Until it exists, the keepalive can only notify. Removing the rule: section 15.
 
 ## 11. Running it (operations)
 
 | I want to | Do |
 |---|---|
-| stop all live work now, keep the showcase up | `touch /home/ubuntu/work/etho/ops/app-kill` (no sudo, no restart; cancels the running job at its next model call and the queue). Undo: `rm` it. |
+| stop live work, delete uploads, stop the public URL, take it offline, remove a sudo rule | **section 15 (Emergency takedown)**, one command at a time |
 | refuse new work but let admitted jobs finish | `touch /home/ubuntu/work/etho/ops/app-readonly`. Undo: `rm` it. |
 | see mode, caps, queue, last retention run | the admin health command in the introduction |
 | see uptime | `bin/uptime-report --since 24h` |
 | see spend by tag | `bin/spend` (the app's rows are in the shared ledger, caller `pub:job:<id>\|...`, tag `demo-reserve`) |
 | change the access code | write the new value to `/etc/etho-app/access_code` |
 | change caps or the end date | edit `/etc/etho-app/app.env`, then `sudo systemctl restart etho-app` |
-| delete every upload right now | `sudo systemctl stop etho-app && sudo rm -rf /var/lib/etho-app/data/jobs /var/lib/etho-app/data/gateway_cache /var/lib/etho-app/data/work /var/lib/etho-app/data/tmp && sudo systemctl start etho-app` |
-| take it offline | `touch /home/ubuntu/work/etho/ops/funnel-off && sudo systemctl disable --now etho-app etho-app-watchdog.timer && sudo tailscale funnel reset` (the marker first, or the keepalive re-enables Funnel) |
 | put it back online | `rm /home/ubuntu/work/etho/ops/funnel-off`, start the service, `sudo tailscale funnel --bg 8000` |
 | see operator alerts | `tail ops/notify.jsonl` (rows `{time, source, kind, message, sent}`; sources `uptime` and `funnel`) |
 | read the log | `sudo journalctl -u etho-app -f` |
@@ -538,41 +550,9 @@ Remove with `sudo rm /etc/sudoers.d/etho-funnel`. Until it exists, the keepalive
 
 The caps are computed from the ledger, so they persist across restarts, and each admitted job reserves its ceiling.
 
-## 12. Optional: stop everything after the finals (off by default)
+## 12. Optional: stop everything after the finals
 
-"Auto-off" (`ETHO_APP_LIVE_UNTIL`) only switches live mode off; the read-only showcase and the tunnel stay up. If you
-want the service and the public URL themselves to stop on a date, install this timer. It is not installed by any step
-above. Its default time is **Nov 11 00:05 America/New_York**, after the Nov 9 finals and the Nov 10 23:59:59 live
-cut-off; change `OnCalendar=` before enabling if you want a different moment, and do not set it earlier than the finals.
-
-```
-sudo tee /etc/systemd/system/etho-app-stop.service >/dev/null <<'EOF'
-[Unit]
-Description=Stop the Etho web app and its public URL (the judging window is over)
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sh -c '/usr/bin/touch /home/ubuntu/work/etho/ops/funnel-off; /usr/bin/systemctl disable --now etho-app-watchdog.timer etho-app.service; /usr/bin/tailscale funnel reset || true'
-EOF
-sudo tee /etc/systemd/system/etho-app-stop.timer >/dev/null <<'EOF'
-[Unit]
-Description=Stop the Etho web app after the finals
-
-[Timer]
-OnCalendar=2026-11-11 00:05:00 America/New_York
-Persistent=false
-
-[Install]
-WantedBy=timers.target
-EOF
-systemd-analyze calendar "2026-11-11 00:05:00 America/New_York"      # shows the instant in UTC (05:05 UTC) and "From now"
-sudo systemctl daemon-reload
-sudo systemctl enable --now etho-app-stop.timer
-systemctl list-timers etho-app-stop.timer --no-pager
-```
-
-Cancel it with `sudo systemctl disable --now etho-app-stop.timer`. The watchdog leaves a stopped service alone, so it
-does not undo the stop.
+Moved to section 15.7 (it schedules a takedown, so it lives with the destructive commands).
 
 ## 13. What is and is not enforced
 
@@ -614,5 +594,94 @@ Not deleted or not guaranteed, in full:
 ## 14. Passwordless restart for the lead session (Aniket, 2026-10-29)
 `/etc/sudoers.d/etho-app-restart` lets the `ubuntu` user run exactly `/usr/bin/systemctl restart etho-app` with no
 password, and nothing else (no stop, no other unit, no extra arguments). Claude restarts the app after merges. During
-the judging window (Nov 4-9 ET) it sends Aniket a push notification before any restart. Remove the rule with
-`sudo rm /etc/sudoers.d/etho-app-restart`.
+the judging window (Nov 4-9 ET) it sends Aniket a push notification before any restart. Verify both passwordless rules with the two commands in section 10 (not with `sudo -n -l <command>`). Removing the rule: section 15.
+
+## 15. Emergency takedown (destructive)
+
+**WARNING: every command in this section stops, unpublishes or deletes something. Run them one at a time, typed or
+copied on their own, only when you mean it. Never paste one together with a setup block, and never copy past the end
+of a code block.** Both Funnel outages (Oct 28 22:41 and Oct 29 05:35 UTC) were `sudo tailscale funnel reset` pasted
+at the end of a setup block. Each command below is in its own block, and nothing here is needed for setup.
+
+### 15.1 Stop all live work now, keep the showcase up
+No sudo, no restart; cancels the running job at its next model call, and clears the queue. Undo: `rm` the file.
+```
+touch /home/ubuntu/work/etho/ops/app-kill
+```
+
+### 15.2 Stop publishing the public URL (the app keeps running locally)
+The marker comes first, or the keepalive (section 10) turns Funnel back on within 5 minutes.
+```
+touch /home/ubuntu/work/etho/ops/funnel-off
+```
+```
+sudo tailscale funnel reset
+```
+Undo: `rm /home/ubuntu/work/etho/ops/funnel-off`, then `sudo tailscale funnel --bg 8000` (or wait for the keepalive).
+
+### 15.3 Take everything offline
+```
+touch /home/ubuntu/work/etho/ops/funnel-off
+```
+```
+sudo systemctl disable --now etho-app etho-app-watchdog.timer
+```
+```
+sudo tailscale funnel reset
+```
+Undo: `rm` the marker, `sudo systemctl enable --now etho-app etho-app-watchdog.timer`, `sudo tailscale funnel --bg 8000`.
+
+### 15.4 Delete every upload right now
+```
+sudo systemctl stop etho-app && sudo rm -rf /var/lib/etho-app/data/jobs /var/lib/etho-app/data/gateway_cache /var/lib/etho-app/data/work /var/lib/etho-app/data/tmp && sudo systemctl start etho-app
+```
+
+### 15.5 Pause the health watchdog
+```
+sudo systemctl stop etho-app-watchdog.timer
+```
+Undo: `sudo systemctl start etho-app-watchdog.timer`.
+
+### 15.6 Remove a passwordless sudo rule
+```
+sudo rm /etc/sudoers.d/etho-funnel
+```
+```
+sudo rm /etc/sudoers.d/etho-app-restart
+```
+
+### 15.7 Scheduled stop after the finals (optional, off by default)
+
+"Auto-off" (`ETHO_APP_LIVE_UNTIL`) only switches live mode off; the read-only showcase and the tunnel stay up. If you
+want the service and the public URL themselves to stop on a date, install this timer. It is not installed by any step
+above. Its default time is **Nov 11 00:05 America/New_York**, after the Nov 9 finals and the Nov 10 23:59:59 live
+cut-off; change `OnCalendar=` before enabling if you want a different moment, and do not set it earlier than the finals.
+
+```
+sudo tee /etc/systemd/system/etho-app-stop.service >/dev/null <<'EOF'
+[Unit]
+Description=Stop the Etho web app and its public URL (the judging window is over)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/touch /home/ubuntu/work/etho/ops/funnel-off; /usr/bin/systemctl disable --now etho-app-watchdog.timer etho-app.service; /usr/bin/tailscale funnel reset || true'
+EOF
+sudo tee /etc/systemd/system/etho-app-stop.timer >/dev/null <<'EOF'
+[Unit]
+Description=Stop the Etho web app after the finals
+
+[Timer]
+OnCalendar=2026-11-11 00:05:00 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target
+EOF
+systemd-analyze calendar "2026-11-11 00:05:00 America/New_York"      # shows the instant in UTC (05:05 UTC) and "From now"
+sudo systemctl daemon-reload
+sudo systemctl enable --now etho-app-stop.timer
+systemctl list-timers etho-app-stop.timer --no-pager
+```
+
+Cancel it with `sudo systemctl disable --now etho-app-stop.timer`. The watchdog leaves a stopped service alone, so it
+does not undo the stop.
