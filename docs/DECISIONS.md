@@ -377,7 +377,7 @@ before any gate run.
 - 2026-10-30 04:55 UTC: Correction: the representativeness-rule entry above says "04:40 UTC" but was committed at 04:18:00 UTC (845e6d9), before the evaluator's first label read (04:22:10 UTC). Rule text unchanged. Result (eval/results/showcase_mouse075_check.md): showcase macro 0.4193 < 25th percentile 0.4650, so "far below average"; the rule's replacement is mouse077 0-300 s (macro 0.5061 = the median), which has no expert mount. Escalated; no change made.
 - 2026-10-30 18:45 UTC: Showcase option A (Aniket): keep mouse075. Script v5 adds "This is one of the harder clips: 0.42 here, against 0.58 across all 19 test videos. Mount is where it struggles most." with trims elsewhere (394 words, ends 2:54; docs/DEMO_PLAN.md, docs/demo_captions_v5.srt). The showcase page description (data/showcase/calms21-mouse075-live/result.json, gitignored) now ends: "This is one of the harder clips: macro F1 0.42 on this run (attack 0.58, investigation 0.68, mount 0.00), against 0.58 across all 19 test videos in the separate scored test run. Mount is where it struggles most on this clip." Numbers from eval/results/showcase_mouse075_check.md, rounded to 2 decimals. No pipeline change. App restarted 18:44 UTC.
 
-## ADR-006 (2026-10-30): "Ask Etho why" (Aniket's spec). Lead decision: C (skip), awaiting Aniket's approval.
+## ADR-006 (2026-10-30): "Ask Etho why" (Aniket's spec). C (skip): lead decision, APPROVED by Aniket 2026-10-30.
 **Context.** Aniket's spec: on a bout, the researcher asks "why?". Muse Spark (`muse-spark-1.3`, Standard mode) answers from the run's audit trail (rule text, frame-check verdicts, timestamps). It must cite trace entries and refuse anything the trace doesn't support. In the video it replaces narration inside the results beat (1:21-1:50, v5) at no extra time. **Aniket's gate:** build only if the honest estimate is ≤ 6 h including tests, merged by Nov 1 ET. Freeze is Nov 2, rough cut Nov 2, recording Nov 3. Video and README come first.
 **Found in the code (read this session; nothing executed).**
 - *Trace data.* `GET /api/projects/{pid}/trace?v&behavior&s0&s1` (`server.py:559-579`) returns `PG.bout_trace` (`progress.py:187-220`):
@@ -476,3 +476,13 @@ Residual risk: off-topic text that still carries valid citations, shown only to 
 
 **Lead decision (2026-10-30 19:00 UTC): C, skip.** The honest estimate (6-6.5 h central, 5-8 h range) does not clear the 6 h gate, Codex's corrections (3) and (4) add backend work the estimate did not cover, and it would change the trace panel the video records 1-2 days before freeze. "Ask Etho why" goes to the README "What's next" with no claims. Reversible: build B after the submission. **Awaiting Aniket's approval.**
 **Approval needed from Aniket:** (1) skip (C), or B under the 6 h / Nov 1 ET rule? (2) If B: the replacement wording for the results beat and the exact claim ("cites the trace", not "can't make things up").
+- 2026-10-30 20:45 UTC: **Fly-beat window rule (Aniket, 2026-10-30), committed before any window or label is looked at:** "the earliest 15 s window in Fly vs. Fly movies 2-5 with the most expert-labeled lunge or wing-threat bouts; ties go to the earlier movie". The rule uses expert labels only, never Etho's predictions. Terms, fixed now (lead):
+  - **Search space:** the span SAM 3.1 tracked for the frozen run in each movie (source frames 22500-31500 at 30 fps), because masks exist only there. No new tracking or model calls.
+  - **Windows:** 15 s windows starting on whole seconds of that span (offsets 0-285 s).
+  - **Score:** the number of expert-labeled lunge or wing-threat bouts whose onset falls inside the window, both flies counted.
+  - **Ties:** the earlier movie, then the earlier start.
+  - **What is shown:** the clip shows that window at real speed with Etho's frozen-arm predictions for it, whatever they are, still labeled "Qualitative preview: not scored", with no accuracy number (ADR-004).
+  - **Timeline:** the fly beat grows from 13 s to 15 s (2:26-2:41), and the close moves to 2:41-2:56, still under 3:00.
+- 2026-10-30 20:45 UTC: **Aniket's decisions:**
+  - ADR-006 skip APPROVED ("What's next", no claims).
+  - Live run on Nov 2 on a local instance, up to $0.90 from `dev`, APPROVED. The same day: score it with eval/showcase_check.py and update the voice-over line and captions, so that Nov 3 is the voice-over and final assembly.
