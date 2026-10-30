@@ -105,7 +105,10 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v5.s
 ## Nov 3 order of operations (Aniket, 2026-10-30)
 1. Record the live run.
 2. Recompute that run's score with `eval/showcase_check.py` (labels only, no model calls, $0).
-3. Update the voice-over line ("0.42 here", per-behavior if shown) and the captions with that number. If the score no
+3. Update the voice-over line ("0.42 here", per-behavior if shown) and the captions with that number. Also check the
+   traced-error line against that run's trace: the clicked bout's first visible verdict must be the one the line
+   describes (in the showcase run, the 37.5-38.0 s bout: tier 1 "attack", set aside; the 38.4-44.0 s bout opens with
+   tier 1 agreeing "mount", so it does not match). If it doesn't match, apply the traced-error contingency above. If the score no
    longer makes it one of the harder clips (25th-percentile rule in DECISIONS 2026-10-30), flag it to Aniket before
    step 4. The showcase page note follows the run the page shows.
 4. Aniket records the final voice-over.
