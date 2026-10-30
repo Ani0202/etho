@@ -1,15 +1,34 @@
 # Etho
 
-Training-free animal behavior scoring: plain-English behavior definitions, no labeled examples given to
-the models, no model training.¹ Upload lab video, write behavior definitions in plain English, and get a
-scored ethogram, metrics, and an auditable methods report. Built for the Meta Global AI Developer Hackathon
-(Push the Frontier).
+![SAM 3.1 tracks two mice while Etho's ethogram fills in, next to the expert's labels](docs/media/etho-tracking.gif)
+<sub>Video: CalMS21 (Sun et al. 2021), CC BY 4.0.</sub>
+
+**Animal behavior scored from plain-English definitions, with no training,¹ on Meta's SAM 3.1, Muse Spark and
+Muse Spark Open.** Scored once on the official test set of a published, expert-labeled benchmark (CalMS21), against
+the published supervised baselines:
+
+| CalMS21 Task 1 test set, 19 videos, frame-level F1 | Macro | Attack | Investigation | Mount |
+|---|---|---|---|---|
+| **Etho, no training¹** | **0.58** (95% CI 0.49–0.62) | 0.449 | 0.635 | 0.656 |
+| Supervised, trained on the 70 labeled training videos from pose keypoints (Sun et al. 2021, Tables 1, 2) | 0.79–0.86 | | | |
+
+- **Speed:** scores a video unattended in about its own length (0.88× real time on test; worst 1.54×); manual
+  scoring takes 3–4× (Segalin et al. 2021). A runtime comparison, not demonstrated labor savings: human review and
+  correction time were not measured.
+- **Cost:** model API cost for this fixed benchmark pipeline was $11.25 per hour of video, excluding the planner,
+  one-time detector synthesis, hosting, and human review.
+- **Every label is auditable:** the rule that fired, the frame-strip verdict, and which step decided.
+
+**[Try it live](https://etho-vm.tail9158ab.ts.net)**: the precomputed showcase is open to everyone; live uploads
+need the access code from the submission form.
+
+Upload lab video, write behavior definitions in plain English, and get a scored ethogram, metrics, and an auditable
+methods report. Built for the Meta Global AI Developer Hackathon (Push the Frontier). Numbers: `eval/results/test1_report.md`
+§11.1 (supervised references: Sun et al. 2021, arXiv:2104.02710, Tables 1 and 2: .793, .829, .864).
 
 ¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
 videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling
 rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`.
-
-**Status:** active development. See `docs/STATE.md`.
 
 ## Setup
 
@@ -186,6 +205,10 @@ Measured during the event. Each claim links to the committed evidence.
   write the analysis code, a sandbox would run it, and the app would return a plot and a statistical test with
   the code shown. It needs datasets with experimental conditions (CalMS21 has none), so it is not built and
   nothing here claims it works.
+
+- **Ask Etho why.** A researcher would click a bout and ask why; Muse Spark would answer only from that run's audit
+  trail (rule, frame-check verdicts, timestamps), citing each trace entry. Not built (ADR-006); today the trace panel
+  shows the same evidence as code-written sentences.
 
 ## Data and licenses
 
