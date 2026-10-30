@@ -510,7 +510,7 @@ Sudoers rule for the keepalive (Aniket; validated install like section 14, but i
 ```
 f=$(mktemp)
 echo 'ubuntu ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8000' > "$f"
-visudo -cf "$f"
+sudo visudo -cf "$f"
 sudo install -m 0440 -o root -g root "$f" /etc/sudoers.d/etho-funnel
 rm "$f"
 sudo visudo -c
