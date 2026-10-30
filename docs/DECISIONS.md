@@ -476,13 +476,13 @@ Residual risk: off-topic text that still carries valid citations, shown only to 
 
 **Lead decision (2026-10-30 19:00 UTC): C, skip.** The honest estimate (6-6.5 h central, 5-8 h range) does not clear the 6 h gate, Codex's corrections (3) and (4) add backend work the estimate did not cover, and it would change the trace panel the video records 1-2 days before freeze. "Ask Etho why" goes to the README "What's next" with no claims. Reversible: build B after the submission. **Awaiting Aniket's approval.**
 **Approval needed from Aniket:** (1) skip (C), or B under the 6 h / Nov 1 ET rule? (2) If B: the replacement wording for the results beat and the exact claim ("cites the trace", not "can't make things up").
-- 2026-10-30 20:45 UTC: **Fly-beat window rule (Aniket, 2026-10-30), committed before any window or label is looked at:** "the earliest 15 s window in Fly vs. Fly movies 2-5 with the most expert-labeled lunge or wing-threat bouts; ties go to the earlier movie". The rule uses expert labels only, never Etho's predictions. Terms, fixed now (lead):
+- 2026-10-30 20:29 UTC (commit 095af8d): **Fly-beat window rule (Aniket, 2026-10-30), committed before any window or label is looked at:** "the earliest 15 s window in Fly vs. Fly movies 2-5 with the most expert-labeled lunge or wing-threat bouts; ties go to the earlier movie". The rule uses expert labels only, never Etho's predictions. Terms, fixed now (lead):
   - **Search space:** the span SAM 3.1 tracked for the frozen run in each movie (source frames 22500-31500 at 30 fps), because masks exist only there. No new tracking or model calls.
   - **Windows:** 15 s windows starting on whole seconds of that span (offsets 0-285 s).
   - **Score:** the number of expert-labeled lunge or wing-threat bouts whose onset falls inside the window, both flies counted.
   - **Ties:** the earlier movie, then the earlier start.
   - **What is shown:** the clip shows that window at real speed with Etho's frozen-arm predictions for it, whatever they are, still labeled "Qualitative preview: not scored", with no accuracy number (ADR-004).
   - **Timeline:** the fly beat grows from 13 s to 15 s (2:26-2:41), and the close moves to 2:41-2:56, still under 3:00.
-- 2026-10-30 20:45 UTC: **Aniket's decisions:**
+- 2026-10-30 20:29 UTC: **Aniket's decisions:**
   - ADR-006 skip APPROVED ("What's next", no claims).
   - Live run on Nov 2 on a local instance, up to $0.90 from `dev`, APPROVED. The same day: score it with eval/showcase_check.py and update the voice-over line and captions, so that Nov 3 is the voice-over and final assembly.
