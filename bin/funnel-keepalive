@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Re-enable the public Funnel if it is off (docs/HOSTING.md section 10). Cron: */5 * * * *
+# Does nothing while ops/funnel-off exists (the operator chose offline). Needs the sudoers rule in HOSTING.md.
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root" || exit 2
+py="$root/.venv/bin/python"; [ -x "$py" ] || py=python3
+exec env ETHO_ROOT="$root" PATH="/usr/local/bin:/usr/bin:/bin:$PATH" "$py" -m etho.hosting.funnel "$@"

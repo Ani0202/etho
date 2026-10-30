@@ -16,6 +16,7 @@ ingress; resolving publicly avoids that. `--system-dns` turns it off.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import http.client
 import json
 import os
@@ -27,6 +28,8 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
+
+from etho.hosting.notify import notify
 
 ROOT = Path(os.environ.get("ETHO_ROOT") or Path(__file__).resolve().parents[2])
 LOG = "ops/uptime.jsonl"
@@ -101,9 +104,46 @@ def check_once(url: str, *, timeout: float = 10.0, public_dns: bool = True, log:
         row["error"] = f"HTTP {r['status']}, not a healthy /api/health body"
     f = log or ROOT / LOG
     f.parent.mkdir(parents=True, exist_ok=True)
-    with f.open("a") as out:
-        out.write(json.dumps(row) + "\n")
+    with (f.parent / ".uptime.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)          # overlapping cron runs must not interleave append and alert
+        with f.open("ab+") as out:
+            out.seek(0, os.SEEK_END)
+            if out.tell():
+                out.seek(-1, os.SEEK_END)
+                if out.read(1) != b"\n":           # a truncated last line must not swallow this row
+                    out.write(b"\n")
+            out.write((json.dumps(row) + "\n").encode())
+        try:
+            _alert(f, f.parent / "notify.jsonl")
+        except Exception as e:                    # an alert problem must never turn into a failed check
+            print(f"uptime: alert failed: {type(e).__name__}: {str(e)[:150]}", file=sys.stderr)
     return row
+
+
+def _t(s: str) -> datetime:
+    d = datetime.fromisoformat(s)
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def _alert(log: Path, notify_file: Path) -> None:
+    """One `down` row on the 2nd consecutive failure (once per outage), one `up` row on the first ok after >= 2."""
+    rows = read_rows(log)                         # skips garbage and truncated lines
+    if not rows:
+        return
+    last = rows[-1]
+    run: list[dict] = []                      # the failures immediately before the newest row
+    for r in reversed(rows[:-1]):
+        if r.get("ok"):
+            break
+        run.append(r)
+    run.reverse()
+    now = _t(last["time"])
+    if not last.get("ok") and len(run) == 1:  # the newest failure is the 2nd in a row
+        message = f"public site down for 2 checks since {run[0]['time']}: {last.get('error')}"
+        notify(notify_file, "uptime", "down", message, now)
+    elif last.get("ok") and len(run) >= 2:
+        mins = round((now - _t(run[0]["time"])).total_seconds() / 60)
+        notify(notify_file, "uptime", "up", f"back up after {len(run)} failed checks (~{mins} min)", now)
 
 
 # ---- report ---------------------------------------------------------------------------------------------------
@@ -119,7 +159,7 @@ def parse_since(s: str, now: datetime) -> datetime:
 def read_rows(path: Path) -> list[dict]:
     rows = []
     if path.exists():
-        for line in path.read_text().splitlines():
+        for line in path.read_text(errors="replace").splitlines():
             try:
                 r = json.loads(line)
                 datetime.fromisoformat(r["time"])

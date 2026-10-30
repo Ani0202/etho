@@ -324,8 +324,9 @@ sudo tailscale funnel --bg 8000
 tailscale funnel status                                    # prints https://<machine>.<tailnet>.ts.net
 ```
 
-To stop publishing: `sudo tailscale funnel reset`. (`funnel --bg` is from Tailscale's CLI reference as recalled on Oct 28
-and was not run here; `tailscale funnel --help` shows the syntax for your release.) Write the URL where the uptime check
+To stop publishing: `touch /home/ubuntu/work/etho/ops/funnel-off` FIRST (the keepalive in section 10 would otherwise turn
+Funnel back on within 5 minutes), then `sudo tailscale funnel reset`. To publish again: `rm` the marker, then
+`sudo tailscale funnel --bg 8000` (or wait for the keepalive). Write the URL where the uptime check
 reads it: `echo https://<machine>.<tailnet>.ts.net > /home/ubuntu/work/etho/ops/public-url`.
 
 Two things that must be checked once the URL is up, because they were unverifiable in advance (Tailscale's Funnel page
@@ -455,6 +456,7 @@ changing `bin/app-watchdog`. A read-only, killed or expired app answers health w
 
 ```
 ( crontab -l 2>/dev/null; echo '*/15 * * * * /home/ubuntu/work/etho/bin/uptime-check >> /home/ubuntu/work/etho/ops/uptime.cron.log 2>&1' ) | crontab -
+# or, idempotently, together with the keepalive and the other cron entries: bin/install-autostart
 bin/uptime-check              # one check now; exit 0 = healthy
 bin/uptime-report             # summary for a checkpoint: checks, availability, outages, latency, modes
 bin/uptime-report --since 24h
@@ -464,16 +466,57 @@ bin/uptime-report --since 2026-11-04T21:00:00-05:00      # from submission
 **Does it really test the internet path?** A node on the tailnet resolves its own `*.ts.net` name through MagicDNS to
 its *tailnet* address, so a plain fetch from this VM would test the VM against itself and never touch Funnel's public
 ingress. The check therefore resolves the host name through a public resolver (DNS over HTTPS to 1.1.1.1) and connects
-to that public address with the right TLS name (`path: "public-dns"` and the `ip` in each row). The packets then leave
-this machine for Funnel's ingress and come back through the tunnel. **I could not verify this from here** (Tailscale
-is not installed on this VM), so check it once: `getent hosts <host>` (probably a `100.x` address: the short-circuit it
-avoids), `bin/uptime-check` (the row's `ip` should be a public address), and `ip route get <that ip>` (the route should
-leave through the VM's normal interface, not `tailscale0`). If `bin/uptime-check` fails while a phone reaches the site,
-the node cannot loop back to its own Funnel; in that case this check is only a local-network check, and an outside
-watcher is needed. Free options that need no code from us (I signed up for none; creating an account is your decision):
-UptimeRobot's free plan (5 minute checks, alert by email), Healthchecks.io or Better Stack's free tiers, or a scheduled
-GitHub Actions workflow once the repo is public (best-effort, every 5 minutes at the fastest). Any of them can point at
-`https://<url>/api/health` and treat `"ok":true` as up.
+to that public address with the right TLS name (`path: "public-dns"` and the `ip` in each row), using GET.
+Verified on this VM on Oct 30: `getent hosts etho-vm.tail9158ab.ts.net` gives `100.79.59.112` (the tailnet address,
+the short-circuit the check avoids), while the check row has `ip 199.38.181.54`, `path public-dns`, `ok true`, and
+`ip route get 199.38.181.54` answers `via 10.0.0.1 dev enp0s5 src 10.0.0.221`, i.e. it leaves through the VM's normal
+interface, not `tailscale0`. Whether the reply really comes back through Funnel's ingress rather than being answered
+locally is inferred from that route and the public address, not observed on the wire. An outside watcher is still the
+only fully independent check. Free options that need no code from us (I signed up for none; creating an account is your
+decision): UptimeRobot's free plan (5 minute checks, alert by email), Healthchecks.io or Better Stack's free tiers, or a
+scheduled GitHub Actions workflow once the repo is public (best-effort, every 5 minutes at the fastest). Any of them can
+point at `https://<url>/api/health` and treat `"ok":true` as up.
+
+**Down alerts.** After each check `etho.app.uptime` writes to `ops/notify.jsonl` (untracked, one JSON row per line,
+`{time, source, kind, message, sent}`): `kind "down"` on the second consecutive failed check (once per outage) and
+`kind "up"` on the first ok check after two or more failures. Whoever reads the file flips `sent`.
+`ops/uptime.jsonl`, `ops/notify.jsonl`, `ops/funnel.jsonl`, `ops/funnel-off` and the other runtime state here are in
+`.gitignore`: they are per-machine logs and markers, not history worth keeping.
+
+**Funnel keepalive** (`bin/funnel-keepalive`, cron every 5 minutes, installed by `bin/install-autostart`). It reads
+`tailscale funnel status --json` (no sudo). If Funnel is not publicly serving `/` to `http://127.0.0.1:8000`, it runs
+`sudo -n /usr/bin/tailscale funnel --bg 8000` (needs the sudoers rule below), appends to `ops/funnel.jsonl` and writes a
+`ops/notify.jsonl` row ("Funnel was off; re-enabled", or "Funnel off and could not re-enable: ..."). At most one
+re-enable attempt per 10 minutes (state in `ops/.funnel-state.json`); a failing `sudo -n` is logged and notified, never
+retried in a loop. A failing re-enable notifies the first time, when the error changes, then at most every 6 h (state in
+`ops/.funnel-state.json`, cleared once Funnel serves again). If the status command itself fails it only logs, and does
+not re-enable blindly; three consecutive failures notify (same rate limit).
+**`ops/funnel-off` is the operator's offline marker: while it exists the keepalive does nothing.** Every "stop publishing"
+instruction therefore starts with `touch /home/ubuntu/work/etho/ops/funnel-off`, before `tailscale funnel reset`.
+
+Root cause of the two outages (Oct 28 22:41 UTC and Oct 29 05:35 UTC): each was a manual `sudo tailscale funnel reset`
+typed in an SSH session (the second right after a login), not a tailscaled restart (tailscaled has run since Oct 28
+22:31 with 0 restarts, and there was no reboot). Funnel was back on Oct 30 04:03 UTC. Funnel configuration set with
+`--bg` persists across tailscaled restarts per Tailscale's documentation; that has not been tested with a reboot here.
+
+Shape of `tailscale funnel status --json` on this machine with Funnel on (the keepalive codes against it):
+`{"TCP": {"443": {"HTTPS": true}}, "Web": {"etho-vm.tail9158ab.ts.net:443": {"Handlers": {"/": {"Proxy":
+"http://127.0.0.1:8000"}}}}, "AllowFunnel": {"etho-vm.tail9158ab.ts.net:443": true}}`. "Serving" means a host:port that
+is `true` under `AllowFunnel` and whose `/` handler proxies to 127.0.0.1:8000. The Funnel-off shape was not captured
+(Funnel is live and was not reset to look); the code treats a missing `Web`/`AllowFunnel` as off.
+
+Sudoers rule for the keepalive (Aniket; validated install like section 14, but in a separate file, with exactly one command):
+
+```
+f=$(mktemp)
+echo 'ubuntu ALL=(root) NOPASSWD: /usr/bin/tailscale funnel --bg 8000' > "$f"
+visudo -cf "$f"
+sudo install -m 0440 -o root -g root "$f" /etc/sudoers.d/etho-funnel
+rm "$f"
+sudo visudo -c
+```
+
+Remove with `sudo rm /etc/sudoers.d/etho-funnel`. Until it exists, the keepalive can only notify.
 
 ## 11. Running it (operations)
 
@@ -487,7 +530,9 @@ GitHub Actions workflow once the repo is public (best-effort, every 5 minutes at
 | change the access code | write the new value to `/etc/etho-app/access_code` |
 | change caps or the end date | edit `/etc/etho-app/app.env`, then `sudo systemctl restart etho-app` |
 | delete every upload right now | `sudo systemctl stop etho-app && sudo rm -rf /var/lib/etho-app/data/jobs /var/lib/etho-app/data/gateway_cache /var/lib/etho-app/data/work /var/lib/etho-app/data/tmp && sudo systemctl start etho-app` |
-| take it offline | `sudo systemctl disable --now etho-app etho-app-watchdog.timer && sudo tailscale funnel reset` |
+| take it offline | `touch /home/ubuntu/work/etho/ops/funnel-off && sudo systemctl disable --now etho-app etho-app-watchdog.timer && sudo tailscale funnel reset` (the marker first, or the keepalive re-enables Funnel) |
+| put it back online | `rm /home/ubuntu/work/etho/ops/funnel-off`, start the service, `sudo tailscale funnel --bg 8000` |
+| see operator alerts | `tail ops/notify.jsonl` (rows `{time, source, kind, message, sent}`; sources `uptime` and `funnel`) |
 | read the log | `sudo journalctl -u etho-app -f` |
 | deploy new code | Claude may restart after a merge (sudoers rule below); **Nov 4-9 ET it pushes Aniket a notification before any restart**. The unit runs the checkout in place. Pull or merge (mind the `chattr +a` note in section 3), `uv sync`, then `sudo systemctl restart etho-app`. Do not edit tracked files in the checkout while it serves (modules loaded lazily on the first job would pick the edit up). |
 
@@ -507,7 +552,7 @@ Description=Stop the Etho web app and its public URL (the judging window is over
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c '/usr/bin/systemctl disable --now etho-app-watchdog.timer etho-app.service; /usr/bin/tailscale funnel reset || true'
+ExecStart=/bin/sh -c '/usr/bin/touch /home/ubuntu/work/etho/ops/funnel-off; /usr/bin/systemctl disable --now etho-app-watchdog.timer etho-app.service; /usr/bin/tailscale funnel reset || true'
 EOF
 sudo tee /etc/systemd/system/etho-app-stop.timer >/dev/null <<'EOF'
 [Unit]

@@ -28,3 +28,12 @@ ops/codex/gate-blocked-*.json
 ops/codex/.*.lock
 ops/codex/.*.tmp
 .claude/worktrees/
+# machine-local hosting runtime state (logs, markers, notifications)
+ops/uptime.jsonl
+ops/uptime.cron.log
+ops/notify.jsonl
+ops/funnel.jsonl
+ops/funnel-keepalive.log
+ops/funnel-off
+ops/.funnel-state.json
+ops/public-url
