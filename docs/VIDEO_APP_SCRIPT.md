@@ -12,7 +12,7 @@ Rules this script follows:
   behind cards, title styling, transitions.
 - **Every number on screen** comes from a committed file; the table at the end lists each one. Approved wording
   and footnotes are unchanged.
-- **Live-run numbers are "FILL AFTER THE NOV 2 LIVE RUN"** (DEMO_PLAN, "Nov 3 order of operations"): record the
+- **Live-run numbers are "FILL AFTER THE NOV 2 LIVE RUN"** (DEMO_PLAN, "Live-run order of operations"): record the
   live run, recompute its score with `eval/showcase_check.py`, update the voice-over line and captions, then record
   the final voice-over.
 
@@ -293,7 +293,7 @@ Fly training movie 1, with Etho's tag from the frozen gate predictions (one lung
 | Results / evidence card | `docs/video_assets/results.png` (committed) | same |
 | Model-stack card | `docs/video_assets/model_stack.png` (committed) | same |
 | Closing card | `docs/video_assets/closing.png` (committed; URL placeholders) | same |
-| Clip-score badge (alpha) | `docs/video_assets/badge_clip_score.png` (committed) | same; re-render after Nov 3 step 2 |
+| Clip-score badge (alpha) | `docs/video_assets/badge_clip_score.png` (committed) | same; re-render after live-run step 2 (Nov 2) |
 | Who-it's-for card (CalMS21 annotation) | `data/video/cards/who.png` | `uv run python -m video.cards` |
 | Opening shot, 5 s | `data/video/opening.mp4` | `uv run python -m video.anim` |
 | Results-beat animation, 20 s | `data/video/results_beat.mp4` | `uv run python -m video.anim` |
