@@ -18,7 +18,8 @@ with trims elsewhere to stay near 400 words: "actually" and "did it" (results); 
 videos" -> "On the test set" (the new line already says all 19), "unattended," and ", the biggest gain of any step on
 top of the rules" (evidence card); "from a one-sentence definition" -> "from one sentence" (flies).
 395 words ("Here," added, Aniket 2026-10-30). At 145 words/min that is 2:43 of speech; the timeline below adds 11.7 s for
-on-screen moments and ends at 2:55, leaving 5 s under the hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
+on-screen moments and ends at 2:56 (fly beat 15 s at real speed, DECISIONS 2026-10-30 20:29 UTC), leaving 4 s under the
+hard 3:00 limit. Clip: test video mouse075, 0-300 s. Retime from the real
 recording on Nov 2 (`docs/demo_captions_v5.srt` is a draft at 145 wpm, one caption per sentence, 34 captions;
 the v4 file is kept for reference).
 
@@ -40,8 +41,8 @@ Source check of the two new phrases (2026-10-28):
 | Results and traced error | 1:21-1:50 | 71 | 29.4 s |
 | Correction loop | 1:50-2:00 | 20 | 8.3 s |
 | Evidence card | 2:00-2:26 | 60 | 24.8 s |
-| Second species | 2:26-2:39 | 28 | 11.6 s |
-| Close | 2:39-2:54 | 33 | 13.7 s |
+| Second species | 2:26-2:41 | 28 | 11.6 s |
+| Close | 2:41-2:56 | 33 | 13.7 s |
 
 **0:00-0:20, hook** (on screen: two mice; title "Etho · Push the Frontier"; slide footnote with the headline)
 > In behavior labs, someone still watches every second of video and labels it by hand. For social behavior, that
@@ -92,11 +93,11 @@ $11.25 per hour of video; slide footnote)
 > dollars per hour of footage. Our biggest surprise: Muse Spark Open, looking at six frames at low effort, added
 > 0.2 F1.
 
-**2:26-2:39, second species** (qualitative clip; no F1 on screen; wing gate NO-GO, eval/flies_decision.json)
+**2:26-2:41, second species** (qualitative clip; no F1 on screen; wing gate NO-GO, eval/flies_decision.json)
 > Same pipeline, new animal: fruit flies, from one sentence, with no retraining. It's a preview: it
 > hasn't cleared the confidence bar we set, so there's no number here.
 
-**2:39-2:54, close** (on screen: Meta model stack, who it's for, repo and live link)
+**2:41-2:56, close** (on screen: Meta model stack, who it's for, repo and live link)
 > Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open. It's for every lab that still scores
 > behavior by hand. It's open source. Try it live at the link below.
 

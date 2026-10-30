@@ -119,18 +119,18 @@ Same pipeline, new animal: fruit flies, from one sentence, with no retraining.
 It's a preview: it hasn't cleared the confidence bar we set, so there's no number here.
 
 31
-00:02:39,879 --> 00:02:45,259
+00:02:41,879 --> 00:02:47,259
 Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open.
 
 32
-00:02:45,259 --> 00:02:49,397
+00:02:47,259 --> 00:02:51,397
 It's for every lab that still scores behavior by hand.
 
 33
-00:02:49,397 --> 00:02:50,638
+00:02:51,397 --> 00:02:52,638
 It's open source.
 
 34
-00:02:50,638 --> 00:02:53,534
+00:02:52,638 --> 00:02:55,534
 Try it live at the link below.
 

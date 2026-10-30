@@ -36,8 +36,8 @@ BEATS = [
     Beat("results", "Results and traced error", _t("1:21"), _t("1:50")),
     Beat("correction", "Correction loop", _t("1:50"), _t("2:00")),
     Beat("evidence", "Evidence card", _t("2:00"), _t("2:26")),
-    Beat("fly", "Second species", _t("2:26"), _t("2:39")),
-    Beat("close", "Close", _t("2:39"), _t("2:54")),
+    Beat("fly", "Second species", _t("2:26"), _t("2:41")),
+    Beat("close", "Close", _t("2:41"), _t("2:56")),
 ]
 
 

@@ -1,7 +1,7 @@
 # Etho demo video: script for the video app
 
 Source: `docs/DEMO_PLAN.md`, script v5 as of 2026-10-30 (395 words), and the draft captions `docs/demo_captions_v5.srt`
-(34 captions, one per sentence, 145 wpm). Nine scenes, 0:00-2:54, at most 3:00 (hard limit).
+(34 captions, one per sentence, 145 wpm). Nine scenes, 0:00-2:56, at most 3:00 (hard limit).
 
 Rules this script follows:
 - **Voice-over** is the approved v5 text, word for word. Aniket records it himself. **Any narration the app
@@ -232,7 +232,7 @@ attack)", and the button label. No accuracy number (no gain claim).
 
 ---
 
-## Scene 8: Second species (2:26-2:39)
+## Scene 8: Second species (2:26-2:41)
 
 **Voice-over**
 > Same pipeline, new animal: fruit flies, from one sentence, with no retraining. It's a preview: it hasn't cleared
@@ -255,15 +255,15 @@ Fly training movie 1, with Etho's tag from the frozen gate predictions (one lung
 
 ---
 
-## Scene 9: Close (2:39-2:54)
+## Scene 9: Close (2:41-2:56)
 
 **Voice-over**
 > Etho runs on Meta's models: SAM 3.1, Muse Spark and Muse Spark Open. It's for every lab that still scores
 > behavior by hand. It's open source. Try it live at the link below.
 
 **Visual**
-- 2:39-2:46: `docs/video_assets/model_stack.png`.
-- 2:46-2:54: `docs/video_assets/closing.png`.
+- 2:41-2:48: `docs/video_assets/model_stack.png`.
+- 2:48-2:56: `docs/video_assets/closing.png`.
 
 **On-screen text**
 - Model stack:

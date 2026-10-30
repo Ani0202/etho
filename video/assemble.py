@@ -5,7 +5,7 @@ Outputs (data/video/): rough_cut_v1.mp4, stills/<beat>.png, beats.md.
 
 App beats take data/video/capture/<name>.(mp4|png); a missing capture becomes a labeled placeholder slate.
 Pieces are joined with short crossfades; each piece is extended by the fade length so the total stays exactly the
-sum of the beat durations (174 s). The output has a silent AAC track so editors can import it; the voice-over is
+sum of the beat durations (176 s). The output has a silent AAC track so editors can import it; the voice-over is
 recorded later.
 """
 from __future__ import annotations
@@ -80,7 +80,7 @@ PLAN = {
                 ("trace panel (capture)", "cap:trace", 9.0)],
     "correction": [("correction loop (app capture)", "cap:correction", 10.0)],
     "evidence": [("evidence card", "card:evidence", 26.0)],
-    "fly": [("second species (qualitative, no score)", "cap:fly", 13.0)],
+    "fly": [("second species (qualitative, no score)", "cap:fly", 15.0)],
     "close": [("close card", "card:close", 15.0)],
 }
 
@@ -197,7 +197,7 @@ def render(pieces: list[Piece], out: Path, srt: Path | None) -> None:
 
 
 STILL_AT = {"hook": 2.5, "who": 30.0, "live_run": 50.0, "code": 68.0, "results": 97.0, "correction": 115.0,
-            "evidence": 135.0, "fly": 152.0, "close": 166.0}   # seconds in the cut: inside each beat (checked by test)
+            "evidence": 135.0, "fly": 152.0, "close": 168.0}   # seconds in the cut: inside each beat (checked by test)
 
 
 def export_stills(video: Path) -> list[Path]:

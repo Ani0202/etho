@@ -7,7 +7,7 @@ from video import timeline as T
 
 def test_timeline_sums_within_hard_limit():
     assert sum(b.dur for b in T.BEATS) <= T.HARD_LIMIT_S
-    assert T.total() == sum(b.dur for b in T.BEATS) == 174.0
+    assert T.total() == sum(b.dur for b in T.BEATS) == 176.0
 
 
 def test_timeline_matches_plan_table():
