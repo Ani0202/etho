@@ -2,7 +2,15 @@
 
 _Updated 2026-10-29 07:00 UTC (03:00 ET)._
 
-## Latest (night Oct 28-29)
+## Latest (Oct 30)
+- **Notify check:** an in-session cron (every 20 min, :07/:27/:47) pushes unsent rows of ops/notify.jsonl to Aniket.
+  It is session-only and expires Nov 6. **Re-create it after any session restart, and before Nov 6** (CronCreate).
+  At session start, also read ops/notify.jsonl.
+- **Funnel outages (Oct 28 22:41, Oct 29 05:35 UTC):** both were `sudo tailscale funnel reset` from SSH sessions on
+  pts/1 (128.135.204.122; 73.9.100.228), not tailscaled or VM events. Funnel was back Oct 30 04:03 UTC.
+- In progress: uptime cron + down alerts + funnel keepalive (implementer); HEAD, privacy notice, read-only UI,
+  retention sweep P2 (implementer); showcase representativeness numbers (evaluator; rule pre-stated in DECISIONS).
+
 - **Oct 29 18:58 UTC: restarted by Claude** (restart-only sudo rule installed; blanket NOPASSWD removed). Showcase,
   sample clip (CC BY 4.0 credit) and read-only 403 verified on 127.0.0.1:8000; the two Codex fixes are now running.
   **Both go-live blockers below FIXED 19:06 UTC** (Aniket: pre-flight OK, drop-in ProtectKernelTunables=no, app.env
