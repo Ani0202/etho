@@ -376,3 +376,103 @@ before any gate run.
 - 2026-10-30 04:40 UTC: **Showcase representativeness rule, stated before any numbers are computed** (Aniket asked for numbers, no decision yet). Metric: frame-level F1 per behavior and macro F1 over attack / investigation / mount, computed exactly as in eval/results/test1_report.md. (1) The mouse075 showcase is "far below average" if its macro F1 over 0-300 s is below the 25th percentile of the 19 per-video test-1 macro F1s (test1_report §12). (2) If so, the proposed replacement is the test video with at least one expert attack bout whose test-1 macro F1 is nearest the median of the 19 (ties: more expert attack frames). Its window is the 300 s window starting on a whole minute with the most expert attack frames (ties: earliest). Aniket decides; nothing in the pipeline or post-processing changes either way.
 - 2026-10-30 04:55 UTC: Correction: the representativeness-rule entry above says "04:40 UTC" but was committed at 04:18:00 UTC (845e6d9), before the evaluator's first label read (04:22:10 UTC). Rule text unchanged. Result (eval/results/showcase_mouse075_check.md): showcase macro 0.4193 < 25th percentile 0.4650, so "far below average"; the rule's replacement is mouse077 0-300 s (macro 0.5061 = the median), which has no expert mount. Escalated; no change made.
 - 2026-10-30 18:45 UTC: Showcase option A (Aniket): keep mouse075. Script v5 adds "This is one of the harder clips: 0.42 here, against 0.58 across all 19 test videos. Mount is where it struggles most." with trims elsewhere (394 words, ends 2:54; docs/DEMO_PLAN.md, docs/demo_captions_v5.srt). The showcase page description (data/showcase/calms21-mouse075-live/result.json, gitignored) now ends: "This is one of the harder clips: macro F1 0.42 on this run (attack 0.58, investigation 0.68, mount 0.00), against 0.58 across all 19 test videos in the separate scored test run. Mount is where it struggles most on this clip." Numbers from eval/results/showcase_mouse075_check.md, rounded to 2 decimals. No pipeline change. App restarted 18:44 UTC.
+
+## ADR-006 (2026-10-30): "Ask Etho why" (Aniket's spec). Lead decision: C (skip), awaiting Aniket's approval.
+**Context.** Aniket's spec: on a bout, the researcher asks "why?". Muse Spark (`muse-spark-1.3`, Standard mode) answers from the run's audit trail (rule text, frame-check verdicts, timestamps). It must cite trace entries and refuse anything the trace doesn't support. In the video it replaces narration inside the results beat (1:21-1:50, v5) at no extra time. **Aniket's gate:** build only if the honest estimate is ≤ 6 h including tests, merged by Nov 1 ET. Freeze is Nov 2, rough cut Nov 2, recording Nov 3. Video and README come first.
+**Found in the code (read this session; nothing executed).**
+- *Trace data.* `GET /api/projects/{pid}/trace?v&behavior&s0&s1` (`server.py:559-579`) returns `PG.bout_trace` (`progress.py:187-220`):
+  - `behavior`, `s0`/`s1` (samples) and `start_s`/`end_s`;
+  - `rule_result` {flagged, rule bouts overlapping, exact};
+  - `tier1`: every verdict whose window touches the bout, as built by `read_verdicts` (`progress.py:157-175`): `s0, s1, rule_label, source, label, confidence, reason` (tier-1's own free text), `decision` (set_aside / agreed / restriction / applied), `decision_text` (a fixed sentence from `decide()`, `progress.py:138-154`) and `strip`;
+  - `decided_by` (rules / tier1) and `summary`.
+  
+  **No entry has an id.** A stable key can be derived: (version, `rule`/`t1`, s0, s1). The verdicts file is per version and is not rewritten, and the window is unique per verdict there (assumed, not checked). Rule text is not in the trace. It is in `res["behaviors"]["definitions"]` and `codes` (`backend.py:465`), or in the revision record for v > 0.
+- *The trace already answers "why" deterministically.* `decision_text` and `summary` are plain sentences written by code. For the scripted mount bout, the panel already says the tier-1 "attack" was set aside by the restriction. The model would rephrase and connect these sentences. It would not add evidence.
+- *Gateway tool calling.* `Gateway.chat` (`gateway.py:245-264`) passes `tools`/`tool_choice` through `**extra` and refuses only `tool_choice` without `tools`. It has no first-class support:
+  - `_extract_text` (`gateway.py:564-573`) returns only `message.content`, and `tool_calls` survive only in `LLMResult.raw`;
+  - there is no loop helper;
+  - nothing in the repo has ever sent `tools` to Meta (grep: only a cost-estimate test, `test_gateway_review_fixes.py:21`);
+  - `FakeGateway.chat` (`tests/app_helpers.py:105-111`) returns no `raw`.
+  
+  Whether `muse-spark-1.3` returns OpenAI-style `tool_calls` with `reasoning_effort` set is **unverified**.
+- *Spend gates.* The middleware refuses every non-GET, non-`SAFE_POST` request before reading the body, through `spend_refusal`: read-only, kill switch, live window, then the access cookie (`server.py:173-181,196-202`). So a new `POST .../ask` is closed by default in read-only/showcase browsing and without the code.
+  - Revise adds `limiter.check`, `guard.check(est, outstanding)` and a Job whose ceiling `JobManager.submit` reserves (`server.py:607-664`).
+  - The caps count only ledger rows whose caller starts with `cfg.caller_prefix` (`pub:job:` / `job:`; `config.py:68-71,145-146`; `jobgw.py:43-50`). **So an Ask call must go through `JobGateway` with a synthetic job id** (e.g. `{pid}-ask{n}`). A bare `Gateway` call would not count toward the $3 / $8 / $30 caps.
+  - `SpendGuard.reserve` sizes the ceiling as `max(mult × est, est + extra)` (`guards.py:115-126`). Per ADR-003's log line that is about $0.25 over a 1-cent call, so Ask needs its own small ceiling.
+- *Retention and privacy.* The gateway caches the request body, which includes the visitor's question. Whether retention (keyed by job ids) purges the cache keys of a synthetic ask id is **unverified**, so it must be checked in review. Otherwise ask uses `use_cache=False` on the public instance.
+- *Tests.* `FakeGateway` plus `patch_pipeline` (`tests/app_helpers.py`) mock every model call. An Ask test monkeypatches the chat text and asserts the ledger row prefix, the tag, the effort and the gate refusals.
+
+**How "refuses unsupported claims" can be enforced in code (needed by A and B; the prompt alone is not enough).**
+1. The server builds numbered evidence entries:
+   - E1, the bout and `summary`;
+   - E2, the rule result in seconds;
+   - E3, the definition;
+   - E4, the rule code;
+   - T1..Tn, one per touching verdict with all its fields, in seconds and samples.
+   
+   It maps the short ids back to the stable keys in the response, so the UI highlights the cited trace rows.
+2. The answer is plain text, at most 5 sentences and about 600 characters. There is no JSON mode, so it is parsed defensively. Every sentence must end with one or more `[E#]`/`[T#]` ids that exist in this bout's entries.
+3. Every number in a sentence must appear, after normalization, in the rendered text of an entry that sentence cites. Spelled-out numbers are mapped to digits first. The same check applies to every quoted label, which must be one of the behavior names, "none" or "unsure".
+4. If any check fails, or the model outputs the agreed `UNSUPPORTED` token, the server returns a fixed refusal: "The trace for this bout doesn't support an answer to that question." The model's text is not shown.
+5. **Limit (must be stated honestly):** this checks the provenance of citations, numbers and labels, not semantic entailment. "Set aside because the mice were far apart [T2]" passes if T2 exists and has no numbers. The demo and README may say "every sentence cites the trace, and numbers must match it". They may not say "it can't make things up".
+
+**Prompt injection.** The question, the definitions (written by the user on uploads), the tier-1 `reason` text and the model-written rule code are all untrusted.
+- They go in delimited data blocks, marked as data.
+- There are no tools with side effects, no secrets in context and no persistence into the shared showcase. The answer goes only to the asker.
+- The question is capped at 300 characters. Ask has its own rate limit.
+- The output is rendered with `textContent` under the existing CSP.
+- The validator bounds the length, the citations and the numbers.
+
+Residual risk: off-topic text that still carries valid citations, shown only to the person who asked. Low, given the access code.
+**Cost per question (estimate, unmeasured), Standard `muse-spark-1.3` at $1.25 in / $4.25 out.**
+- Input is about 3-6k tokens: system prompt about 0.8k, definition plus rule code 1-2.5k, 2-8 verdicts at about 0.15k each, question ≤ 0.1k. That is $0.004-0.0075.
+- Output at effort `low` is a 150-300 token answer plus about 300-1,500 reasoning tokens (unmeasured), $0.002-0.008. Total **about $0.006-0.016 per question**; `medium` is perhaps $0.01-0.025.
+- **Effort: `low`** (same policy as the report stage, "writing from computed numbers"). Retry at `medium` only if smoke answers fail the validator for reasoning reasons.
+- Ask gets its own ceiling (estimate + $0.02), so it never pins $0.25 of headroom.
+- Smoke from `dev`: ≤ 3 calls, ≤ $0.05. The current `dev` balance was not checked this session (no shell), so the lead checks `bin/spend` first.
+
+**Options.**
+- **(A) Full spec with a tool loop.** Tools `get_bout_trace`, `get_rule(behavior)` and `get_window(id)`, at 2-3 model calls per question.
+  - *Time:* about **9-11 h**. That is B (below) plus a live probe of Meta's tool-call format (unverified; 2-4 extra dev calls, about $0.05), the loop with turn and ceiling limits, `tool_calls` extraction (from `raw` in the app, or a gateway change), a richer FakeGateway, and loop tests. A gateway change makes it a gateway merge, which needs a routine Codex review: at most 1 per day, none from Nov 1.
+  - *Cost:* 2-3x B per question.
+  - *Latency:* 2-3 sequential calls, unmeasured. The latency has to be cut out of the video.
+  - *Capability:* none gained. A bout's whole trace fits in one prompt, so the tools fetch what B already supplies, and the validator is still required.
+  - *Risk:* moderate. Unknown tool-call behavior on Meta, a new spend route, and the trace panel is in the video.
+- **(B) Reduced: the bout's evidence in context, one call, server-side validator, fixed refusal.**
+  - *Time:* about **6-6.5 h central, range 5-8 h**:
+    - evidence builder, prompt, parser and validator: 1.5 h;
+    - route with the existing gates, its own limiter, `JobGateway` with a synthetic id and a small ceiling, and the cache/retention decision: 1.25 h;
+    - UI (ask box in the trace panel, citation chips that highlight rows, disabled states with the same reasons as Revise): 1.0 h;
+    - tests (about 12 validator cases including injection-shaped outputs; about 8 route cases for read-only 403, no-code 401, killed, cap 429, the ledger prefix counted by `AppLedger`, the ceiling, a bad question and the refusal path): 1.25 h;
+    - Claude reviewer and fixes: 0.75-1 h (app-only, so no Codex review, as in ADR-005);
+    - real smoke and prompt tweak: 0.25-0.5 h.
+    
+    The UI is the most likely place to overrun. The estimate is not calibrated: ADR-005's own estimate was never compared with the actual time.
+  - *Video rework, on top of the agent hours:* about 0.5-1 h of lead and Aniket time (below).
+  - *Risk:* low to moderate. The POST is closed by default and nothing in scoring, eval, the sandbox or the gateway changes. But it edits the trace panel, which the video and the judges use, 1-2 days before the freeze.
+- **(C) Skip.** One line in the README "What's next" ("ask why about a bout, answered only from its trace, with citations"), with no claim that it exists.
+  - *Time:* 0.25 h. *Cost:* $0. *Risk:* none.
+
+**Video fit.** The 1:21-1:50 beat is already full: 71 words is 29.4 s of speech in 29 s. To show Ask, someone types the question (cut as "time skipped"), then the answer is held on screen long enough to read at ≥ 48 px, about 5-6 s for 2-3 sentences. That needs about 13-15 words cut. The natural cut is "The frame check answered 'attack', but a rule in the cascade set it aside, and the trace shows exactly which step", so the on-screen answer says it instead. A possible line: "At thirty-eight seconds, Etho says mount; the expert says attack. I ask Etho why. Every sentence cites the trace; when the trace can't support an answer, it refuses. No label goes unexplained." The wording, and the claim that goes with it, are Aniket's call. The captions (`demo_captions_v5.srt`) and the Nov 3 order of operations (DEMO_PLAN) need updating.
+- *Integrity:* record the first answer that passes the validator, and never re-ask to get a nicer one, as with "never re-roll runs". The cache makes the same question reproducible.
+- *If the Nov 3 live run shows a different error:* the question changes with it.
+- *Recording:* the video is recorded on a local instance (ADR-005 log), so Ask spends there from `dev` or, from Nov 3, `demo-reserve`.
+
+**Recommendation: (C) skip, and list it in "What's next".**
+- *The gate is not clearly met.* The honest central estimate for B is 6-6.5 h, over Aniket's 6 h line, with the risk weighted toward overrun. A is 9-11 h.
+- *It adds little evidence.* The trace panel already answers "why" with code-written sentences (`decide()` / `bout_trace`). An LLM rephrasing them adds a surface for unsupported claims, which the validator can limit but not remove.
+- *It competes with higher priorities.* It needs a rewrite of the video's most honest beat and new captions in the same 48 h as the rough cut and the README.
+- *If the lead judges that B fits in 6 h anyway:* build B only, nothing else from A. Merge by Nov 1 ET or drop it. Keep the README and video claim to "every sentence cites the trace, and numbers must match it".
+
+**Evidence.** File:line references were read this session. Costs, latency, tool-call behavior on Meta, retention coverage and the `dev` balance are **unverified**. No code was run and no model was called.
+**Risks.**
+- *Rules:* none. The feature is built during the event and Meta's model is central. Standard mode is used for user data. No OpenAI or Claude output enters the product.
+- *Budget:* B is about 1-2 cents per question, inside the existing caps, provided it goes through `JobGateway` (otherwise it bypasses the app caps: a must-fix in review).
+- *Integrity:* no scoring, eval or label path is touched. The video answer is not re-rolled.
+**Reverse.**
+- (B): remove the route, `ask.py` and the UI block. No data migration; answers are not persisted.
+- (C): build later. Nothing to undo.
+**Codex view** (`ops/codex/ask-20261030-185303-1264827.md`, gpt-6.1-sol xhigh, routine; given the ADR's options and evidence and the 6 h gate, asked which option and what the ADR gets wrong): **chooses C.** B's itemized 6-6.5 h leaves no margin and is not credibly within the gate; the code-written trace already explains the scripted error. Corrections it raised: (1) citation and number checks prove provenance, not that a sentence follows from its source, so narration like "when the trace can't support an answer, it refuses" would overclaim; (2) `behaviors.codes` are label ids, not rule code; detector source is in each version's `detectors.json`; (3) `JobGateway` attribution alone does not join the app's shared reservation lifecycle, so Ask would need real integration with SpendGuard and the job manager; (4) the gateway caches responses, not request bodies, and the audit file records prompts even with `use_cache=False`. Strongest argument against C it gave: a conversational explanation could make the audit trail more accessible on screen; its value is undemonstrated.
+
+**Lead decision (2026-10-30 19:00 UTC): C, skip.** The honest estimate (6-6.5 h central, 5-8 h range) does not clear the 6 h gate, Codex's corrections (3) and (4) add backend work the estimate did not cover, and it would change the trace panel the video records 1-2 days before freeze. "Ask Etho why" goes to the README "What's next" with no claims. Reversible: build B after the submission. **Awaiting Aniket's approval.**
+**Approval needed from Aniket:** (1) skip (C), or B under the 6 h / Nov 1 ET rule? (2) If B: the replacement wording for the results beat and the exact claim ("cites the trace", not "can't make things up").
