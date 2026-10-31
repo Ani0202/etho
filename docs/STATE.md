@@ -1,8 +1,22 @@
 # Etho state
 
-_Updated 2026-10-29 07:00 UTC (03:00 ET)._
+_Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
-## Latest (Oct 30 evening)
+## Oct 31 status (11:40 ET)
+- **Codex fixes are deployed on the hosted app** (retention shared keys + sweep, revision-report wording). Hosted
+  unit started 2026-10-30 18:28 UTC, after the last app commit (128ad72, 04:38 UTC); log shows bwrap active and caps
+  $3 ($8 judging) / $30. Behavior is verified by unit tests. The revision path can't be exercised on the read-only
+  host (no jobs or revisions until go-live), so the first live revision on Nov 3 is the on-host check.
+- **Reliability pass:**
+  - fresh clone `make check` ok;
+  - cap-hit and kill drills ok on a separate public instance;
+  - **kill drill on the hosted unit, Oct 31 15:30 UTC:** health `killed`, showcase and sample 200, upload 503;
+    removing the file returns to read-only;
+  - uptime 96/96 in 24 h, no outages, keepalive "serving".
+  - Pending: Aniket's phone check on cellular. A cap-hit drill on the hosted unit is only possible after go-live.
+- Spend unchanged: $71.50 total (Meta $37.62, dev $3.65, demo-reserve $0).
+- Codex: a routine review of eval/showcase_check.py + eval/fly_clip_window.py was started Oct 31 (last routine day).
+
 - **Video rough cut v1** (data/video/rough_cut_v1.mp4, silent, 2:54, captions burned in, no placeholders): built by
   `uv run python -m video.assemble --no-cards`. Cards and animations are rendered from committed numbers
   (video/numbers.py, source map, tests). Captures come from video/capture/*. The live-run beat is a showcase
