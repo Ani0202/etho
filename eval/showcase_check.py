@@ -62,6 +62,26 @@ def present_macro(per_seq_entry: dict) -> float:
     return float(np.mean([per_seq_entry[b]["f1"] for b in BEHAVIORS if per_seq_entry[b]["gt_frames"] > 0]))
 
 
+def per_video_summary(pv: dict[str, float]) -> dict:
+    """n, mean, median and the 25th percentile (numpy linear plus three alternatives) of per-video macro F1s."""
+    vals = np.array(sorted(pv.values()))
+    srt = sorted(pv.items(), key=lambda x: x[1])
+    return {"n": len(vals), "mean": float(vals.mean()), "median": float(np.median(vals)),
+            "p25_linear": float(np.percentile(vals, 25)),
+            "p25_nearest_rank": float(vals[int(np.ceil(0.25 * len(vals))) - 1]),
+            "p25_lower": float(np.percentile(vals, 25, method="lower")),
+            "p25_higher": float(np.percentile(vals, 25, method="higher")),
+            "sorted": srt}
+
+
+def far_below_average(macro: float, per_video: dict) -> tuple[bool, bool]:
+    """Rule (1): strictly below the linear p25 (equality is not "below"); and whether every p25 definition agrees."""
+    far_below = bool(macro < per_video["p25_linear"])
+    robust = all((macro < per_video[k]) == far_below for k in ("p25_linear", "p25_nearest_rank", "p25_lower",
+                                                               "p25_higher"))
+    return far_below, robust
+
+
 def merged_count(bs: list[tuple[int, int]], max_gap: int) -> int:
     """Events left after merging consecutive bouts whose gap (next start - previous end) is < max_gap."""
     if not bs:
@@ -174,21 +194,12 @@ def run() -> dict:
     arms_m = json.loads(SCORE_RESULT.read_text())["metrics"]["arms"]["zs_t1"]
     pooled = {"macro": arms_m["macro_f1"], **{b: arms_m["behaviors"][b]["f1"] for b in BEHAVIORS}}
     pv = {s: present_macro(e) for s, e in per_seq["zs_t1"]["per_sequence"].items()}
-    vals = np.array(sorted(pv.values()))
-    srt = sorted(pv.items(), key=lambda x: x[1])
-    per_video = {"n": len(vals), "mean": float(vals.mean()), "median": float(np.median(vals)),
-                 "p25_linear": float(np.percentile(vals, 25)),
-                 "p25_nearest_rank": float(vals[int(np.ceil(0.25 * len(vals))) - 1]),
-                 "p25_lower": float(np.percentile(vals, 25, method="lower")),
-                 "p25_higher": float(np.percentile(vals, 25, method="higher")),
-                 "sorted": srt}
+    per_video = per_video_summary(pv)
 
     # ---- 4. rule
     p25 = per_video["p25_linear"]
     sc_macro = showcase["final"]["macro"]
-    far_below = bool(sc_macro < p25)
-    robust = all((sc_macro < per_video[k]) == far_below for k in ("p25_linear", "p25_nearest_rank", "p25_lower",
-                                                                  "p25_higher"))
+    far_below, robust = far_below_average(sc_macro, per_video)
     rule = {"metric": "showcase final labels, macro F1 0-300 s, 30 fps (displayed result)",
             "showcase_macro": sc_macro, "threshold_p25": p25, "threshold_definition": "numpy linear (default)",
             "far_below_average": far_below, "same_outcome_under_all_p25_definitions": robust,
