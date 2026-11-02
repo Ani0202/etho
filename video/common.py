@@ -65,6 +65,16 @@ def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw)
 
 
+def _truncated(png: Path, transparent: bool) -> bool:
+    """Headless Chromium occasionally paints only the top ~1017 px and leaves a white band at the bottom (seen about
+    one run in three on the who card). Detect it: the last row is pure white while the row 64 px higher is not."""
+    if transparent:
+        return False
+    import cv2
+    g = cv2.imread(str(png), cv2.IMREAD_GRAYSCALE)
+    return g is not None and g.shape[0] > 128 and bool((g[-1] == 255).all()) and not bool((g[-64] == 255).all())
+
+
 def html_to_png(html: str, out: Path, w: int = W, h: int = H, transparent: bool = False) -> Path:
     """Render an HTML string to a PNG with headless Chromium (no Python imaging library needed)."""
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -76,6 +86,11 @@ def html_to_png(html: str, out: Path, w: int = W, h: int = H, transparent: bool 
     if transparent:
         cmd.append("--default-background-color=00000000")
     cmd.append(src.as_uri())
-    subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+    for _ in range(4):
+        subprocess.run(cmd, check=True, capture_output=True, timeout=90)
+        if not _truncated(out, transparent):
+            break
+    else:
+        raise RuntimeError(f"headless Chromium kept truncating the screenshot: {out}")
     src.unlink(missing_ok=True)
     return out
