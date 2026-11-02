@@ -56,7 +56,7 @@ Here's Etho beside the expert's labels.
 
 15
 00:01:23,807 --> 00:01:30,428
-This is one of the harder clips: 0.42 here, against 0.58 across all 19 test videos.
+This is one of the harder clips: 0.44 here, against 0.58 across all 19 test videos.
 
 16
 00:01:30,428 --> 00:01:32,910

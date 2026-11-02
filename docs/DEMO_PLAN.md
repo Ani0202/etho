@@ -67,17 +67,17 @@ planner card shows the phrases Muse Spark proposed and the one SAM confirmed)
 > identity code, a locked-down sandbox for the model-written rules, and the two-step check, with more than six
 > hundred tests.
 
-**1:21-1:50, results and one real error** (on screen: Etho's ethogram over the expert's; "this clip 0.42 · all 19
+**1:21-1:50, results and one real error** (on screen: Etho's ethogram over the expert's; "this clip 0.44 · all 19
 test videos 0.58" next to it; the trace panel)
-> Here's Etho beside the expert's labels. This is one of the harder clips: 0.42 here, against 0.58 across all 19
+> Here's Etho beside the expert's labels. This is one of the harder clips: 0.44 here, against 0.58 across all 19
 > test videos. Here, mount is where it struggles most. Every label is traceable, including the mistakes. At thirty-eight
 > seconds, Etho says mount; the expert says attack. The frame check answered "attack", but a rule in the cascade
 > set it aside, and the trace shows exactly which step. No label goes unexplained.
 
 Traced-error contingency (Aniket, 2026-10-28, decided before the run):
 - If the live run shows a different real error, use it and rewrite this line to match.
-- The 0.42 is the packaged showcase run (eval/results/showcase_mouse075_check.md). The video uses the number of the
-  run it shows; see "Nov 3 order of operations" below.
+- The number is the Nov 2 live run's (0.44, eval/results/live_run_nov2_check.json; the packaged showcase run scored 0.42).
+  The video uses the number of the run it shows.
 - If no clear error appears, show the trace from the committed test report, labeled "from the test run".
 - Never re-roll runs to get a particular error.
 
@@ -106,7 +106,7 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v5.s
 ## Live-run order of operations (Aniket, 2026-10-30; steps 1-3 on Nov 2, step 4 on Nov 3)
 1. Nov 2: record the live run (local instance, `dev` tag, up to $0.90, approved 2026-10-30).
 2. Nov 2: recompute that run's score with `eval/showcase_check.py` (labels only, no model calls, $0).
-3. Nov 2: update the voice-over line ("0.42 here", per-behavior if shown) and the captions with that number. Also check the
+3. Nov 2: update the voice-over line ("0.44 here", was "0.42 here", per-behavior if shown) and the captions with that number. Also check the
    traced-error line against that run's trace: the clicked bout's first visible verdict must be the one the line
    describes (in the showcase run, the 37.5-38.0 s bout: tier 1 "attack", set aside; the 38.4-44.0 s bout opens with
    tier 1 agreeing "mount", so it does not match). If it doesn't match, apply the traced-error contingency above. If the score no
@@ -130,7 +130,8 @@ Captions: one per sentence, burned in (draft timings in `docs/demo_captions_v5.s
 | "More than six hundred tests" | `uv run pytest`: 662 passed (2026-10-28) |
 | (v4 only, cut in v5) "Biggest gain of any step on top of the rules" | test1_report §11 paired differences: tier-1 lift +0.205 (CI excludes 0); fs_t1 vs zs_t1 inconclusive; dev video tier +0.005 and medium effort -0.011 (README "What we learned") |
 | Fly "hasn't cleared the confidence bar we set" | ADR-004; eval/flies_decision.json (wing CI lower 0.009 <= random reference 0.043) |
-| "One of the harder clips: 0.42 here, against 0.58 across all 19"; "here, mount is where it struggles most" | eval/results/showcase_mouse075_check.md: showcase macro 0.4193 (attack 0.5755, investigation 0.6825, mount 0.0000), below the 25th percentile of the 19 per-video macros (0.4650); pooled test macro 0.5800 (test1_report §11.1). Rounded to 2 decimals |
+| "One of the harder clips: 0.44 here, against 0.58 across all 19"; "here, mount is where it struggles most" | eval/results/live_run_nov2_check.json (the Nov 2 live run shown in the video, job j46d77dd8aee9): macro 0.4376 (attack 0.5695, investigation 0.7431, mount 0.0000), below the 25th percentile of the 19 per-video macros (0.4650) under every p25 definition; pooled test macro 0.5800 (test1_report §11.1). Rounded to 2 decimals. The packaged showcase run scored 0.4193 (showcase_mouse075_check.json) |
+| Traced error at 37.5-38.0 s in the live run | eval/results/live_run_nov2_check.json mount_fragments: Etho mount, expert attack (100%), tier 1 "attack" (0.95) set aside by the restriction |
 | "Keeps them apart even when they're tangled together" | test1_report: identity error 0.29%; DECISIONS chunk-length table (both mice labeled on 100% of mount frames) |
 
 ## Production
