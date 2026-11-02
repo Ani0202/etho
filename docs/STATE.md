@@ -2,7 +2,17 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
-## Oct 31 status (11:40 ET)
+## Nov 2 (16:55 ET)
+- **Live run done** (job j46d77dd8aee9, data/app_nov2, $0.8953 dev, 3:08 for 5:00). Score 0.4376, shown as 0.44, still
+  below p25; the traced bout 37.5-38.0 s matches. VO and captions now say "0.44 here" (f3a4618). Raw clip and PNGs
+  were sent to Aniket.
+- Session restarted ~21:40 UTC. The notify cron was re-created (job a1185184). The :8770 instance died with the
+  session, which is fine because the job is finished.
+- In progress (capture agent): 29 s live-run cut (the first attempt was corrupt), badge and results beat switched to
+  the live run, rough-cut rebuild.
+- Open with Aniket: rough-cut notes (default at 6 PM ET: v1 approved apart from the live-run update), phone check,
+  and whether to make the live run the hosted showcase (default at 6 PM ET: keep the current one).
+
 - **Codex fixes are deployed on the hosted app** (retention shared keys + sweep, revision-report wording). Hosted
   unit started 2026-10-30 18:28 UTC, after the last app commit (128ad72, 04:38 UTC); log shows bwrap active and caps
   $3 ($8 judging) / $30. Behavior is verified by unit tests. The revision path can't be exercised on the read-only
