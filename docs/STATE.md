@@ -2,7 +2,13 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
-## Nov 2 (16:55 ET)
+## Nov 2 (19:55 ET)
+- Hosted showcase = Nov 2 live run (0.44), verified on the public URL. The Oct 28 package is archived.
+- VO pipeline merged (52e2bc6). Caption-safe cards merged (e49ca91): all card text above y=860, tested. Final cut:
+  once Aniket's takes are in data/video/vo/ (01_hook ... 09_close), run `uv run python -m video.assemble --vo`, then
+  commit docs/demo_captions_final.srt and send data/video/final_v1.mp4.
+- Waiting: Aniket's VO takes (tonight or early Nov 3), phone check.
+
 - **Live run done** (job j46d77dd8aee9, data/app_nov2, $0.8953 dev, 3:08 for 5:00). Score 0.4376, shown as 0.44, still
   below p25; the traced bout 37.5-38.0 s matches. VO and captions now say "0.44 here" (f3a4618). Raw clip and PNGs
   were sent to Aniket.
