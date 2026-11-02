@@ -22,6 +22,13 @@ def _find_data() -> Path:
 DATA = _find_data()
 OUT = DATA / "video"
 SHOWCASE = DATA / "showcase" / "calms21-mouse075-live"
+# The Nov 2 live run of the same 0-300 s clip (job j46d77dd8aee9, scored by eval/showcase_check.py).
+LIVE_JOB = DATA / "app_nov2" / "jobs" / "j46d77dd8aee9"
+# Which run the results beat and the score badge show: "live" (the Nov 2 live run) or "showcase" (the Oct 30 run).
+# The opening shot always shows the showcase run, and every expert label comes from the showcase package (same clip).
+SOURCE = os.environ.get("ETHO_VIDEO_SOURCE", "live")
+if SOURCE not in ("live", "showcase"):
+    raise ValueError(f"ETHO_VIDEO_SOURCE must be 'live' or 'showcase', not {SOURCE!r}")
 CAPTURE = OUT / "capture"
 CARDS = OUT / "cards"
 STILLS = OUT / "stills"

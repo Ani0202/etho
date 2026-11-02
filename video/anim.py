@@ -20,7 +20,7 @@ import numpy as np
 
 from video import common as C
 from video import draw
-from video.data import expert_codes, showcase
+from video.data import expert_codes, results_run, showcase
 
 OPEN_T0, OPEN_DUR = 121.0, 5.0
 PRE_ROLL = 2.0                        # seconds of already-known labels shown to the left of the playhead
@@ -283,7 +283,7 @@ def render_results(out: Path, N=None) -> list[np.ndarray]:
     from video import cards
     from video.numbers import Numbers
     N = N or Numbers()
-    sc = showcase()
+    sc = results_run()
     cards.badge_png(N, C.CARDS / "badge_clip_score.png")
     badge = draw.read_image(C.CARDS / "badge_clip_score.png")
     static = results_static()
@@ -303,6 +303,13 @@ def render_results(out: Path, N=None) -> list[np.ndarray]:
     return keep
 
 
+def build_results(N=None) -> None:
+    C.OUT.mkdir(parents=True, exist_ok=True)
+    k2 = render_results(C.OUT / "results_beat.mp4", N)
+    cv2.imwrite(str(C.CARDS / "results_sweep.png"), k2["sweep"])
+    cv2.imwrite(str(C.CARDS / "results_zoom.png"), k2["zoom"])
+
+
 def build_all(N=None) -> None:
     C.OUT.mkdir(parents=True, exist_ok=True)
     keep = render_opening(C.OUT / "opening.mp4")
@@ -317,4 +324,7 @@ def build_all(N=None) -> None:
 if __name__ == "__main__":
     if not C.have_render_tools():
         sys.exit("need Chromium and ffmpeg")
-    build_all()
+    if sys.argv[1:] == ["results"]:      # only the results beat and the badge (the run chosen by video.common.SOURCE)
+        build_results()
+    else:
+        build_all()

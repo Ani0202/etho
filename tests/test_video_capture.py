@@ -81,3 +81,25 @@ def test_live_lock_refuses_second_submit(tmp_path):
 def test_live_real_flag_required_for_8770(tmp_path):
     with pytest.raises(SystemExit):
         cl.main(["--base", "http://127.0.0.1:8770", "--video", str(tmp_path / "v.mp4")])
+
+
+# ---- cut_live_run.py: the 29 s scene-3 cut of the raw live-run recording
+cut = _load("cut_live_run")
+
+
+def test_cut_is_29_seconds_and_tagged_at_every_skip():
+    cl = cut.cut_list()
+    assert cl["total_s"] == cut.TOTAL_S == 29.0
+    assert [r["tag"] for r in cl["segments"]] == [None, "time skipped 0:23", "time skipped 3:13", "time skipped 0:04",
+                                                  "earlier in the run", "time skipped 0:04"]
+    assert all(r["raw_out"] <= 271.7 and r["raw_in"] >= 0 for r in cl["segments"])
+    ends = [r["out_out"] for r in cl["segments"]]
+    assert ends == sorted(ends)
+
+
+def test_cut_filter_graph_has_one_input_per_segment_and_a_tag_per_skip():
+    g = cut.filter_graph()
+    assert g.count("concat=n=6") == 1 and g.count("drawtext") == 5
+    assert "[5:v]" in g and "[6:v]" not in g
+    args = cut.inputs("raw.mp4")
+    assert args.count("-i") == 6 and args[:4] == ["-ss", "20.2", "-t", "1.500"]

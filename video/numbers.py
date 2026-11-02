@@ -6,7 +6,8 @@ checked against this registry by video/tests/test_numbers.py.
 
 Sources (all committed):
 - eval/results/score-test-20261028T164333Z-473c64.json   test-1 summary (0.58 macro, per-behavior F1, 19 videos)
-- eval/results/showcase_mouse075_check.json              this clip's 0.42 and per-behavior F1
+- eval/results/live_run_nov2_check.json                  this clip's 0.44 and per-behavior F1 (live run; SOURCE=live)
+- eval/results/showcase_mouse075_check.json              the showcase run's 0.42 (SOURCE=showcase)
 - eval/results/test1_report.md                           supervised .793/.829/.864 (11.1), speed (11.1, 11.3),
                                                          cost (11.1), manual 3-4x, approved footnote (11.2)
 The speed and cost figures exist only in the report: the JSON speed block (0.26x) is the pre-correction number
@@ -18,10 +19,12 @@ import json
 import re
 from dataclasses import dataclass
 
-from video.common import ROOT
+from video.common import ROOT, SOURCE
 
 TEST_JSON = "eval/results/score-test-20261028T164333Z-473c64.json"
-CHECK_JSON = "eval/results/showcase_mouse075_check.json"
+CHECK_JSONS = {"showcase": "eval/results/showcase_mouse075_check.json",   # the Oct 30 showcase run
+               "live": "eval/results/live_run_nov2_check.json"}            # the Nov 2 live run (same clip)
+CHECK_JSON = CHECK_JSONS[SOURCE]
 REPORT_MD = "eval/results/test1_report.md"
 
 

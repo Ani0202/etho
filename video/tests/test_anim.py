@@ -4,7 +4,7 @@ import pytest
 
 from video import anim, draw
 from video import common as C
-from video.data import expert_codes, showcase
+from video.data import expert_codes, results_run, showcase
 
 needs_showcase = pytest.mark.skipif(not (C.SHOWCASE / "result.json").exists(), reason="showcase run not on disk")
 
@@ -36,6 +36,39 @@ def test_opening_segment_is_lively_and_not_cherry_picked():
     assert (np.diff(a) != 0).sum() >= 2
     assert 0.5 < (a == e).mean() < 1.0
     assert anim.OPEN_DUR <= 5.0 and anim.OPEN_DUR >= 3.0
+
+
+needs_live = pytest.mark.skipif(not (C.LIVE_JOB / "result.json").exists(), reason="live run not on disk")
+
+
+@needs_live
+@needs_showcase
+def test_results_run_is_the_live_run_on_the_same_clip(monkeypatch):
+    monkeypatch.setattr("video.data.SOURCE", "live")
+    results_run.cache_clear()
+    try:
+        sc, op = results_run(), showcase()
+        assert sc["n"] == op["n"] and sc["fps"] == op["fps"]
+        assert sc["expert"] == op["expert"]                      # same clip, same expert labels
+        assert sc["overlay"] == C.LIVE_JOB / "overlay.mp4" and op["overlay"] == C.SHOWCASE / "overlay.mp4"
+        for i, b in enumerate(C.BEHAVIORS):                      # labels equal bouts, as for the showcase
+            m = np.zeros(sc["n"], bool)
+            for s0, s1 in sc["etho"][b]:
+                m[s0:s1] = True
+            assert ((sc["labels"] == i) == m).all(), b
+        assert anim.traced_error(sc) == (37.5, 44.0)
+    finally:
+        results_run.cache_clear()
+
+
+@needs_showcase
+def test_results_run_is_the_showcase_when_source_is_showcase(monkeypatch):
+    monkeypatch.setattr("video.data.SOURCE", "showcase")
+    results_run.cache_clear()
+    try:
+        assert results_run() is showcase()
+    finally:
+        results_run.cache_clear()
 
 
 def test_runs_roundtrip():

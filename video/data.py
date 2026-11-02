@@ -1,4 +1,5 @@
-"""Loads the showcase run's labels, bouts and overlay video (data/showcase/calms21-mouse075-live/)."""
+"""Loads the showcase run's labels, bouts and overlay video (data/showcase/calms21-mouse075-live/), and the labels of
+the Nov 2 live run (data/app_nov2/jobs/j46d77dd8aee9) for the results beat when video.common.SOURCE == "live"."""
 from __future__ import annotations
 
 import json
@@ -6,7 +7,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from video.common import BEHAVIORS, SHOWCASE
+from video.common import BEHAVIORS, LIVE_JOB, SHOWCASE, SOURCE
 
 
 @lru_cache(maxsize=1)
@@ -29,6 +30,24 @@ def showcase() -> dict:
         "overlay": SHOWCASE / "overlay.mp4",
         "clip": r["video"]["name"],
     }
+
+
+@lru_cache(maxsize=1)
+def results_run() -> dict:
+    """The run shown in the results beat: the live run's labels and bouts (SOURCE == "live") against the same clip's
+    expert labels, which only the showcase package carries. SOURCE == "showcase" returns showcase()."""
+    sc = showcase()
+    if SOURCE != "live":
+        return sc
+    r = json.loads((LIVE_JOB / "result.json").read_text())
+    names = r["behaviors"]["names"]
+    assert tuple(names) == BEHAVIORS, names
+    # the upload is the same 0-300 s clip under another file name (mouse075_0-300s_h264.mp4)
+    assert int(r["n_samples"]) == sc["n"] and float(r["fps"]) == sc["fps"], "live run is not the showcase clip"
+    z = np.load(LIVE_JOB / "labels.npz", allow_pickle=True)
+    final = r["versions"][-1]["bouts"]
+    return {**sc, "labels": z["labels"], "etho": {b: [list(x) for x in final[b]] for b in names},
+            "overlay": LIVE_JOB / "overlay.mp4"}
 
 
 def expert_codes(sc: dict) -> np.ndarray:
