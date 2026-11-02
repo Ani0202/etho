@@ -156,3 +156,64 @@ def test_far_below_average_reproduces_recorded_decision():
     far, robust = far_below_average(d["showcase"]["final"]["macro"], d["test_averages"]["per_video_macro"])
     assert far is d["rule"]["far_below_average"] is True
     assert robust is d["rule"]["same_outcome_under_all_p25_definitions"]
+
+
+# ---- --showcase / --out argument handling (offline: empty placeholder files in tmp_path, no labels read)
+def _fake_run_dir(d: Path, skip: str | None = None) -> Path:
+    from eval.showcase_check import SCORED_FILES
+    d.mkdir(parents=True, exist_ok=True)
+    for f in SCORED_FILES:
+        if f != skip:
+            (d / f).write_text("")
+    return d
+
+
+def test_parse_args_default_keeps_committed_output(monkeypatch, tmp_path):
+    import eval.showcase_check as sc
+    monkeypatch.setattr(sc, "SHOWCASE", _fake_run_dir(tmp_path / "showcase"))
+    a = sc.parse_args([])
+    assert a.is_default is True and a.out == sc.DEFAULT_OUT
+    assert sc.DEFAULT_OUT == Path("eval/results/showcase_mouse075_check.json")
+    # the default dir given explicitly (another spelling of the same path) is still the default
+    a = sc.parse_args(["--showcase", str(tmp_path / "showcase" / ".." / "showcase")])
+    assert a.is_default is True and a.out == sc.DEFAULT_OUT
+
+
+def test_parse_args_job_dir_requires_a_distinct_out(monkeypatch, tmp_path, capsys):
+    import eval.showcase_check as sc
+    monkeypatch.setattr(sc, "SHOWCASE", _fake_run_dir(tmp_path / "showcase"))
+    job = _fake_run_dir(tmp_path / "jobs" / "j123")
+    with pytest.raises(SystemExit):
+        sc.parse_args(["--showcase", str(job)])
+    assert "--out is required" in capsys.readouterr().err
+    monkeypatch.chdir(ROOT)  # DEFAULT_OUT is relative to the repo root, where the script runs
+    committed = str(ROOT / "eval/results/../results/showcase_mouse075_check.json")
+    with pytest.raises(SystemExit):  # the committed showcase result, by any spelling, is refused
+        sc.parse_args(["--showcase", str(job), "--out", committed])
+    assert "committed showcase result" in capsys.readouterr().err
+    a = sc.parse_args(["--showcase", str(job), "--out", str(tmp_path / "live.json")])
+    assert a.is_default is False and a.out == tmp_path / "live.json" and a.showcase == job
+
+
+def test_parse_args_rejects_unfinished_or_missing_dirs(monkeypatch, tmp_path, capsys):
+    import eval.showcase_check as sc
+    monkeypatch.setattr(sc, "SHOWCASE", _fake_run_dir(tmp_path / "showcase"))
+    with pytest.raises(SystemExit):
+        sc.parse_args(["--showcase", str(tmp_path / "nope"), "--out", str(tmp_path / "o.json")])
+    assert "not a directory" in capsys.readouterr().err
+    job = _fake_run_dir(tmp_path / "jobs" / "j9", skip="verdicts.jsonl")
+    with pytest.raises(SystemExit):
+        sc.parse_args(["--showcase", str(job), "--out", str(tmp_path / "o.json")])
+    assert "missing verdicts.jsonl" in capsys.readouterr().err
+
+
+def test_job_layout_matches_app_store_and_packaging():
+    """The files the check reads are the ones the app writes at a job's top level and packaging copies unchanged."""
+    import scripts.package_job_showcase as pkg
+    from etho.app import store
+    from eval.showcase_check import SCORED_FILES
+    copied = set(pkg.COPY_FILES) | {"result.json"}
+    assert set(SCORED_FILES) <= copied
+    for f in SCORED_FILES:
+        assert f in store.__doc__
+    assert {"labels.npz", "detectors.json", "verdicts.jsonl"} <= set(store.VERSION_FILES.values())

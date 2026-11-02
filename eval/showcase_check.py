@@ -14,7 +14,16 @@ is `demo_clip.window_f1` (the unweighted mean over attack / investigation / moun
 eval/results/runs.jsonl as kind "analysis", split "test", purpose "showcase-representativeness": a "started" record
 (input hashes) is written before any label file is opened.
 
+`--showcase DIR` scores another run of the same clip (mouse075, 0-300 s) the same way: a packaged showcase dir or a
+finished app job dir (data/<app data dir>/jobs/<id>). Both have the same labels.npz, labels_rules.npz,
+verdicts.jsonl, result.json and detectors.json at the top level (etho/app/store.py; scripts/package_job_showcase.py
+copies them unchanged and rewrites only result.json's identity fields). The top level is version 0, the original
+run; a job's revisions/ (user corrections) are not scored. With a non-default DIR, --out is required and may not be
+the committed showcase output; the run is logged with purpose "live-run-score", the output gets a "source" block,
+and the "replacement" part of the rule is informational only (the rule chose a showcase; it is not re-applied).
+
     uv run python -m eval.showcase_check
+    uv run python -m eval.showcase_check --showcase data/app_nov2/jobs/<id> --out eval/results/<name>.json
 """
 
 from __future__ import annotations
@@ -31,6 +40,9 @@ from eval.common import BEHAVIORS, NATIVE_FPS, VOCAB
 from eval.demo_clip import bouts, window_f1
 
 SHOWCASE = Path("data/showcase/calms21-mouse075-live")
+DEFAULT_OUT = Path("eval/results/showcase_mouse075_check.json")
+SCORED_FILES = ("labels.npz", "labels_rules.npz", "verdicts.jsonl", "result.json", "detectors.json")
+VIDEO_FIELDS = ("name", "duration_s", "frames", "fps", "width", "height", "size_bytes")
 EXPERT_10FPS = Path("data/demo/expert_mouse075_task1_annotator1.npz")
 RUN_DIR = Path("data/runs/T1")
 SCORE_RESULT = Path("eval/results/score-test-20261028T164333Z-473c64.json")
@@ -121,23 +133,59 @@ def mix(gt: np.ndarray) -> dict:
     return {k: (float(np.sum(gt == c)) / n if n else 0.0) for k, c in VOCAB.items()}
 
 
-def main(argv=None) -> int:
+def _same_path(a: Path, b: Path) -> bool:
+    return a.resolve() == b.resolve()
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    """--showcase defaults to the packaged showcase and --out to its committed output. Any other --showcase needs an
+    explicit --out that is not the committed showcase output, so that file is never overwritten by another run."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--out", type=Path, default=Path("eval/results/showcase_mouse075_check.json"))
+    ap.add_argument("--showcase", type=Path, default=SHOWCASE,
+                    help=f"packaged showcase dir or finished app job dir (default {SHOWCASE})")
+    ap.add_argument("--out", type=Path, default=None,
+                    help=f"output JSON (default {DEFAULT_OUT}, only for the default --showcase)")
     ap.add_argument("--log", type=Path, default=common.RUNS_LOG)
     a = ap.parse_args(argv)
+    a.is_default = _same_path(a.showcase, SHOWCASE)
+    if a.is_default:
+        if a.out is None:
+            a.out = DEFAULT_OUT
+    else:
+        if a.out is None:
+            ap.error(f"--out is required with a non-default --showcase (the default {DEFAULT_OUT} is the committed "
+                     "showcase result)")
+        if _same_path(a.out, DEFAULT_OUT):
+            ap.error(f"--out {a.out} is the committed showcase result; choose another name for {a.showcase}")
+    if not a.showcase.is_dir():
+        ap.error(f"--showcase {a.showcase} is not a directory")
+    missing = [f for f in SCORED_FILES if not (a.showcase / f).is_file()]
+    if missing:
+        ap.error(f"--showcase {a.showcase} is missing {', '.join(missing)} (not a finished job or showcase)")
+    return a
+
+
+def main(argv=None) -> int:
+    a = parse_args(argv)
+    sc = a.showcase
+    in_paths = [sc / f for f in SCORED_FILES]
+    if not a.is_default and (SHOWCASE / "result.json").is_file():
+        in_paths.append(SHOWCASE / "result.json")  # read for the same-clip video-metadata comparison only
     inputs = {str(p): common.sha256_file(p) for p in
-              [SHOWCASE / "labels.npz", SHOWCASE / "labels_rules.npz", SHOWCASE / "verdicts.jsonl",
-               SHOWCASE / "result.json", SHOWCASE / "detectors.json", RUN_DIR / "zs_t1" / f"{SEQ}.npz",
-               RUN_DIR / "zs_rules" / f"{SEQ}.npz", RUN_DIR / "verdicts_test_zs_t1.jsonl", PER_SEQ, SCORE_RESULT]}
+              in_paths + [RUN_DIR / "zs_t1" / f"{SEQ}.npz", RUN_DIR / "zs_rules" / f"{SEQ}.npz",
+                          RUN_DIR / "verdicts_test_zs_t1.jsonl", PER_SEQ, SCORE_RESULT]}
     run_id = common.new_run_id("analysis-test")
     base = {"run_id": run_id, "kind": "analysis", "split": "test", "purpose": "showcase-representativeness",
             **common.git_info(), "inputs_sha256": inputs, "cost_usd": 0.0, "model_calls": 0,
             "rule": "docs/DECISIONS.md 2026-10-30 04:40 UTC",
             "notes": "presentation-only check of the web-app showcase against test-1; not a test result"}
+    if not a.is_default:
+        base.update(purpose="live-run-score", source_dir=str(sc),
+                    notes="presentation-only score of another web-app run of mouse075 0-300 s, computed with the "
+                          "showcase check (DEMO_PLAN live-run step 2); not a test result; replacement informational")
     common.append_run({**base, "time_utc": common.now_utc(), "status": "started"}, a.log)
     try:
-        out = {"run_id": run_id, **run()}
+        out = {"run_id": run_id, **run(sc, a.is_default)}
         a.out.write_text(json.dumps(out, indent=1, sort_keys=True))
     except Exception as e:
         common.append_run({**base, "time_utc": common.now_utc(), "status": "failed", "error": repr(e),
@@ -153,12 +201,33 @@ def main(argv=None) -> int:
     return 0
 
 
-def run() -> dict:
-    res = json.loads((SHOWCASE / "result.json").read_text())
+def source_info(sc: Path, res: dict) -> dict:
+    """Where the scored labels came from (non-default runs only): identity, stages, cost, revisions, and whether the
+    video metadata matches the packaged showcase's (same upload of mouse075 0-300 s)."""
+    rev = sc / "revisions"
+    info = {"dir": str(sc), "result_kind": res.get("kind"), "result_id": res.get("id"),
+            "packaged_from": res.get("packaged_from"), "created": res.get("created"),
+            "version_scored": 0, "revisions_present_not_scored": sorted(p.name for p in rev.iterdir()) if rev.is_dir()
+            else [], "video": {k: (res.get("video") or {}).get(k) for k in VIDEO_FIELDS},
+            "stages": [{k: st.get(k) for k in ("name", "status", "elapsed_s", "cost_usd", "message") if k in st}
+                       for st in res.get("stages") or [] if isinstance(st, dict)],
+            "warnings": res.get("warnings"), "timing": res.get("timing"), "cost": res.get("cost"),
+            "labels_files": {f: str(sc / f) for f in SCORED_FILES}}
+    ref = json.loads((SHOWCASE / "result.json").read_text()) if (SHOWCASE / "result.json").is_file() else None
+    if ref is not None:
+        rv = ref.get("video") or {}
+        info["video_matches_packaged_showcase"] = {k: info["video"][k] == rv.get(k) for k in VIDEO_FIELDS}
+    return info
+
+
+def run(sc: Path = SHOWCASE, is_default: bool = True) -> dict:
+    res = json.loads((sc / "result.json").read_text())
     if float(res["fps"]) != 10.0 or int(res["n_samples"]) != 3000:
         raise ValueError("showcase is not 3000 samples at 10 fps")
-    final10 = np.load(SHOWCASE / "labels.npz")["labels"].astype(np.int8)
-    rules10 = np.load(SHOWCASE / "labels_rules.npz")["labels"].astype(np.int8)
+    final10 = np.load(sc / "labels.npz")["labels"].astype(np.int8)
+    rules10 = np.load(sc / "labels_rules.npz")["labels"].astype(np.int8)
+    if len(final10) != 3000 or len(rules10) != 3000:
+        raise ValueError(f"label files have {len(final10)} / {len(rules10)} samples, expected 3000")
     if res["behaviors"]["codes"] != VOCAB:
         raise ValueError("showcase codes differ from CalMS21 vocab")
 
@@ -240,9 +309,16 @@ def run() -> dict:
             "candidates": [{k: v for k, v in c.items()} for c in att_seqs]}
     rule["replacement_if_far_below"] = repl
     rule["replacement_proposed"] = far_below
+    if not is_default:
+        rule["metric"] = "live-run final labels, macro F1 0-300 s, 30 fps (displayed result)"
+        rule["replacement_informational_only"] = True
+        rule["replacement_note"] = ("Informational for a non-showcase run: the rule chose the showcase clip on "
+                                    "2026-10-30 and is not re-applied here. replacement_proposed only says whether "
+                                    "this run's macro F1 is below the 25th percentile; any change of clip is "
+                                    "Aniket's call (DEMO_PLAN live-run step 3: flag it before step 4).")
 
     # ---- 5. mount fragments (10 fps samples, the app's own resolution)
-    verd = [json.loads(x) for x in (SHOWCASE / "verdicts.jsonl").read_text().splitlines() if x.strip()]
+    verd = [json.loads(x) for x in (sc / "verdicts.jsonl").read_text().splitlines() if x.strip()]
     for v in verd:
         v["decision"] = decide(v)
     mb = bouts(final10, VOCAB["mount"])
@@ -299,9 +375,20 @@ def run() -> dict:
     }
     for arm in t1:
         t1[arm].pop("_raw10")
-    return {"checks": checks, "showcase": showcase, "showcase_10fps_crosscheck": showcase_10fps,
-            "test1_mouse075": t1, "test_averages": {"pooled_zs_t1": pooled, "per_video_macro": per_video},
-            "rule": rule, "mount_fragments": fragments}
+    out = {"checks": checks, "showcase": showcase, "showcase_10fps_crosscheck": showcase_10fps,
+           "test1_mouse075": t1, "test_averages": {"pooled_zs_t1": pooled, "per_video_macro": per_video},
+           "rule": rule, "mount_fragments": fragments}
+    if not is_default:  # extra keys only off the default path, so the default output stays as committed
+        out["source"] = source_info(sc, res)
+        rows_r = []
+        for s0, s1 in rule_mb:
+            touch = [v for v in verd if v["s0"] < s1 and s0 < v["s1"]]
+            rows_r.append({"s0": s0, "s1": s1, "start_s": s0 / 10, "end_s": s1 / 10, "dur_s": (s1 - s0) / 10,
+                           "expert_mix": mix(exp10w[s0:s1]), "final_mix": mix(final10[s0:s1]),
+                           "tier1_windows": [{k: v[k] for k in ("s0", "s1", "rule_label", "source", "label",
+                                                                "confidence", "decision")} for v in touch]})
+        fragments["rules_only_mount_bouts_detail"] = rows_r
+    return out
 
 
 if __name__ == "__main__":

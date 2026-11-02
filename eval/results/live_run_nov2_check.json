@@ -1,0 +1,1858 @@
+{
+ "checks": {
+  "expert_10fps_equals_gt_every_3rd_frame": true,
+  "expert_10fps_len": 6005,
+  "gt_full_frames": 18015,
+  "test1_whole_video_recompute_matches_logged": true
+ },
+ "mount_fragments": {
+  "differences": {
+   "final_sample_agreement_showcase_vs_test1": 0.9446666666666667,
+   "mount_samples": {
+    "showcase_final": 202,
+    "showcase_rules": 525,
+    "test1_final": 203,
+    "test1_rules": 543
+   },
+   "rules_only_sample_agreement_showcase_vs_test1": 0.9626666666666667,
+   "tier1_decisions_showcase": {
+    "attack->attack:agreed_with_rule": 11,
+    "attack->investigation:applied": 3,
+    "attack->mount:set_aside_by_restriction": 3,
+    "attack->none:applied": 7,
+    "investigation->attack:set_aside_by_restriction": 2,
+    "investigation->investigation:applied": 9,
+    "investigation->mount:set_aside_by_restriction": 5,
+    "investigation->none:applied": 7,
+    "mount->attack:set_aside_by_restriction": 5,
+    "mount->investigation:applied": 15,
+    "mount->mount:agreed_with_rule": 9,
+    "mount->none:applied": 2,
+    "other->attack:set_aside_by_restriction": 2,
+    "other->investigation:applied": 1,
+    "other->mount:set_aside_by_restriction": 2,
+    "other->none:applied": 2
+   },
+   "tier1_decisions_test1_0_300": {
+    "attack->attack:agreed_with_rule": 10,
+    "attack->investigation:applied": 3,
+    "attack->mount:set_aside_by_restriction": 4,
+    "attack->none:applied": 6,
+    "investigation->attack:set_aside_by_restriction": 3,
+    "investigation->investigation:applied": 9,
+    "investigation->mount:set_aside_by_restriction": 4,
+    "investigation->none:applied": 7,
+    "mount->attack:set_aside_by_restriction": 7,
+    "mount->investigation:applied": 18,
+    "mount->mount:agreed_with_rule": 6,
+    "mount->none:applied": 2,
+    "other->attack:set_aside_by_restriction": 2,
+    "other->investigation:applied": 1,
+    "other->mount:set_aside_by_restriction": 2,
+    "other->none:applied": 2
+   },
+   "tier1_windows": {
+    "identical_s0_s1": 23,
+    "same_label_on_identical_windows": 20,
+    "showcase": 85,
+    "test1_in_0_300": 86
+   }
+  },
+  "expert_mount_bouts_10fps": [
+   [
+    184,
+    195
+   ]
+  ],
+  "gaps_s": [
+   10.5,
+   3.1,
+   1.4,
+   0.4,
+   71.4,
+   1.4,
+   4.7,
+   8.0,
+   0.8,
+   6.4,
+   3.5
+  ],
+  "merged_counts": {
+   "gap_lt_0.5s": 11,
+   "gap_lt_1s": 10,
+   "gap_lt_2s": 8
+  },
+  "n_showcase_final_mount_bouts": 12,
+  "rules_only_mount_bouts_detail": [
+   {
+    "dur_s": 1.5,
+    "end_s": 3.1,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 16,
+    "s1": 31,
+    "start_s": 1.6,
+    "tier1_windows": [
+     {
+      "confidence": 0.96,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 16,
+      "s1": 31,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 1.2,
+    "end_s": 4.7,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 35,
+    "s1": 47,
+    "start_s": 3.5,
+    "tier1_windows": [
+     {
+      "confidence": 0.89,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 35,
+      "s1": 47,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.5,
+    "end_s": 9.2,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 87,
+    "s1": 92,
+    "start_s": 8.7,
+    "tier1_windows": [
+     {
+      "confidence": 0.93,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 87,
+      "s1": 92,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 9.0,
+    "end_s": 19.5,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 0.8777777777777778,
+     "mount": 0.12222222222222222,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 105,
+    "s1": 195,
+    "start_s": 10.5,
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 105,
+      "s1": 135,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.92,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 135,
+      "s1": 165,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.88,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 165,
+      "s1": 195,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 1.2,
+    "end_s": 21.4,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 202,
+    "s1": 214,
+    "start_s": 20.2,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 202,
+      "s1": 214,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.6,
+    "end_s": 32.5,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 319,
+    "s1": 325,
+    "start_s": 31.9,
+    "tier1_windows": [
+     {
+      "confidence": 0.93,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 319,
+      "s1": 325,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.5,
+    "end_s": 36.1,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 356,
+    "s1": 361,
+    "start_s": 35.6,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 356,
+      "s1": 361,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.5,
+    "end_s": 38.0,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 375,
+    "s1": 380,
+    "start_s": 37.5,
+    "tier1_windows": [
+     {
+      "confidence": 0.95,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 375,
+      "s1": 380,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 5.6,
+    "end_s": 44.0,
+    "expert_mix": {
+     "attack": 0.6607142857142857,
+     "investigation": 0.3392857142857143,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 384,
+    "s1": 440,
+    "start_s": 38.4,
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 384,
+      "s1": 414,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.88,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 414,
+      "s1": 440,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 3.0,
+    "end_s": 102.5,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 995,
+    "s1": 1025,
+    "start_s": 99.5,
+    "tier1_windows": [
+     {
+      "confidence": 0.82,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 995,
+      "s1": 1025,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 1.1,
+    "end_s": 105.6,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 1045,
+    "s1": 1056,
+    "start_s": 104.5,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 1045,
+      "s1": 1056,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 2.2,
+    "end_s": 117.6,
+    "expert_mix": {
+     "attack": 0.36363636363636365,
+     "investigation": 0.6363636363636364,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1154,
+    "s1": 1176,
+    "start_s": 115.4,
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1154,
+      "s1": 1176,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.7,
+    "end_s": 119.7,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1190,
+    "s1": 1197,
+    "start_s": 119.0,
+    "tier1_windows": [
+     {
+      "confidence": 0.84,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1190,
+      "s1": 1197,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.6,
+    "end_s": 125.0,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1244,
+    "s1": 1250,
+    "start_s": 124.4,
+    "tier1_windows": [
+     {
+      "confidence": 0.94,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1244,
+      "s1": 1250,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.5,
+    "end_s": 126.2,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 1257,
+    "s1": 1262,
+    "start_s": 125.7,
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 1257,
+      "s1": 1262,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 1.3,
+    "end_s": 134.3,
+    "expert_mix": {
+     "attack": 0.8461538461538461,
+     "investigation": 0.15384615384615385,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1330,
+    "s1": 1343,
+    "start_s": 133.0,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1330,
+      "s1": 1343,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.6,
+    "end_s": 135.7,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1351,
+    "s1": 1357,
+    "start_s": 135.1,
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 1351,
+      "s1": 1357,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 2.0,
+    "end_s": 144.1,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1421,
+    "s1": 1441,
+    "start_s": 142.1,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1421,
+      "s1": 1441,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 4.4,
+    "end_s": 152.0,
+    "expert_mix": {
+     "attack": 0.9090909090909091,
+     "investigation": 0.09090909090909091,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.0,
+     "mount": 1.0,
+     "other": 0.0
+    },
+    "s0": 1476,
+    "s1": 1520,
+    "start_s": 147.6,
+    "tier1_windows": [
+     {
+      "confidence": 0.95,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 1476,
+      "s1": 1506,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.96,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1506,
+      "s1": 1520,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.7,
+    "end_s": 239.8,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 2391,
+    "s1": 2398,
+    "start_s": 239.1,
+    "tier1_windows": [
+     {
+      "confidence": 0.9,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 2391,
+      "s1": 2398,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 2.0,
+    "end_s": 252.7,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 0.9,
+     "mount": 0.0,
+     "other": 0.1
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 1.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "s0": 2507,
+    "s1": 2527,
+    "start_s": 250.7,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 2507,
+      "s1": 2527,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 3.1,
+    "end_s": 282.5,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 0.9354838709677419,
+     "mount": 0.0,
+     "other": 0.06451612903225806
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.967741935483871,
+     "mount": 0.0,
+     "other": 0.03225806451612903
+    },
+    "s0": 2794,
+    "s1": 2825,
+    "start_s": 279.4,
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 2794,
+      "s1": 2824,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.92,
+      "decision": "applied",
+      "label": "none",
+      "rule_label": "mount",
+      "s0": 2824,
+      "s1": 2825,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 9.7,
+    "end_s": 294.3,
+    "expert_mix": {
+     "attack": 0.0,
+     "investigation": 0.9175257731958762,
+     "mount": 0.0,
+     "other": 0.08247422680412371
+    },
+    "final_mix": {
+     "attack": 0.0,
+     "investigation": 0.9278350515463918,
+     "mount": 0.0,
+     "other": 0.07216494845360824
+    },
+    "s0": 2846,
+    "s1": 2943,
+    "start_s": 284.6,
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 2846,
+      "s1": 2876,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.94,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 2876,
+      "s1": 2906,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.89,
+      "decision": "applied",
+      "label": "investigation",
+      "rule_label": "mount",
+      "s0": 2906,
+      "s1": 2936,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.65,
+      "decision": "applied",
+      "label": "none",
+      "rule_label": "mount",
+      "s0": 2936,
+      "s1": 2943,
+      "source": "rule"
+     }
+    ]
+   }
+  ],
+  "showcase_final_mount_bouts": [
+   {
+    "dur_s": 1.2,
+    "end_s": 21.4,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 202,
+    "s1": 214,
+    "start_s": 20.2,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 202,
+      "s1": 214,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.6,
+    "end_s": 32.5,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 319,
+    "s1": 325,
+    "start_s": 31.9,
+    "tier1_category": "set aside (tier-1 verdict not applied)",
+    "tier1_windows": [
+     {
+      "confidence": 0.93,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 319,
+      "s1": 325,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.5,
+    "end_s": 36.1,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 356,
+    "s1": 361,
+    "start_s": 35.6,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 356,
+      "s1": 361,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.5,
+    "end_s": 38.0,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 375,
+    "s1": 380,
+    "start_s": 37.5,
+    "tier1_category": "set aside (tier-1 verdict not applied)",
+    "tier1_windows": [
+     {
+      "confidence": 0.95,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 375,
+      "s1": 380,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 5.6,
+    "end_s": 44.0,
+    "expert_mix": {
+     "attack": 0.6607142857142857,
+     "investigation": 0.3392857142857143,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 384,
+    "s1": 440,
+    "start_s": 38.4,
+    "tier1_category": "other (mixed: agreed_with_rule, set_aside_by_restriction)",
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 384,
+      "s1": 414,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.88,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 414,
+      "s1": 440,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 2.2,
+    "end_s": 117.6,
+    "expert_mix": {
+     "attack": 0.36363636363636365,
+     "investigation": 0.6363636363636364,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1154,
+    "s1": 1176,
+    "start_s": 115.4,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1154,
+      "s1": 1176,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.7,
+    "end_s": 119.7,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1190,
+    "s1": 1197,
+    "start_s": 119.0,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.84,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1190,
+      "s1": 1197,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.6,
+    "end_s": 125.0,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1244,
+    "s1": 1250,
+    "start_s": 124.4,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.94,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1244,
+      "s1": 1250,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 1.3,
+    "end_s": 134.3,
+    "expert_mix": {
+     "attack": 0.8461538461538461,
+     "investigation": 0.15384615384615385,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1330,
+    "s1": 1343,
+    "start_s": 133.0,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1330,
+      "s1": 1343,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 0.6,
+    "end_s": 135.7,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1351,
+    "s1": 1357,
+    "start_s": 135.1,
+    "tier1_category": "set aside (tier-1 verdict not applied)",
+    "tier1_windows": [
+     {
+      "confidence": 0.92,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 1351,
+      "s1": 1357,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 2.0,
+    "end_s": 144.1,
+    "expert_mix": {
+     "attack": 1.0,
+     "investigation": 0.0,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1421,
+    "s1": 1441,
+    "start_s": 142.1,
+    "tier1_category": "confirmed (tier 1 also said mount)",
+    "tier1_windows": [
+     {
+      "confidence": 0.88,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1421,
+      "s1": 1441,
+      "source": "rule"
+     }
+    ]
+   },
+   {
+    "dur_s": 4.4,
+    "end_s": 152.0,
+    "expert_mix": {
+     "attack": 0.9090909090909091,
+     "investigation": 0.09090909090909091,
+     "mount": 0.0,
+     "other": 0.0
+    },
+    "rules_only_all_mount": true,
+    "s0": 1476,
+    "s1": 1520,
+    "start_s": 147.6,
+    "tier1_category": "other (mixed: agreed_with_rule, set_aside_by_restriction)",
+    "tier1_windows": [
+     {
+      "confidence": 0.95,
+      "decision": "set_aside_by_restriction",
+      "label": "attack",
+      "rule_label": "mount",
+      "s0": 1476,
+      "s1": 1506,
+      "source": "rule"
+     },
+     {
+      "confidence": 0.96,
+      "decision": "agreed_with_rule",
+      "label": "mount",
+      "rule_label": "mount",
+      "s0": 1506,
+      "s1": 1520,
+      "source": "rule"
+     }
+    ]
+   }
+  ],
+  "showcase_rules_only_mount_bouts": 23,
+  "test1_zs_rules_mount_bouts_0_300": 25,
+  "test1_zs_t1_merged_counts": {
+   "gap_lt_0.5s": 11,
+   "gap_lt_1s": 11,
+   "gap_lt_2s": 8
+  },
+  "test1_zs_t1_mount_bouts_0_300": 11,
+  "test1_zs_t1_mount_bouts_list": [
+   [
+    182,
+    193
+   ],
+   [
+    203,
+    214
+   ],
+   [
+    319,
+    326
+   ],
+   [
+    356,
+    362
+   ],
+   [
+    375,
+    435
+   ],
+   [
+    1155,
+    1178
+   ],
+   [
+    1191,
+    1197
+   ],
+   [
+    1245,
+    1250
+   ],
+   [
+    1331,
+    1342
+   ],
+   [
+    1422,
+    1441
+   ],
+   [
+    1476,
+    1520
+   ]
+  ]
+ },
+ "rule": {
+  "far_below_average": true,
+  "metric": "live-run final labels, macro F1 0-300 s, 30 fps (displayed result)",
+  "replacement_if_far_below": {
+   "candidate_windows": [
+    {
+     "attack_frames": 1330,
+     "start_s": 0
+    },
+    {
+     "attack_frames": 1174,
+     "start_s": 60
+    },
+    {
+     "attack_frames": 993,
+     "start_s": 120
+    },
+    {
+     "attack_frames": 768,
+     "start_s": 180
+    },
+    {
+     "attack_frames": 768,
+     "start_s": 240
+    },
+    {
+     "attack_frames": 768,
+     "start_s": 300
+    }
+   ],
+   "candidates": [
+    {
+     "attack_frames": 2098,
+     "dist_to_median": 0.0,
+     "macro": 0.506128245867446,
+     "seq": "mouse077_task1_annotator1"
+    },
+    {
+     "attack_frames": 3321,
+     "dist_to_median": 0.004445693986803945,
+     "macro": 0.5105739398542499,
+     "seq": "mouse076_task1_annotator1"
+    },
+    {
+     "attack_frames": 685,
+     "dist_to_median": 0.030228847639615974,
+     "macro": 0.536357093507062,
+     "seq": "mouse079_task1_annotator1"
+    },
+    {
+     "attack_frames": 1920,
+     "dist_to_median": 0.04105554897728558,
+     "macro": 0.4650726968901604,
+     "seq": "mouse075_task1_annotator1"
+    },
+    {
+     "attack_frames": 4606,
+     "dist_to_median": 0.12863364399793664,
+     "macro": 0.37749460186950934,
+     "seq": "mouse078_task1_annotator1"
+    }
+   ],
+   "seq": "mouse077_task1_annotator1",
+   "whole_video_f1": {
+    "attack": 0.6720282463711259,
+    "investigation": 0.34022824536376606,
+    "mount": 0.0
+   },
+   "whole_video_gt_frames": {
+    "attack": 2098,
+    "investigation": 1649,
+    "mount": 0
+   },
+   "whole_video_present_macro": 0.506128245867446,
+   "window_expert_bouts_all": {
+    "attack": 20,
+    "investigation": 42,
+    "mount": 0
+   },
+   "window_expert_bouts_min_0p5s": {
+    "attack": 18,
+    "investigation": 25,
+    "mount": 0
+   },
+   "window_expert_frames": {
+    "attack": 1330,
+    "investigation": 1066,
+    "mount": 0
+   },
+   "window_f1": {
+    "attack": {
+     "f1": 0.6831385642737896,
+     "fn": 307,
+     "fp": 642,
+     "gt_frames": 1330,
+     "precision": 0.6144144144144145,
+     "pred_frames": 1665,
+     "recall": 0.7691729323308271,
+     "tp": 1023
+    },
+    "investigation": {
+     "f1": 0.4138309549945115,
+     "fn": 689,
+     "fp": 379,
+     "gt_frames": 1066,
+     "precision": 0.49867724867724866,
+     "pred_frames": 756,
+     "recall": 0.35365853658536583,
+     "tp": 377
+    },
+    "macro": 0.36565650642276704,
+    "mount": {
+     "f1": 0.0,
+     "fn": 0,
+     "fp": 258,
+     "gt_frames": 0,
+     "precision": 0.0,
+     "pred_frames": 258,
+     "recall": 0.0,
+     "tp": 0
+    }
+   },
+   "window_frames": [
+    0,
+    9000
+   ],
+   "window_present_macro": 0.5484847596341506,
+   "window_s": [
+    0,
+    300
+   ]
+  },
+  "replacement_informational_only": true,
+  "replacement_note": "Informational for a non-showcase run: the rule chose the showcase clip on 2026-10-30 and is not re-applied here. replacement_proposed only says whether this run's macro F1 is below the 25th percentile; any change of clip is Aniket's call (DEMO_PLAN live-run step 3: flag it before step 4).",
+  "replacement_proposed": true,
+  "rules_only_macro_vs_p25": true,
+  "same_outcome_under_all_p25_definitions": true,
+  "showcase_macro": 0.43755827432136235,
+  "threshold_definition": "numpy linear (default)",
+  "threshold_p25": 0.46503466099294855
+ },
+ "run_id": "analysis-test-20261102T204608Z-fc544e",
+ "showcase": {
+  "final": {
+   "attack": {
+    "f1": 0.569549822964087,
+    "fn": 724,
+    "fp": 127,
+    "gt_frames": 1287,
+    "precision": 0.8159420289855073,
+    "pred_frames": 690,
+    "recall": 0.43745143745143744,
+    "tp": 563
+   },
+   "investigation": {
+    "f1": 0.743125,
+    "fn": 590,
+    "fp": 232,
+    "gt_frames": 1779,
+    "precision": 0.8367346938775511,
+    "pred_frames": 1421,
+    "recall": 0.6683530073074762,
+    "tp": 1189
+   },
+   "macro": 0.43755827432136235,
+   "mount": {
+    "f1": 0.0,
+    "fn": 33,
+    "fp": 606,
+    "gt_frames": 33,
+    "precision": 0.0,
+    "pred_frames": 606,
+    "recall": 0.0,
+    "tp": 0
+   }
+  },
+  "rules_only": {
+   "attack": {
+    "f1": 0.598791259879126,
+    "fn": 643,
+    "fp": 220,
+    "gt_frames": 1287,
+    "precision": 0.7453703703703703,
+    "pred_frames": 864,
+    "recall": 0.5003885003885004,
+    "tp": 644
+   },
+   "investigation": {
+    "f1": 0.3116994022203245,
+    "fn": 1414,
+    "fp": 198,
+    "gt_frames": 1779,
+    "precision": 0.6483126110124334,
+    "pred_frames": 563,
+    "recall": 0.20517144463181564,
+    "tp": 365
+   },
+   "macro": 0.3167638857081087,
+   "mount": {
+    "f1": 0.03980099502487562,
+    "fn": 1,
+    "fp": 1543,
+    "gt_frames": 33,
+    "precision": 0.020317460317460317,
+    "pred_frames": 1575,
+    "recall": 0.9696969696969697,
+    "tp": 32
+   }
+  }
+ },
+ "showcase_10fps_crosscheck": {
+  "final": {
+   "attack": {
+    "f1": 0.5662100456621004,
+    "fn": 241,
+    "fp": 44,
+    "gt_frames": 427,
+    "precision": 0.808695652173913,
+    "pred_frames": 230,
+    "recall": 0.43559718969555034,
+    "tp": 186
+   },
+   "investigation": {
+    "f1": 0.7410881801125704,
+    "fn": 197,
+    "fp": 79,
+    "gt_frames": 592,
+    "precision": 0.8333333333333334,
+    "pred_frames": 474,
+    "recall": 0.6672297297297297,
+    "tp": 395
+   },
+   "macro": 0.4357660752582236,
+   "mount": {
+    "f1": 0.0,
+    "fn": 11,
+    "fp": 202,
+    "gt_frames": 11,
+    "precision": 0.0,
+    "pred_frames": 202,
+    "recall": 0.0,
+    "tp": 0
+   }
+  },
+  "rules_only": {
+   "attack": {
+    "f1": 0.5958041958041959,
+    "fn": 214,
+    "fp": 75,
+    "gt_frames": 427,
+    "precision": 0.7395833333333334,
+    "pred_frames": 288,
+    "recall": 0.49882903981264637,
+    "tp": 213
+   },
+   "investigation": {
+    "f1": 0.3128205128205128,
+    "fn": 470,
+    "fp": 66,
+    "gt_frames": 592,
+    "precision": 0.648936170212766,
+    "pred_frames": 188,
+    "recall": 0.20608108108108109,
+    "tp": 122
+   },
+   "macro": 0.3165564949147039,
+   "mount": {
+    "f1": 0.041044776119402986,
+    "fn": 0,
+    "fp": 514,
+    "gt_frames": 11,
+    "precision": 0.02095238095238095,
+    "pred_frames": 525,
+    "recall": 1.0,
+    "tp": 11
+   }
+  }
+ },
+ "source": {
+  "cost": {
+   "by_stage": {
+    "plan": 0.032074,
+    "report": 0.007667,
+    "tier1": 0.255595,
+    "track": 0.6
+   },
+   "ledger_usd": 0.8953439999999998,
+   "total_usd": 0.895336
+  },
+  "created": "2026-11-02T20:40:30+00:00",
+  "dir": "data/app_nov2/jobs/j46d77dd8aee9",
+  "labels_files": {
+   "detectors.json": "data/app_nov2/jobs/j46d77dd8aee9/detectors.json",
+   "labels.npz": "data/app_nov2/jobs/j46d77dd8aee9/labels.npz",
+   "labels_rules.npz": "data/app_nov2/jobs/j46d77dd8aee9/labels_rules.npz",
+   "result.json": "data/app_nov2/jobs/j46d77dd8aee9/result.json",
+   "verdicts.jsonl": "data/app_nov2/jobs/j46d77dd8aee9/verdicts.jsonl"
+  },
+  "packaged_from": null,
+  "result_id": "j46d77dd8aee9",
+  "result_kind": "job",
+  "revisions_present_not_scored": [],
+  "stages": [
+   {
+    "cost_usd": 0.0,
+    "elapsed_s": 27.44,
+    "message": "300.0 s, 1024x570, h264; 3000 samples at 10 fps; estimated cost $2.03 (cap check passed)",
+    "name": "validate",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.032074,
+    "elapsed_s": 27.29,
+    "message": "SAM phrase \"mouse\", expecting 2 animals (intensity identity)",
+    "name": "plan",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.6,
+    "elapsed_s": 39.44,
+    "message": "3000 samples; both animals found in 100% of them; 39 s (0.13x real time)",
+    "name": "track",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.0,
+    "elapsed_s": 0.58,
+    "message": "3/3 detectors passed the sandbox (3 reused, 0 written now)",
+    "name": "synthesize",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.0,
+    "elapsed_s": 0.64,
+    "message": "rule bouts: attack 20, investigation 22, mount 23",
+    "name": "predict",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.255595,
+    "elapsed_s": 51.46,
+    "message": "85 windows judged; 445 samples (44.5 s) relabeled",
+    "name": "tier1",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.007667,
+    "elapsed_s": 5.97,
+    "message": "ethogram, metrics, methods paragraph and audit trail written",
+    "name": "report",
+    "status": "done"
+   },
+   {
+    "cost_usd": 0.0,
+    "elapsed_s": 41.72,
+    "message": "3000 frames, H.264",
+    "name": "overlay",
+    "status": "done"
+   }
+  ],
+  "timing": {
+   "complete": true,
+   "stage_sum_s": 194.54,
+   "video_s": 300.0,
+   "wall_s": 188.64,
+   "x_realtime": 0.629
+  },
+  "version_scored": 0,
+  "video": {
+   "duration_s": 300.0,
+   "fps": 30.0,
+   "frames": 9000,
+   "height": 570,
+   "name": "mouse075_0-300s_h264.mp4",
+   "size_bytes": 71132282,
+   "width": 1024
+  },
+  "video_matches_packaged_showcase": {
+   "duration_s": true,
+   "fps": true,
+   "frames": true,
+   "height": true,
+   "name": false,
+   "size_bytes": true,
+   "width": true
+  },
+  "warnings": []
+ },
+ "test1_mouse075": {
+  "zs_rules": {
+   "whole_video": {
+    "attack": {
+     "f1": 0.6112035496394898,
+     "fn": 818,
+     "fp": 584,
+     "gt_frames": 1920,
+     "precision": 0.6536180308422301,
+     "pred_frames": 1686,
+     "recall": 0.5739583333333333,
+     "tp": 1102
+    },
+    "investigation": {
+     "f1": 0.2608098833218943,
+     "fn": 1920,
+     "fp": 234,
+     "gt_frames": 2300,
+     "precision": 0.6188925081433225,
+     "pred_frames": 614,
+     "recall": 0.16521739130434782,
+     "tp": 380
+    },
+    "macro": 0.2993857412703524,
+    "mount": {
+     "f1": 0.026143790849673203,
+     "fn": 7,
+     "fp": 1930,
+     "gt_frames": 33,
+     "precision": 0.013292433537832311,
+     "pred_frames": 1956,
+     "recall": 0.7878787878787878,
+     "tp": 26
+    }
+   },
+   "window_0_300": {
+    "attack": {
+     "f1": 0.5662878787878788,
+     "fn": 689,
+     "fp": 227,
+     "gt_frames": 1287,
+     "precision": 0.7248484848484849,
+     "pred_frames": 825,
+     "recall": 0.46464646464646464,
+     "tp": 598
+    },
+    "investigation": {
+     "f1": 0.30090012858979853,
+     "fn": 1428,
+     "fp": 203,
+     "gt_frames": 1779,
+     "precision": 0.6335740072202166,
+     "pred_frames": 554,
+     "recall": 0.1973018549747049,
+     "tp": 351
+    },
+    "macro": 0.2994918708908343,
+    "mount": {
+     "f1": 0.031287605294825514,
+     "fn": 7,
+     "fp": 1603,
+     "gt_frames": 33,
+     "precision": 0.01596071209330878,
+     "pred_frames": 1629,
+     "recall": 0.7878787878787878,
+     "tp": 26
+    }
+   }
+  },
+  "zs_t1": {
+   "whole_video": {
+    "attack": {
+     "f1": 0.6223055295220243,
+     "fn": 924,
+     "fp": 285,
+     "gt_frames": 1920,
+     "precision": 0.7775175644028103,
+     "pred_frames": 1281,
+     "recall": 0.51875,
+     "tp": 996
+    },
+    "investigation": {
+     "f1": 0.699466233464841,
+     "fn": 793,
+     "fp": 502,
+     "gt_frames": 2300,
+     "precision": 0.7501244400199104,
+     "pred_frames": 2009,
+     "recall": 0.6552173913043479,
+     "tp": 1507
+    },
+    "macro": 0.4650726968901604,
+    "mount": {
+     "f1": 0.07344632768361582,
+     "fn": 7,
+     "fp": 649,
+     "gt_frames": 33,
+     "precision": 0.03851851851851852,
+     "pred_frames": 675,
+     "recall": 0.7878787878787878,
+     "tp": 26
+    }
+   },
+   "window_0_300": {
+    "attack": {
+     "f1": 0.5282620179609087,
+     "fn": 787,
+     "fp": 106,
+     "gt_frames": 1287,
+     "precision": 0.8250825082508251,
+     "pred_frames": 606,
+     "recall": 0.3885003885003885,
+     "tp": 500
+    },
+    "investigation": {
+     "f1": 0.7544378698224852,
+     "fn": 504,
+     "fp": 326,
+     "gt_frames": 1779,
+     "precision": 0.7963772642098689,
+     "pred_frames": 1601,
+     "recall": 0.7166947723440135,
+     "tp": 1275
+    },
+    "macro": 0.45456559083953213,
+    "mount": {
+     "f1": 0.08099688473520249,
+     "fn": 7,
+     "fp": 583,
+     "gt_frames": 33,
+     "precision": 0.042692939244663386,
+     "pred_frames": 609,
+     "recall": 0.7878787878787878,
+     "tp": 26
+    }
+   }
+  }
+ },
+ "test_averages": {
+  "per_video_macro": {
+   "mean": 0.5512547114848797,
+   "median": 0.506128245867446,
+   "n": 19,
+   "p25_higher": 0.4650726968901604,
+   "p25_linear": 0.46503466099294855,
+   "p25_lower": 0.46499662509573664,
+   "p25_nearest_rank": 0.46499662509573664,
+   "sorted": [
+    [
+     "mouse078_task1_annotator1",
+     0.37749460186950934
+    ],
+    [
+     "mouse087_task1_annotator1",
+     0.4469172735382803
+    ],
+    [
+     "mouse086_task1_annotator1",
+     0.44775844720052616
+    ],
+    [
+     "mouse081_task1_annotator1",
+     0.4481751824817518
+    ],
+    [
+     "mouse088_task1_annotator1",
+     0.46499662509573664
+    ],
+    [
+     "mouse075_task1_annotator1",
+     0.4650726968901604
+    ],
+    [
+     "mouse083_task1_annotator1",
+     0.47833982961374244
+    ],
+    [
+     "mouse084_task1_annotator1",
+     0.4985219982811282
+    ],
+    [
+     "mouse082_task1_annotator1",
+     0.5017185144845452
+    ],
+    [
+     "mouse077_task1_annotator1",
+     0.506128245867446
+    ],
+    [
+     "mouse076_task1_annotator1",
+     0.5105739398542499
+    ],
+    [
+     "mouse079_task1_annotator1",
+     0.536357093507062
+    ],
+    [
+     "mouse089_task1_annotator1",
+     0.5981781731586724
+    ],
+    [
+     "mouse080_task1_annotator1",
+     0.6323787386944899
+    ],
+    [
+     "mouse085_task1_annotator1",
+     0.6333273307522235
+    ],
+    [
+     "mouse074_task1_annotator1",
+     0.6872538158898158
+    ],
+    [
+     "mouse073_task1_annotator1",
+     0.690167803406305
+    ],
+    [
+     "mouse071_task1_annotator1",
+     0.7122895576948172
+    ],
+    [
+     "mouse072_task1_annotator1",
+     0.8381896499322532
+    ]
+   ]
+  },
+  "pooled_zs_t1": {
+   "attack": 0.44926916400412586,
+   "investigation": 0.6349847073049292,
+   "macro": 0.580027319907542,
+   "mount": 0.6558280884135709
+  }
+ }
+}

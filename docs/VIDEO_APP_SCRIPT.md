@@ -12,9 +12,9 @@ Rules this script follows:
   behind cards, title styling, transitions.
 - **Every number on screen** comes from a committed file; the table at the end lists each one. Approved wording
   and footnotes are unchanged.
-- **Live-run numbers are "FILL AFTER THE NOV 2 LIVE RUN"** (DEMO_PLAN, "Live-run order of operations"): record the
-  live run, recompute its score with `eval/showcase_check.py`, update the voice-over line and captions, then record
-  the final voice-over.
+- **Live-run numbers are filled from the Nov 2 live run** (job j46d77dd8aee9; DEMO_PLAN, "Live-run order of operations"): recorded
+  headless on Nov 2, scored with `eval/showcase_check.py` (0.44), voice-over line and captions updated; Aniket records
+  the final voice-over on Nov 3.
 
 Global notes for the app:
 - 1920x1080, 30 fps. Captions burned in from `docs/demo_captions_v5.srt` (retime to the real voice-over): white,
@@ -84,7 +84,7 @@ drawn as an ethogram timeline, from `data/demo/expert_mouse075_task1_annotator1.
 
 ---
 
-## Scene 3: Live run (0:35-1:04): numbers FILL AFTER THE NOV 2 LIVE RUN
+## Scene 3: Live run (0:35-1:04): the Nov 2 live run (job j46d77dd8aee9)
 
 **Voice-over**
 > This is a test video Etho was never tuned on. I paste the dataset authors' own definitions of attack,
@@ -103,7 +103,7 @@ Waits are cut and tagged "time skipped". If the live run fails on the day, use t
 
 **On-screen text**
 - The app's own UI text, and a "time skipped" tag at each cut.
-- Wall-clock time, total cost and per-stage numbers: **FILL AFTER THE NOV 2 LIVE RUN**. These are whatever the
+- Wall-clock time, total cost and per-stage numbers from the Nov 2 live run (job j46d77dd8aee9): 3:08 end to end for 5:00 of video (0.63× real time), $0.90 (plan $0.032, track $0.60, tier-1 $0.256, report $0.008); the ledger total is $0.8953. These are whatever the
   recorded run's timing card shows. The stand-in shows the showcase run, 2:09 and $0.89, from
   `data/showcase/calms21-mouse075-live/result.json`.
 
@@ -150,7 +150,7 @@ Waits are cut and tagged "time skipped". If the live run fails on the day, use t
 ## Scene 5: Results and the traced error (1:21-1:50)
 
 **Voice-over**
-> Here's Etho beside the expert's labels. This is one of the harder clips: 0.42 here, against 0.58 across all 19
+> Here's Etho beside the expert's labels. This is one of the harder clips: 0.44 here, against 0.58 across all 19
 > test videos. Here, mount is where it struggles most. Every label is traceable, including the mistakes. At thirty-eight
 > seconds, Etho says mount; the expert says attack. The frame check answered "attack", but a rule in the cascade
 > set it aside, and the trace shows exactly which step. No label goes unexplained.
@@ -163,21 +163,21 @@ Waits are cut and tagged "time skipped". If the live run fails on the day, use t
   `data/video/capture/trace.mp4`; the full capture is `trace_full.mp4`.
 
 **On-screen text**
-- Badge: "this clip 0.42 · all 19 test videos 0.58". Second line: "all 19, per behavior: attack 0.449 · investigation
+- Badge: "this clip 0.44 · all 19 test videos 0.58". Second line: "all 19, per behavior: attack 0.449 · investigation
   0.635 · mount 0.656".
 - Zoom labels "Etho: mount", "Expert: attack"; time axis 0:34-0:48.
 - Trace panel, the app's own text:
   - "Trace: mount 0:37.5 to 0:38.0 (original rules)";
-  - "SET ASIDE BY THE RESTRICTION · window 37.5-38.0 s: rules said 'mount', tier 1 said 'attack' (confidence 0.96)";
+  - "SET ASIDE BY THE RESTRICTION · window 37.5-38.0 s: rules said 'mount', tier 1 said 'attack' (confidence 0.95)" (Nov 2 live run; the showcase run shows 0.96);
   - "Decided by: Rules".
-- **0.42 and the trace: CONFIRM AFTER THE NOV 2 LIVE RUN.** They belong to the showcase run. If the video shows the
+- **Confirmed for the Nov 2 live run (job j46d77dd8aee9):** 0.44, and the 37.5-38.0 s bout's verdict is tier 1 "attack" (0.95), set aside, matching the line. They belong to the showcase run. If the video shows the
   Nov 2 run, recompute with `eval/showcase_check.py`, re-render the badge, and re-check that the traced bout's first
   verdict matches the line (DEMO_PLAN, live-run step 3).
 
 **Transition:** 0.5 s crossfade, animation to trace recording.
 
 **Notes for the app**
-- Hold the badge for the whole "0.42 here, against 0.58" sentence.
+- Hold the badge for the whole "0.44 here, against 0.58" sentence.
 - On "At thirty-eight seconds", hold the zoom on the gold box.
 - In the trace recording, zoom to about 1.3x on the amber "SET ASIDE BY THE RESTRICTION" row, and keep "Decided by:
   Rules" in frame. Captions must not cover it, so move the caption up for this shot or crop the recording.
@@ -337,7 +337,7 @@ on (the link at top right); page zoom 140%; hide bookmarks and extensions; curso
 4. **Browser setup (Mac, 5 min).**
    - Window 1920x1080, presentation mode, zoom 140%.
    - Open `https://<live URL>/p/sc-calms21-mouse075-live`.
-5. **R2, trace (Mac, 10 min).** Do two takes. Check that the panel reads "tier 1 said 'attack' (confidence 0.96)" and
+5. **R2, trace (Mac, 10 min).** Do two takes. Check that the panel reads "tier 1 said 'attack' (confidence 0.95)" on the live-run project (0.96 on the showcase) and
    "Decided by: Rules".
 6. **R3, correction (Mac, 5 min),** on the same page. Do two takes.
 7. **R4, optional editor code (Mac, 10 min).**
@@ -366,10 +366,10 @@ on (the link at top right); page zoom 140%; hide bookmarks and extensions; curso
 | 0.88× real time, worst 1.54× | 7 | `eval/results/test1_report.md` §11.3 (pooled 0.8777×, max 1.5421×), §11.1 speed line |
 | Manual scoring 3-4× (Segalin et al. 2021) | 7 | `eval/results/test1_report.md` §11.1 speed line; DEMO_PLAN sources table |
 | $11.25 per hour of video | 7 | `eval/results/test1_report.md` §11.1 cost line |
-| this clip 0.42 | 5 | `eval/results/showcase_mouse075_check.json` (showcase.final.macro); **confirm after the Nov 2 live run** |
-| Trace: 37.5-38.0 s, tier 1 "attack" (confidence 0.96), set aside, decided by rules | 5 | `data/showcase/calms21-mouse075-live/verdicts.jsonl` (app trace endpoint); bout table in `eval/results/showcase_mouse075_check.md` §5; **confirm after the Nov 2 live run** |
+| this clip 0.44 | 5 | `eval/results/live_run_nov2_check.json` (showcase.final.macro 0.4376, the Nov 2 live run) |
+| Trace: 37.5-38.0 s, tier 1 "attack" (confidence 0.95 in the Nov 2 live run; 0.96 in the showcase run), set aside, decided by rules | 5 | `eval/results/live_run_nov2_check.json` (mount_fragments); job `data/app_nov2/jobs/j46d77dd8aee9/verdicts.jsonl` |
 | Traced error 37.5-44.0 s (Etho mount, expert attack) | 5 | `eval/results/showcase_mouse075_check.md` §5 |
-| Live-run wall time, cost, stage timings | 3 | **FILL AFTER THE NOV 2 LIVE RUN** (the recorded job's `result.json`); stand-in 2:09 / $0.89 from `data/showcase/calms21-mouse075-live/result.json` |
+| Live-run wall time 3:08, 0.63×, $0.90 and stage costs | 3 | `data/app_nov2/jobs/j46d77dd8aee9/result.json` (gitignored job dir); ledger `ops/spend.jsonl` rows `job:j46d77dd8aee9` = $0.8953 |
 | pytest count | 4 | a real `uv run pytest` run on Nov 2 (shot 2), recorded in DEMO_PLAN's sources table |
 | Commit dates | 4 | `git log` |
 | SAM 3.1, Muse Spark 1.3, Muse Spark Open (roles) | 4, 9 | `docs/architecture.svg`; CLAUDE.md model table |
