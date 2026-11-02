@@ -2,10 +2,9 @@
 
     python video/capture/cut_live_run.py [--raw RAW] [--out OUT]
 
-Segments follow docs/VIDEO_APP_SCRIPT.md scene 3. Raw timestamps below were read off the recording itself (frame
+Segments follow docs/VIDEO_APP_SCRIPT.md scene 3, in the order the run happened (no backward cut). Raw timestamps below were read off the recording itself (frame
 contact sheets), not from log times. Every cut that skips time gets a "time skipped" tag for 1 s, showing how much of
-the raw recording was skipped. The one backward cut (the progress page, last seconds of the run) is tagged as such,
-because nothing is skipped there. The cut list is written next to the output as live_run.cut.json.
+the raw recording was skipped. The cut list is written next to the output as live_run.cut.json.
 """
 from __future__ import annotations
 
@@ -21,10 +20,10 @@ TAG_S = 1.0
 # (label, raw_in, raw_out)
 SEGMENTS = [
     ("paste: attack definition cleared, then pasted", 20.2, 21.7),
-    ("upload picked, cost estimate, Score clicked, run clock starts", 45.0, 48.5),
+    ("upload picked, cost estimate, Score clicked, run clock starts", 45.5, 48.5),
+    ("progress page, last seconds of the run (clock 3:05 to 3:08)", 232.9, 236.4),
     ("planner card (phrases proposed, CHOSEN one)", 241.8, 248.8),
     ("overlay playing, both mice tracked, close contact at about 0:05", 252.6, 261.6),
-    ("progress page, last seconds of the run (clock 3:05 to 3:08)", 233.1, 236.1),
     ("per-stage timing and cost card", 265.5, 270.5),
 ]
 TOTAL_S = 29.0

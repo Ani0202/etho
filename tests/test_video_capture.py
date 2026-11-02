@@ -90,8 +90,10 @@ cut = _load("cut_live_run")
 def test_cut_is_29_seconds_and_tagged_at_every_skip():
     cl = cut.cut_list()
     assert cl["total_s"] == cut.TOTAL_S == 29.0
-    assert [r["tag"] for r in cl["segments"]] == [None, "time skipped 0:23", "time skipped 3:13", "time skipped 0:04",
-                                                  "earlier in the run", "time skipped 0:04"]
+    assert [r["tag"] for r in cl["segments"]] == [None, "time skipped 0:24", "time skipped 3:04", "time skipped 0:05",
+                                                  "time skipped 0:04", "time skipped 0:04"]
+    raw_in = [r["raw_in"] for r in cl["segments"]]
+    assert raw_in == sorted(raw_in)                               # chronological: no backward cut
     assert all(r["raw_out"] <= 271.7 and r["raw_in"] >= 0 for r in cl["segments"])
     ends = [r["out_out"] for r in cl["segments"]]
     assert ends == sorted(ends)
