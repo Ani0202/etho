@@ -143,9 +143,8 @@ def resolve(beat: T.Beat, label: str, ref: str, dur: float) -> Piece:
         return Piece(beat.key, label, C.OUT / "results_beat.mp4", dur, True, "results_beat.mp4")
     if ref == "arch":
         png = C.CARDS / "architecture.png"
-        svg = (C.ROOT / "docs" / "architecture.svg").read_text(encoding="utf-8")
-        svg = re.sub(r"<\?xml[^>]*\?>", "", svg)
-        C.html_to_png(f"<!doctype html><meta charset=utf-8><body style='margin:0;background:#fff'>{svg}</body>", png)
+        from video.cards import architecture_html
+        C.html_to_png(architecture_html(), png)
         return Piece(beat.key, label, png, dur, True, "docs/architecture.svg (rendered)")
     raise KeyError(ref)
 

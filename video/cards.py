@@ -31,7 +31,7 @@ body{{background:radial-gradient(1400px 900px at 18% 8%,#1b1c20 0%,{C.PAGE} 70%)
 .h1{{font-weight:700;font-size:78px;line-height:1.1}}
 .body{{font-size:48px;line-height:1.3;color:{C.TEXT2}}}
 .muted{{color:{C.MUTED}}}
-.foot{{font-size:36px;line-height:1.3;color:{C.MUTED}}}
+.foot{{font-size:34px;line-height:1.25;color:{C.MUTED}}}
 .sw{{display:inline-block;width:34px;height:34px;border-radius:7px;margin-right:16px;vertical-align:-3px}}
 .tile{{position:absolute;background:{C.SURFACE};border:2px solid {C.LINE};border-radius:26px;padding:30px 40px}}
 sup{{font-size:.55em;vertical-align:.6em}}
@@ -52,19 +52,19 @@ def title_html(N: Numbers) -> str:
     foot = H.escape(N.s("footnote_text"))
     return page(f"""
 <div class=brand><i></i>ETHO</div>
-<div class=abs style='left:80px;top:130px;font-weight:700;font-size:260px;line-height:1;
+<div class=abs style='left:80px;top:100px;font-weight:700;font-size:240px;line-height:1;
 letter-spacing:-.02em'>Etho</div>
-<div class=abs style='left:92px;top:410px;font-weight:700;font-size:92px;color:{C.ACCENT}'>Push the Frontier</div>
-<div class=abs style='left:92px;top:540px;width:1700px;font-size:56px;line-height:1.25;color:{C.TEXT}'>
+<div class=abs style='left:92px;top:350px;font-weight:700;font-size:84px;color:{C.ACCENT}'>Push the Frontier</div>
+<div class=abs style='left:92px;top:470px;width:1700px;font-size:52px;line-height:1.25;color:{C.TEXT}'>
  Zero-shot animal behavior scoring: write the behaviors in plain English, get a scored ethogram.</div>
-<div class=abs style='left:92px;top:690px;width:1700px;font-size:44px;line-height:1.3;color:{C.TEXT2}'>
+<div class=abs style='left:92px;top:620px;width:1700px;font-size:44px;line-height:1.3;color:{C.TEXT2}'>
  <b style='color:{C.TEXT}'>Training-free</b>&sup1;: {head}</div>
-<div class=abs style='left:92px;top:820px;width:1700px' ><div class=foot>&sup1; {foot}</div></div>
+<div class=abs style='left:92px;top:745px;width:1700px' ><div class=foot>&sup1; {foot}</div></div>
 """)
 
 
 # ------------------------------------------------------------------------------------------------------ who
-WHO_ROWS = dict(x0=360, x1=1820, y0=330, row_h=84, gap=44)
+WHO_ROWS = dict(x0=360, x1=1820, y0=320, row_h=80, gap=36)
 
 
 def who_rows() -> draw.Rows:
@@ -90,7 +90,7 @@ def who_html(N: Numbers) -> str:
 {labels}{ticks}
 <div class=abs style='left:80px;top:{r.bottom + 100}px;width:1760px;font-size:44px;color:{C.TEXT}'>
  Etho needs one sentence per behavior.</div>
-<div class=abs style='left:80px;top:{r.bottom + 170}px;font-size:36px;color:{C.MUTED}'>{H.escape(C.CREDIT_CARD)}</div>
+<div class=abs style='left:80px;top:{r.bottom + 160}px;font-size:36px;color:{C.MUTED}'>{H.escape(C.CREDIT_CARD)}</div>
 """)
 
 
@@ -143,18 +143,18 @@ def evidence_html(N: Numbers) -> str:
     sub = f"font-size:44px;color:{C.TEXT2};line-height:1.25"
     return page(f"""
 <div class=brand style='top:30px'><i></i>ETHO</div>
-<div class=tile style='left:60px;top:110px;width:1190px;height:390px'>
+<div class=tile style='left:60px;top:96px;width:1190px;height:360px;padding-top:22px'>
  <div style='{lab}'>Etho, macro F1, no training&sup1;</div>
- <div style='display:flex;align-items:center;gap:30px;margin-top:30px'>
+ <div style='display:flex;align-items:center;gap:30px;margin-top:20px'>
   <div style='font-size:200px;font-weight:700;line-height:1;color:{C.ACCENT}'>{N.s('macro_f1')}</div>
   <div style='flex:1'>{chips}</div></div></div>
-<div class=tile style='left:1280px;top:110px;width:580px;height:390px'>
+<div class=tile style='left:1280px;top:96px;width:580px;height:360px;padding-top:22px'>
  <div style='{lab}'>Supervised, trained on labeled data and pose keypoints</div>
  <div style='font-size:86px;font-weight:700;line-height:1.1;margin-top:16px;color:{C.MUTED};
 white-space:nowrap'>{N.s('sup_lo')}&ndash;{N.s('sup_hi')}</div>
  <div style='{sub};color:{C.MUTED};white-space:nowrap'>{N.s('sup_1dconv')} &middot; {N.s('sup_taskprog')} &middot;
 {N.s('sup_mabe_top1')}</div></div>
-<div class=tile style='left:60px;top:525px;width:1800px;height:310px;display:flex;padding:26px 20px'>
+<div class=tile style='left:60px;top:472px;width:1800px;height:316px;display:flex;padding:20px 20px'>
  <div style='{col}'><div style='{lab}'>Etho speed</div><div style='{big}'>{N.s('speed_pooled')}&times;</div>
   <div style='{sub}'>real time (worst {N.s('speed_worst')}&times;)</div></div>
  <div style='{col}'><div style='{lab}'>Manual scoring takes</div>
@@ -163,8 +163,8 @@ white-space:nowrap'>{N.s('sup_lo')}&ndash;{N.s('sup_hi')}</div>
   <div style='{sub}'>the video's length (Segalin et al. 2021)</div></div>
  <div style='{col}'><div style='{lab}'>Model cost</div><div style='{big}'>{N.s('cost_per_hour')}</div>
   <div style='{sub}'>per hour of video</div></div></div>
-<div class=abs style='left:60px;top:852px;width:1800px;font-size:34px;color:{C.MUTED};
-line-height:1.25'>&sup1; {foot}</div>
+<div class=abs style='left:60px;top:804px;width:1800px;font-size:34px;color:{C.MUTED};
+line-height:1.2'>&sup1; {foot}</div>
 """)
 
 
@@ -183,14 +183,28 @@ def close_html(N: Numbers) -> str:
 <div class=abs style='left:80px;top:215px;width:1760px;display:flex;gap:40px'>
  {chip('SAM 3.1', 'tracks both animals')}{chip('Muse Spark', 'plans, writes the rules')}
  {chip('Muse Spark Open', 'checks borderline moments')}</div>
-<div class=abs style='left:80px;top:575px;width:1760px;font-size:76px;font-weight:700;line-height:1.15'>
+<div class=abs style='left:80px;top:450px;width:1760px;font-size:76px;font-weight:700;line-height:1.15'>
  For every lab that still scores behavior by hand.</div>
-<div class=abs style='left:80px;top:765px;white-space:nowrap'>
+<div class=abs style='left:80px;top:650px;white-space:nowrap'>
  <span style='{ph}'>REPO: [placeholder: public repo URL]</span><span
  style='{ph}'>LIVE: [placeholder: live app URL]</span></div>
-<div class=abs style='left:80px;top:875px;font-size:36px;color:{C.MUTED}'>Open source, Apache-2.0. Benchmark data:
+<div class=abs style='left:80px;top:790px;font-size:36px;color:{C.MUTED}'>Open source, Apache-2.0. Benchmark data:
  {H.escape(C.CREDIT_CARD)}.</div>
 """)
+
+
+# ------------------------------------------------------------------------------------------------ architecture
+ARCH_SCALE = 0.79    # 1080 * 0.79 = 853 px: the diagram's bottom edge stays above the caption zone (860)
+
+
+def architecture_html() -> str:
+    """docs/architecture.svg (1920x1080, white) scaled to sit on the dark page with its bottom above y=860."""
+    svg = re.sub(r"<\?xml[^>]*\?>", "", (C.ROOT / "docs" / "architecture.svg").read_text(encoding="utf-8"))
+    w, h = int(1920 * ARCH_SCALE), int(1080 * ARCH_SCALE)
+    return (f"<!doctype html><meta charset=utf-8><body style='margin:0;width:1920px;height:1080px;background:{C.PAGE}'>"
+            f"<div style='position:absolute;left:{(1920 - w) // 2}px;top:0;width:{w}px;height:{h}px'>"
+            f"<div style='transform:scale({ARCH_SCALE});transform-origin:0 0;width:1920px;height:1080px'>{svg}</div>"
+            f"</div></body>")
 
 
 # ------------------------------------------------------------------------------------------------ model stack
@@ -219,12 +233,12 @@ def closing_html(N: Numbers) -> str:
           "font-size:48px;color:{c}").format(c=C.GOLD)
     return page(f"""
 <div class=brand><i></i>ETHO</div>
-<div class=abs style='left:80px;top:220px;width:1760px;font-size:96px;font-weight:700;line-height:1.12'>
+<div class=abs style='left:80px;top:190px;width:1760px;font-size:96px;font-weight:700;line-height:1.12'>
  For every lab that still scores behavior by hand.</div>
-<div class=abs style='left:80px;top:500px;font-size:60px;color:{C.TEXT2}'>Open source. Try it live.</div>
-<div class=abs style='left:80px;top:610px'><span style='{ph}'>REPO: [placeholder: public repo URL]</span></div>
-<div class=abs style='left:80px;top:720px'><span style='{ph}'>LIVE: [placeholder: live app URL]</span></div>
-<div class=abs style='left:80px;top:840px;font-size:36px;color:{C.MUTED}'>Apache-2.0. Benchmark data:
+<div class=abs style='left:80px;top:460px;font-size:60px;color:{C.TEXT2}'>Open source. Try it live.</div>
+<div class=abs style='left:80px;top:560px'><span style='{ph}'>REPO: [placeholder: public repo URL]</span></div>
+<div class=abs style='left:80px;top:685px'><span style='{ph}'>LIVE: [placeholder: live app URL]</span></div>
+<div class=abs style='left:80px;top:800px;font-size:36px;color:{C.MUTED}'>Apache-2.0. Benchmark data:
  {H.escape(C.CREDIT_CARD)}.</div>
 """)
 
