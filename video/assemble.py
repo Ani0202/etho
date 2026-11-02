@@ -14,7 +14,7 @@ import html as H
 import re
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from video import common as C
@@ -169,7 +169,7 @@ def _filter_for(i: int, p: Piece, dur_total: float) -> str:
             f"trim=duration={dur_total},setpts=PTS-STARTPTS[v{i}]")
 
 
-def render(pieces: list[Piece], out: Path, srt: Path | None) -> None:
+def render(pieces: list[Piece], out: Path, srt: Path | None, audio: Path | None = None) -> None:
     n = len(pieces)
     cmd = ["ffmpeg", "-y", "-loglevel", "error"]
     filt = []
@@ -189,10 +189,13 @@ def render(pieces: list[Piece], out: Path, srt: Path | None) -> None:
     if srt:
         filt.append(f"[{last}]ass=filename={srt}[vout]")
         last = "vout"
-    cmd += ["-f", "lavfi", "-t", f"{s}", "-i", "anullsrc=r=48000:cl=stereo"]
+    if audio:
+        cmd += ["-i", str(audio)]
+    else:
+        cmd += ["-f", "lavfi", "-t", f"{s}", "-i", "anullsrc=r=48000:cl=stereo"]
     cmd += ["-filter_complex", ";".join(filt), "-map", f"[{last}]", "-map", f"{n}:a", "-t", f"{s}",
             "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", str(C.FPS),
-            "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(out)]
+            "-c:a", "aac", "-b:a", "192k" if audio else "96k", "-movflags", "+faststart", str(out)]
     C.run(cmd)
 
 
@@ -200,12 +203,14 @@ STILL_AT = {"hook": 2.5, "who": 30.0, "live_run": 50.0, "code": 68.0, "results":
             "evidence": 135.0, "fly": 152.0, "close": 168.0}   # seconds in the cut: inside each beat (checked by test)
 
 
-def export_stills(video: Path) -> list[Path]:
-    C.STILLS.mkdir(parents=True, exist_ok=True)
+def export_stills(video: Path, dest: Path | None = None, at: dict[str, float] | None = None) -> list[Path]:
+    dest = dest or C.STILLS
+    at = at or STILL_AT
+    dest.mkdir(parents=True, exist_ok=True)
     out = []
     for i, b in enumerate(T.BEATS, 1):
-        p = C.STILLS / f"{i:02d}_{b.key}.png"
-        C.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{STILL_AT[b.key]}", "-i", str(video),
+        p = dest / f"{i:02d}_{b.key}.png"
+        C.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{at[b.key]:.2f}", "-i", str(video),
                "-frames:v", "1", str(p)])
         out.append(p)
     return out
@@ -237,7 +242,70 @@ def write_beats_md(pieces: list[Piece], srt: Path, out: Path, total_s: float) ->
     out.write_text("\n".join(rows), encoding="utf-8")
 
 
+def retime_pieces(pieces: list[Piece], beat_durs: dict[str, float]) -> list[Piece]:
+    """Fit each beat's pieces to its new length: a longer beat holds its last piece, a shorter one trims every
+    piece in proportion (the render already holds the last frame of a short clip and trims a long one)."""
+    out: list[Piece] = []
+    for b in T.BEATS:
+        ps = [p for p in pieces if p.beat == b.key]
+        old, new = sum(p.dur for p in ps), beat_durs[b.key]
+        if new >= old:
+            out += [replace(p, dur=p.dur + (new - old if i == len(ps) - 1 else 0)) for i, p in enumerate(ps)]
+        else:
+            out += [replace(p, dur=p.dur * new / old) for p in ps]
+    return out
+
+
+def main_vo(argv: list[str]) -> None:
+    """Final cut: `--vo [--vo-dir DIR] [--out-dir DIR] [--no-cards]`. --out-dir sends every output (video, beats table,
+    captions, stills) there instead of data/video and docs/, which is how a dry run avoids touching the real ones."""
+    from video import vo
+
+    def opt(name: str) -> Path | None:
+        return Path(argv[argv.index(name) + 1]) if name in argv else None
+
+    vo_dir = opt("--vo-dir") or C.OUT / "vo"
+    out_dir = opt("--out-dir")
+    dest = out_dir or C.OUT
+    srt_out = (out_dir / "demo_captions_final.srt") if out_dir else vo.FINAL_SRT
+    work = dest / "vo_work"
+    vo.find_takes(vo_dir)          # fail on missing takes before rendering anything
+    from video import anim, cards
+    from video.numbers import Numbers
+    N = Numbers()
+    if "--no-cards" not in argv:
+        cards.build_all(N)
+        anim.build_all(N)
+    print("takes:")
+    try:
+        res = vo.analyse(vo_dir, work)
+    except vo.OverLimit as e:
+        sys.exit(f"STOP: {e}")
+    pieces = retime_pieces(build_pieces(), {p.key: p.dur for p in res.plans})
+    dest.mkdir(parents=True, exist_ok=True)
+    vo.write_srt(res.cues, srt_out)
+    ass = dest / "captions_final.ass"
+    print(f"captions: {srt_to_ass(srt_out, ass)} cues -> {srt_out}")
+    for p in res.plans:
+        b = res.bounds[p.key]
+        print(f"  {p.key:<10} start {p.start:7.2f}  dur {p.dur:6.2f} ({p.delta:+.2f})  captions: {b.method} {b.detail}")
+    audio = vo.mix_track(res.takes, res.plans, res.total, work / "vo_mix.wav")
+    out = dest / "final_v1.mp4"
+    render(pieces, out, ass, audio)
+    loud = vo.measure_lufs(out)
+    mid = {p.key: p.start + p.dur / 2 for p in res.plans}
+    stills = export_stills(out, dest / "stills_final", mid)
+    by_beat = {b.key: [p for p in pieces if p.beat == b.key] for b in T.BEATS}
+    vo.write_beats_final(res, by_beat, dest / "beats_final.md", loud)
+    print(f"final: {res.total:.2f} s; {loud['integrated_lufs']:.1f} LUFS integrated, "
+          f"true peak {loud['true_peak_dbtp']:.1f} dBTP")
+    print(f"wrote {out}\n" + "\n".join(f"  {p}" for p in stills))
+    print("placeholders:", ", ".join(f"{p.beat}/{p.label}" for p in pieces if not p.real) or "none")
+
+
 def main(argv: list[str]) -> None:
+    if "--vo" in argv:
+        return main_vo(argv)
     if not C.have_render_tools():
         sys.exit("need Chromium and ffmpeg")
     from video import anim, cards
