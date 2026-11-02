@@ -8,8 +8,8 @@ _Updated 2026-10-31 15:40 UTC (11:40 ET)._
   were sent to Aniket.
 - Session restarted ~21:40 UTC. The notify cron was re-created (job a1185184). The :8770 instance died with the
   session, which is fine because the job is finished.
-- In progress (capture agent): 29 s live-run cut (the first attempt was corrupt), badge and results beat switched to
-  the live run, rough-cut rebuild.
+- Done: 29 s chronological live-run cut, trace and correction from the live project, badge and results beat at 0.44,
+  rough cut rebuilt at 2:56 (3c9306b) and sent. The 6 PM defaults applied (DECISIONS 23:28 UTC). Freeze holds.
 - Open with Aniket: rough-cut notes (default at 6 PM ET: v1 approved apart from the live-run update), phone check,
   and whether to make the live run the hosted showcase (default at 6 PM ET: keep the current one).
 
