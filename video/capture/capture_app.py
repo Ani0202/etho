@@ -19,8 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(os.environ.get("ETHO_CAPTURE_OUT") or ROOT / "data" / "video" / "capture")
 TMP = ROOT / "data" / "video" / "tmp"
-BASE = "http://127.0.0.1:8795"
-PID = "sc-calms21-mouse075-live"
+BASE = os.environ.get("ETHO_CAPTURE_BASE", "http://127.0.0.1:8795")      # live-run captures: http://127.0.0.1:8770
+PID = os.environ.get("ETHO_CAPTURE_PID", "sc-calms21-mouse075-live")      # ... and j46d77dd8aee9
 W, H = 1920, 1080
 ZOOM = 1.4   # 1.5 clips the planner table's last column; presentation mode already enlarges the type
 
@@ -141,6 +141,8 @@ def center_of(page, selector: str, text: str | None = None):
 
 # the traced error: expert attack; frame check said "attack" (0.96), set aside by the restriction
 TRACED_BOUT = "Etho: mount 37.5 to 38.0 seconds"
+# the correction beat marks the long mount bout that follows it (expert: attack)
+CORRECT_BOUT = os.environ.get("ETHO_CAPTURE_CORRECT_BOUT", TRACED_BOUT)
 
 
 def live_run(pw):
@@ -215,6 +217,37 @@ def trace(pw):
     return s.finish()
 
 
+def trace_cut(pw):
+    """The 9 s cut of the trace: starts just before the click on the bout, then holds on the panel (visible >= 6 s).
+    Everything before t_start() (scroll, ring) is trimmed off. Prints the panel text so it can be checked."""
+    s = Session(pw, "trace_cut")
+    s.goto()
+    pg = s.page
+    s.scroll_to(abs_top(pg, "svg") - 150, 1700)
+    s.wait(1800)
+    x, y = bout_center(pg, TRACED_BOUT)
+    box = pg.evaluate("""l => { const r = [...document.querySelectorAll('rect.bout')]
+                                .find(e => e.getAttribute('aria-label') === l).getBoundingClientRect();
+                              return [r.x, r.y, r.width, r.height]; }""", TRACED_BOUT)
+    pg.evaluate(RING_JS % {"zoom": ZOOM}, box)
+    s.move_to(x, y)
+    s.wait(500)
+    s.t_start()
+    s.wait(900)                                    # just before the click
+    pg.mouse.click(x, y)
+    pg.evaluate("document.getElementById('__ring') && document.getElementById('__ring').remove()")
+    s.wait(1500)
+    pg.wait_for_selector(".trace .decided")
+    s.scroll_to(abs_top(pg, ".trace") - 90, 1200)
+    s.wait(9500)
+    print("PANEL:", pg.inner_text(".trace").replace("\n", " | "))
+    out = s.finish()
+    final = OUT / "trace.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(out), "-t", "9.0", "-c:v", "libx264", "-preset", "medium",
+                    "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", str(final)], check=True)
+    return final
+
+
 def correction(pw):
     s = Session(pw, "correction")
     s.goto()
@@ -223,7 +256,7 @@ def correction(pw):
     s.wait(500)
     s.scroll_to(s.card_y("Ethogram synced") + 250, 1500)
     s.wait(1200)
-    x, y = bout_center(pg, TRACED_BOUT)
+    x, y = bout_center(pg, CORRECT_BOUT)
     s.move_to(x, y)
     s.wait(500)
     pg.mouse.click(x, y)
@@ -260,7 +293,7 @@ def stills(pw):
     b.close()
 
 
-BEATS = {"live_run": live_run, "trace": trace, "correction": correction, "stills": stills}
+BEATS = {"live_run": live_run, "trace": trace, "trace_cut": trace_cut, "correction": correction, "stills": stills}
 
 
 def main(argv):
@@ -273,7 +306,7 @@ def main(argv):
             r = BEATS[n](pw)
             print(n, "->", r)
     live = OUT / "live_run_standin.mp4"
-    if live.exists():                              # the assembler reads live_run.mp4
+    if "live_run" in names and live.exists():                              # the assembler reads live_run.mp4
         (OUT / "live_run.mp4").write_bytes(live.read_bytes())
 
 

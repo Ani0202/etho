@@ -47,3 +47,61 @@ def test_parse_pytest_summary():
 def test_date_span():
     assert ca.date_span({"first": "2026-10-28", "last": "2026-10-28"}) == "Oct 28"
     assert ca.date_span({"first": "2026-10-27", "last": "2026-10-30"}) == "Oct 27 to Oct 30"
+
+
+# ---- capture_live.py: the one-job live-run recorder (no browser, no network)
+cl = _load("capture_live")
+
+
+def test_live_definitions_are_the_dataset_authors_text():
+    d = cl.load_definitions()
+    assert d["subject"] == "the resident (black) mouse" and d["partner"] == "the intruder (white) mouse"
+    assert [n for n, _ in d["behaviors"]] == ["attack", "investigation", "mount"]
+    assert all(len(t) > 80 for _, t in d["behaviors"])
+    assert cl.form_matches(d, d) == []
+    changed = dict(d, behaviors=[(n, t + " ") for n, t in d["behaviors"]])
+    assert cl.form_matches(changed, d) == ["behaviors"]
+    assert cl.form_matches(dict(d, subject="x"), d) == ["subject"]
+
+
+def test_live_job_id_from_url():
+    assert cl.job_id_from_url("http://127.0.0.1:8770/p/jabc123?present=1") == "jabc123"
+    assert cl.job_id_from_url("http://127.0.0.1:8770/") is None
+
+
+def test_live_lock_refuses_second_submit(tmp_path):
+    lock = tmp_path / "sub" / "lock.json"
+    cl.claim_lock(lock, "http://x")
+    cl.record_job_id(lock, "j1", "http://x/p/j1")
+    assert '"j1"' in lock.read_text()
+    with pytest.raises(SystemExit):
+        cl.claim_lock(lock, "http://x")
+
+
+def test_live_real_flag_required_for_8770(tmp_path):
+    with pytest.raises(SystemExit):
+        cl.main(["--base", "http://127.0.0.1:8770", "--video", str(tmp_path / "v.mp4")])
+
+
+# ---- cut_live_run.py: the 29 s scene-3 cut of the raw live-run recording
+cut = _load("cut_live_run")
+
+
+def test_cut_is_29_seconds_and_tagged_at_every_skip():
+    cl = cut.cut_list()
+    assert cl["total_s"] == cut.TOTAL_S == 29.0
+    assert [r["tag"] for r in cl["segments"]] == [None, "time skipped 0:24", "time skipped 3:04", "time skipped 0:05",
+                                                  "time skipped 0:04", "time skipped 0:04"]
+    raw_in = [r["raw_in"] for r in cl["segments"]]
+    assert raw_in == sorted(raw_in)                               # chronological: no backward cut
+    assert all(r["raw_out"] <= 271.7 and r["raw_in"] >= 0 for r in cl["segments"])
+    ends = [r["out_out"] for r in cl["segments"]]
+    assert ends == sorted(ends)
+
+
+def test_cut_filter_graph_has_one_input_per_segment_and_a_tag_per_skip():
+    g = cut.filter_graph()
+    assert g.count("concat=n=6") == 1 and g.count("drawtext") == 5
+    assert "[5:v]" in g and "[6:v]" not in g
+    args = cut.inputs("raw.mp4")
+    assert args.count("-i") == 6 and args[:4] == ["-ss", "20.2", "-t", "1.500"]

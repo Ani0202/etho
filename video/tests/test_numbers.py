@@ -4,6 +4,7 @@ import re
 import pytest
 
 from video import cards
+from video.common import SOURCE
 from video.numbers import NAME_TOKENS, Numbers, numeric_tokens, untraceable
 
 
@@ -16,7 +17,8 @@ def test_rounding_matches_displayed_values(N):
     want = {"macro_f1": "0.58", "f1_attack": "0.449", "f1_investigation": "0.635", "f1_mount": "0.656",
             "sup_1dconv": ".793", "sup_taskprog": ".829", "sup_mabe_top1": ".864", "sup_lo": "0.79", "sup_hi": "0.86",
             "speed_pooled": "0.88", "speed_worst": "1.54", "manual_lo": "3", "manual_hi": "4",
-            "cost_per_hour": "$11.25", "clip_macro": "0.42", "n_test_videos": "19", "n_dev_videos": "13"}
+            "cost_per_hour": "$11.25", "clip_macro": "0.44" if SOURCE == "live" else "0.42",
+            "n_test_videos": "19", "n_dev_videos": "13"}
     for k, v in want.items():
         assert N.s(k) == v, k
 
@@ -85,3 +87,13 @@ def test_close_card_has_models_and_placeholders(N):
     for s in ("SAM 3.1", "Muse Spark", "Muse Spark Open", "for every lab that still scores behavior by hand",
               "[placeholder: public repo URL]", "[placeholder: live app URL]"):
         assert s.lower() in t.lower(), s
+
+
+def test_clip_numbers_come_from_the_selected_run(N):
+    """SOURCE picks which check file the 'this clip' numbers are read from (live run by default)."""
+    from video.numbers import CHECK_JSON, CHECK_JSONS
+    assert CHECK_JSON == CHECK_JSONS[SOURCE]
+    assert N.get("clip_macro").file == CHECK_JSON
+    assert all(N.get(f"clip_f1_{b}").file == CHECK_JSON for b in ("attack", "investigation", "mount"))
+    f1s = [N.get(f"clip_f1_{b}").raw for b in ("attack", "investigation", "mount")]
+    assert abs(N.get("clip_macro").raw - sum(f1s) / 3) < 1e-9
