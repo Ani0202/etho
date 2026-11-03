@@ -18,13 +18,16 @@ FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 TAG_S = 1.0
 
 # (label, raw_in, raw_out)
+# Order and lengths follow the final voice-over's sentence times in this beat (docs/demo_captions_final.srt, beat
+# start 35.0 s): "This is a test video..." 0.5-3.8, "I paste the dataset authors' own definitions..." 4.6-9.5,
+# "Muse Spark decides what to track." 10.0-11.9, "SAM 3.1 follows both mice..." 12.5-17.8, "Muse Spark turns each
+# definition into a short Python rule, and Muse Spark Open double-checks..." 18.5-27.1. Chronological, no backward cut.
 SEGMENTS = [
-    ("paste: attack definition cleared, then pasted", 20.2, 21.7),
-    ("upload picked, cost estimate, Score clicked, run clock starts", 45.5, 48.5),
-    ("progress page, last seconds of the run (clock 3:05 to 3:08)", 232.9, 236.4),
-    ("planner card (phrases proposed, CHOSEN one)", 241.8, 248.8),
-    ("overlay playing, both mice tracked, close contact at about 0:05", 252.6, 261.6),
-    ("per-stage timing and cost card", 265.5, 270.5),
+    ("form being filled in (subject field)", 7.0, 10.0),
+    ("paste: attack definition cleared, then pasted", 20.2, 24.8),
+    ("the test video picked (mouse075_0-300s_h264.mp4, 5:00), Score clicked, run clock starts", 45.7, 48.5),
+    ("planner card (phrases proposed, CHOSEN one)", 241.8, 243.8),
+    ("overlay playing (both mice tracked through contact), scroll to the per-stage timing and cost card", 252.6, 269.2),
 ]
 TOTAL_S = 29.0
 

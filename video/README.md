@@ -37,3 +37,9 @@ beats give back spare time down to their own minimum; over 180.0 s it stops and 
 never sped up). Captions: one per v5 sentence, timed from the k-1 longest pauses (silencedetect, >= 0.25 s) or, if there
 are too few, split by word count (printed per beat); a sentence over two lines becomes several cues.
 `--vo-dir DIR --out-dir DIR` redirect inputs/outputs (dry runs). `uv run pytest video/tests/test_vo.py` needs only ffmpeg.
+
+- Nov 3 final-cut edits made with ffmpeg on the capture files (gitignored), after the review of final_v1:
+  - `capture/code.mp4` = `code_full.mp4` from 3.4 s, 13.6 s at 1.36x (drops the duplicate architecture intro; the
+    diagram has its own 7 s piece).
+  - `capture/correction.mp4` = `correction_full.mp4` 3.0-5.0 s + 6.8-14.8 s (skips the trace panel of another bout).
+  - `capture/live_run.mp4` is cut by `video/capture/cut_live_run.py`, with segments timed to the voice-over sentences.

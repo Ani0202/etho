@@ -94,3 +94,7 @@ def html_to_png(html: str, out: Path, w: int = W, h: int = H, transparent: bool 
         raise RuntimeError(f"headless Chromium kept truncating the screenshot: {out}")
     src.unlink(missing_ok=True)
     return out
+
+# Links on the closing cards (shown without https://). The repo becomes public when Aniket flips it before submitting.
+REPO_URL_SHOWN = "github.com/Ani0202/etho"
+LIVE_URL_SHOWN = "etho-vm.tail9158ab.ts.net"

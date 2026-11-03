@@ -143,18 +143,18 @@ def evidence_html(N: Numbers) -> str:
     sub = f"font-size:44px;color:{C.TEXT2};line-height:1.25"
     return page(f"""
 <div class=brand style='top:30px'><i></i>ETHO</div>
-<div class=tile style='left:60px;top:96px;width:1190px;height:360px;padding-top:22px'>
+<div class=tile id=tEtho style='left:60px;top:96px;width:1190px;height:360px;padding-top:22px'>
  <div style='{lab}'>Etho, macro F1, no training&sup1;</div>
  <div style='display:flex;align-items:center;gap:30px;margin-top:20px'>
   <div style='font-size:200px;font-weight:700;line-height:1;color:{C.ACCENT}'>{N.s('macro_f1')}</div>
   <div style='flex:1'>{chips}</div></div></div>
-<div class=tile style='left:1280px;top:96px;width:580px;height:360px;padding-top:22px'>
+<div class=tile id=tSup style='left:1280px;top:96px;width:580px;height:360px;padding-top:22px'>
  <div style='{lab}'>Supervised, trained on labeled data and pose keypoints</div>
  <div style='font-size:86px;font-weight:700;line-height:1.1;margin-top:16px;color:{C.MUTED};
 white-space:nowrap'>{N.s('sup_lo')}&ndash;{N.s('sup_hi')}</div>
  <div style='{sub};color:{C.MUTED};white-space:nowrap'>{N.s('sup_1dconv')} &middot; {N.s('sup_taskprog')} &middot;
 {N.s('sup_mabe_top1')}</div></div>
-<div class=tile style='left:60px;top:472px;width:1800px;height:316px;display:flex;padding:20px 20px'>
+<div class=tile id=tRun style='left:60px;top:472px;width:1800px;height:316px;display:flex;padding:20px 20px'>
  <div style='{col}'><div style='{lab}'>Etho speed</div><div style='{big}'>{N.s('speed_pooled')}&times;</div>
   <div style='{sub}'>real time (worst {N.s('speed_worst')}&times;)</div></div>
  <div style='{col}'><div style='{lab}'>Manual scoring takes</div>
@@ -167,6 +167,16 @@ white-space:nowrap'>{N.s('sup_lo')}&ndash;{N.s('sup_hi')}</div>
 line-height:1.2'>&sup1; {foot}</div>
 """)
 
+
+
+EVIDENCE_TILES = ("tEtho", "tSup", "tRun")
+
+
+def evidence_focus_html(N: Numbers, focus: str) -> str:
+    """The evidence card with one tile in focus and the other two dimmed, so the eye follows the voice-over
+    (accuracy, then supervised baselines, then speed and cost). Same text and numbers as `evidence_html`."""
+    dim = ",".join(f"#{t}" for t in EVIDENCE_TILES if t != focus)
+    return evidence_html(N).replace("</body>", f"<style>{dim}{{opacity:.32}}</style></body>", 1)
 
 # ------------------------------------------------------------------------------------------------------ close
 def close_html(N: Numbers) -> str:
@@ -186,8 +196,8 @@ def close_html(N: Numbers) -> str:
 <div class=abs style='left:80px;top:450px;width:1760px;font-size:76px;font-weight:700;line-height:1.15'>
  For every lab that still scores behavior by hand.</div>
 <div class=abs style='left:80px;top:650px;white-space:nowrap'>
- <span style='{ph}'>REPO: [placeholder: public repo URL]</span><span
- style='{ph}'>LIVE: [placeholder: live app URL]</span></div>
+ <span style='{ph}'>{H.escape(C.REPO_URL_SHOWN)}</span><span
+ style='{ph}'>{H.escape(C.LIVE_URL_SHOWN)}</span></div>
 <div class=abs style='left:80px;top:790px;font-size:36px;color:{C.MUTED}'>Open source, Apache-2.0. Benchmark data:
  {H.escape(C.CREDIT_CARD)}.</div>
 """)
@@ -229,21 +239,27 @@ def model_stack_html(N: Numbers) -> str:
 
 # ---------------------------------------------------------------------------------------------------- closing
 def closing_html(N: Numbers) -> str:
-    ph = ("display:inline-block;margin-right:40px;border:3px dashed {c};border-radius:22px;padding:18px 34px;"
-          "font-size:48px;color:{c}").format(c=C.GOLD)
+    link = ("display:inline-block;border:3px solid {c};border-radius:22px;padding:16px 34px;"
+            "font-size:52px;font-weight:700;color:{c}").format(c=C.ACCENT)
+    lab = f"display:inline-block;width:150px;font-size:40px;color:{C.MUTED}"
     return page(f"""
 <div class=brand><i></i>ETHO</div>
 <div class=abs style='left:80px;top:190px;width:1760px;font-size:96px;font-weight:700;line-height:1.12'>
  For every lab that still scores behavior by hand.</div>
 <div class=abs style='left:80px;top:460px;font-size:60px;color:{C.TEXT2}'>Open source. Try it live.</div>
-<div class=abs style='left:80px;top:560px'><span style='{ph}'>REPO: [placeholder: public repo URL]</span></div>
-<div class=abs style='left:80px;top:685px'><span style='{ph}'>LIVE: [placeholder: live app URL]</span></div>
+<div class=abs style='left:80px;top:565px'><span style='{lab}'>Code</span><span
+ style='{link}'>{H.escape(C.REPO_URL_SHOWN)}</span></div>
+<div class=abs style='left:80px;top:690px'><span style='{lab}'>Live</span><span
+ style='{link}'>{H.escape(C.LIVE_URL_SHOWN)}</span></div>
 <div class=abs style='left:80px;top:800px;font-size:36px;color:{C.MUTED}'>Apache-2.0. Benchmark data:
  {H.escape(C.CREDIT_CARD)}.</div>
 """)
 
 
-CARDS = {"title": title_html, "evidence": evidence_html, "close": close_html, "model_stack": model_stack_html,
+CARDS = {"title": title_html, "evidence": evidence_html,
+         "evidence_etho": lambda N: evidence_focus_html(N, "tEtho"),
+         "evidence_sup": lambda N: evidence_focus_html(N, "tSup"),
+         "evidence_run": lambda N: evidence_focus_html(N, "tRun"), "close": close_html, "model_stack": model_stack_html,
          "closing": closing_html}
 
 # docs/video_assets/<name>.png <- card name (committed copies for the video app; numbers come from Numbers)

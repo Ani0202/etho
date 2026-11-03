@@ -82,11 +82,13 @@ def test_title_card_has_required_text(N):
     assert "Etho" in t and "Push the Frontier" in t and "Training-free" in t
 
 
-def test_close_card_has_models_and_placeholders(N):
+def test_close_and_closing_cards_have_models_and_real_links(N):
     t = cards.card_text(cards.close_html(N))
     for s in ("SAM 3.1", "Muse Spark", "Muse Spark Open", "for every lab that still scores behavior by hand",
-              "[placeholder: public repo URL]", "[placeholder: live app URL]"):
+              "github.com/Ani0202/etho", "etho-vm.tail9158ab.ts.net"):
         assert s.lower() in t.lower(), s
+    c = cards.card_text(cards.closing_html(N))
+    assert "github.com/Ani0202/etho" in c and "etho-vm.tail9158ab.ts.net" in c and "placeholder" not in c.lower()
 
 
 def test_clip_numbers_come_from_the_selected_run(N):

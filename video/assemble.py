@@ -79,9 +79,13 @@ PLAN = {
     "results": [("Etho vs expert ethogram, score badge, zoom to the traced error", "results_beat", 20.0),
                 ("trace panel (capture)", "cap:trace", 9.0)],
     "correction": [("correction loop (app capture)", "cap:correction", 10.0)],
-    "evidence": [("evidence card", "card:evidence", 26.0)],
+    # tiles highlighted in step with the voice-over sentences (accuracy, supervised, speed/cost), then the whole card
+    "evidence": [("evidence card, accuracy tile in focus", "card:evidence_etho", 4.6),
+                 ("evidence card, supervised tile in focus", "card:evidence_sup", 6.2),
+                 ("evidence card, speed and cost tile in focus", "card:evidence_run", 6.6),
+                 ("evidence card", "card:evidence", 8.6)],
     "fly": [("second species (qualitative, no score)", "cap:fly", 15.0)],
-    "close": [("close card", "card:close", 15.0)],
+    "close": [("model stack card", "card:model_stack", 6.0), ("closing card with links", "card:closing", 9.0)],
 }
 
 SLATE_HINTS = {

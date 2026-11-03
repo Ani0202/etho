@@ -148,11 +148,12 @@ def render_opening(out: Path, credit: bool = True) -> list[np.ndarray]:
     keep = []
     for k in range(n):
         t = OPEN_T0 + k / C.FPS
-        f = min(1.0, k / 6, (n - 1 - k) / 6)           # short fade in/out so it crossfades cleanly
+        # no fade: the hook starts on motion, and the assembler's crossfade joins it to the title card (a fade-out
+        # here left a black frame at 0:04, because the assembler holds the last frame through the crossfade)
         fr = compose_opening_frame(base, rd.frame_at(t), t, sc, codes_e, static, fade=1.0)
         if k in (n // 2, n - 1):
             keep.append(fr)
-        pipe.write((fr.astype(np.float32) * ease(f)).astype(np.uint8) if f < 1.0 else fr)
+        pipe.write(fr)
     pipe.close()
     return keep
 
@@ -275,8 +276,8 @@ def render_results_frame(t: float, sc: dict, static: np.ndarray, badge: np.ndarr
     draw.blit(img, static)
     if t >= BADGE_AT:
         draw.blit(img, badge, 180, 132, opacity=ease((t - BADGE_AT) / 0.6))
-    f = min(1.0, t / 0.5, (RES_DUR - t) / 0.5)
-    return img if f >= 1 else (img.astype(np.float32) * f).astype(np.uint8)
+    # no fade in/out: the assembler crossfades each piece into the next (a fade here dipped to black at 1:21 and 1:40)
+    return img
 
 
 def render_results(out: Path, N=None) -> list[np.ndarray]:

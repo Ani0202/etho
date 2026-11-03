@@ -90,8 +90,8 @@ cut = _load("cut_live_run")
 def test_cut_is_29_seconds_and_tagged_at_every_skip():
     cl = cut.cut_list()
     assert cl["total_s"] == cut.TOTAL_S == 29.0
-    assert [r["tag"] for r in cl["segments"]] == [None, "time skipped 0:24", "time skipped 3:04", "time skipped 0:05",
-                                                  "time skipped 0:04", "time skipped 0:04"]
+    assert [r["tag"] for r in cl["segments"]] == [None, "time skipped 0:10", "time skipped 0:21", "time skipped 3:13",
+                                                  "time skipped 0:09"]
     raw_in = [r["raw_in"] for r in cl["segments"]]
     assert raw_in == sorted(raw_in)                               # chronological: no backward cut
     assert all(r["raw_out"] <= 271.7 and r["raw_in"] >= 0 for r in cl["segments"])
@@ -101,7 +101,7 @@ def test_cut_is_29_seconds_and_tagged_at_every_skip():
 
 def test_cut_filter_graph_has_one_input_per_segment_and_a_tag_per_skip():
     g = cut.filter_graph()
-    assert g.count("concat=n=6") == 1 and g.count("drawtext") == 5
-    assert "[5:v]" in g and "[6:v]" not in g
+    assert g.count("concat=n=5") == 1 and g.count("drawtext") == 4
+    assert "[4:v]" in g and "[5:v]" not in g
     args = cut.inputs("raw.mp4")
-    assert args.count("-i") == 6 and args[:4] == ["-ss", "20.2", "-t", "1.500"]
+    assert args.count("-i") == 5 and args[:4] == ["-ss", "7.0", "-t", "3.000"]
