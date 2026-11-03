@@ -13,8 +13,11 @@ import math
 import re
 import shutil
 import subprocess
+import wave
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import numpy as np
 
 from video import common as C
 from video import timeline as T
@@ -26,7 +29,11 @@ KEEP_S = 0.15            # silence kept at each end of a trimmed take
 TARGET_LUFS = -16.0
 TARGET_TP = -1.5
 MIN_PAUSE_S = 0.25       # a sentence boundary is a pause at least this long
-PAUSE_BELOW_DB = 20.0    # pause threshold = take integrated loudness minus this
+PAUSE_BELOW_DB = 20.0    # first pause threshold = take integrated loudness minus this
+PAUSE_SPLIT = 0.4         # pause threshold: noise floor + this fraction of (speech level - noise floor)
+ENV_HOP_S = 0.05          # envelope hop for pause detection
+MIN_PAUSE_RANGE_DB = 10.0  # speech must sit at least this far above the noise floor for pauses to count
+MAX_BOUNDARY_SHIFT_S = 2.0  # a chosen pause must lie within this of the word-count estimate of the sentence end
 MAX_LINE = 46            # characters per caption line (52 px font, 1620 px of text width)
 SRC_SRT = C.ROOT / "docs" / "demo_captions_v5.srt"
 FINAL_SRT = C.ROOT / "docs" / "demo_captions_final.srt"
@@ -207,19 +214,50 @@ class Boundaries:
     detail: str = ""
 
 
-def detect_pauses(wav: Path, lufs: float, dur: float) -> list[tuple[float, float]]:
-    """Interior pauses (start, end) of at least MIN_PAUSE_S, threshold = take level minus PAUSE_BELOW_DB."""
-    thr = lufs - PAUSE_BELOW_DB
-    r = _ff(["-i", str(wav), "-af", f"silencedetect=noise={thr:.1f}dB:d={MIN_PAUSE_S}", "-f", "null", "-"])
-    starts = [float(x) for x in re.findall(r"silence_start: (-?[\d.]+)", r.stderr)]
-    ends = [float(x) for x in re.findall(r"silence_end: (-?[\d.]+)", r.stderr)]
-    pauses = []
-    for i, s in enumerate(starts):
-        e = ends[i] if i < len(ends) else dur
+def _envelope_db(wav: Path, hop_s: float = ENV_HOP_S) -> np.ndarray:
+    """Short-term RMS level (dBFS) of a PCM wav in hops of `hop_s`."""
+    with wave.open(str(wav)) as w:
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype={2: np.int16, 4: np.int32}[sw]).astype(np.float64)
+    if ch > 1:
+        x = x.reshape(-1, ch).mean(axis=1)
+    x /= float(2 ** (8 * sw - 1))
+    hop = max(1, int(hop_s * sr))
+    n = len(x) // hop
+    if n == 0:
+        return np.zeros(0)
+    return 20 * np.log10(np.sqrt((x[: n * hop].reshape(n, hop) ** 2).mean(axis=1)) + 1e-9)
+
+
+def detect_pauses(wav: Path, lufs: float, dur: float, need: int = 0) -> tuple[list[tuple[float, float]], float]:
+    """Interior pauses (start, end) of at least MIN_PAUSE_S, and the threshold used (dBFS).
+
+    The threshold comes from the take's own level distribution: noise floor (3rd percentile of the 50 ms RMS
+    envelope) plus PAUSE_SPLIT of the way up to the speech level (80th percentile). A fixed "loudness minus N dB"
+    threshold failed on real home recordings (Nov 3: 0 pauses in every take), because loudness normalization
+    raises the room noise with the voice. `lufs` and `need` are kept for the call signature."""
+    env = _envelope_db(wav)
+    if env.size == 0:
+        return [], 0.0
+    floor, speech = np.percentile(env, 3), np.percentile(env, 80)
+    thr = float(floor + PAUSE_SPLIT * (speech - floor))
+    if speech - floor < MIN_PAUSE_RANGE_DB:      # no level contrast: no pause can be told from speech
+        return [], thr
+    low = env < thr
+    pauses, i, n = [], 0, len(env)
+    while i < n:
+        if not low[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and low[j]:
+            j += 1
+        st, e = i * ENV_HOP_S, j * ENV_HOP_S
         # ignore the kept lead/tail silence: a pause must have speech on both sides
-        if s > KEEP_S + 0.05 and e < dur - KEEP_S - 0.05:
-            pauses.append((s, e))
-    return pauses
+        if e - st >= MIN_PAUSE_S and st > KEEP_S + 0.05 and e < dur - KEEP_S - 0.05:
+            pauses.append((st, e))
+        i = j
+    return pauses, thr
 
 
 def sentence_spans(wav: Path, lufs: float, dur: float, sentences: list[str]) -> Boundaries:
@@ -227,20 +265,37 @@ def sentence_spans(wav: Path, lufs: float, dur: float, sentences: list[str]) -> 
     sp0, sp1 = min(KEEP_S, dur / 4), max(dur - KEEP_S, dur * 3 / 4)    # speech occupies the trimmed take minus pads
     if k == 1:
         return Boundaries("single sentence", [(sp0, sp1)])
-    pauses = detect_pauses(wav, lufs, dur)
+    words = [word_count(s) for s in sentences]
+    tot = sum(words)
+    # expected sentence ends from word counts (the fallback, and the anchor for choosing among pauses)
+    expect, t = [], sp0
+    for w in words:
+        t += (sp1 - sp0) * w / tot
+        expect.append(t)
+    pauses, thr = detect_pauses(wav, lufs, dur, need=k - 1)
     if len(pauses) >= k - 1:
-        chosen = sorted(sorted(pauses, key=lambda p: p[1] - p[0], reverse=True)[:k - 1])
+        # each boundary takes the unused pause nearest its word-count estimate, keeping order (so a comma pause
+        # far from a sentence end is not chosen just because it is long)
+        chosen, lo = [], 0
+        for j in range(k - 1):
+            hi = len(pauses) - (k - 2 - j)                      # leave enough pauses for the later boundaries
+            cand = range(lo, hi)
+            best = min(cand, key=lambda i: abs((pauses[i][0] + pauses[i][1]) / 2 - expect[j]))
+            mid = (pauses[best][0] + pauses[best][1]) / 2
+            if abs(mid - expect[j]) > MAX_BOUNDARY_SHIFT_S:     # too far from where the words say: use the estimate
+                chosen.append((expect[j], expect[j]))
+                continue
+            chosen.append(pauses[best])
+            lo = best + 1
         edges = [sp0] + [x for p in chosen for x in p] + [sp1]
         spans = [(edges[2 * i], edges[2 * i + 1]) for i in range(k)]
-        return Boundaries("pauses", spans, len(pauses))
-    # fallback: contiguous split by word count over the speech duration
-    words = [word_count(s) for s in sentences]
-    tot, t, spans = sum(words), sp0, []
-    for w in words:
-        d = (sp1 - sp0) * w / tot
-        spans.append((t, t + d))
-        t += d
-    return Boundaries("word-proportional", spans, len(pauses), f"only {len(pauses)} pause(s) for {k} sentences")
+        return Boundaries("pauses", spans, len(pauses), f"threshold {thr:.1f} dB")
+    spans, t = [], sp0
+    for e in expect:
+        spans.append((t, e))
+        t = e
+    return Boundaries("word-proportional", spans, len(pauses),
+                      f"only {len(pauses)} pause(s) for {k} sentences (up to {thr:.1f} dB)")
 
 
 # ---------------------------------------------------------------- captions

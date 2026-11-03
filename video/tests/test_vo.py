@@ -1,4 +1,6 @@
 """Voice-over pipeline tests with synthetic audio (tones and silence made by ffmpeg). No network, no models."""
+import subprocess
+
 import pytest
 
 from video import timeline as T
@@ -141,3 +143,20 @@ def test_retime_pieces_hold_and_trim():
         assert sum(p.dur for p in out if p.beat == k) == pytest.approx(new[k])
     hook = [p for p in out if p.beat == "hook"]
     assert hook[0].dur == 10.0 and hook[1].dur == 11.0     # extra time goes to the last piece (held)
+
+
+@needs_ffmpeg
+def test_sentence_spans_find_pauses_above_a_room_noise_floor(tmp_path):
+    """Real takes have room noise in the pauses; after loudness normalization it sits above level - 20 dB, so the
+    threshold must rise until the pauses appear (the Nov 3 takes found 0 pauses at the fixed threshold)."""
+    clean = tmp_path / "clean.wav"
+    vo.make_synthetic_take(clean, [8, 20, 12], gap_s=0.5)
+    noisy = tmp_path / "noisy.wav"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(clean), "-f", "lavfi", "-i",
+                    "anoisesrc=color=pink:amplitude=0.008:sample_rate=48000", "-filter_complex",
+                    "[0][1]amix=inputs=2:duration=first:normalize=0", str(noisy)], check=True)
+    t = vo.load_take("x", noisy, tmp_path / "w")
+    pauses, thr = vo.detect_pauses(t.wav, vo.TARGET_LUFS, t.dur, need=2)
+    assert len(pauses) >= 2 and thr > -60.0
+    b = vo.sentence_spans(t.wav, vo.TARGET_LUFS, t.dur, ["a " * 8, "b " * 20, "c " * 12])
+    assert b.method == "pauses"
