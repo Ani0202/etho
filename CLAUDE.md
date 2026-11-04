@@ -142,10 +142,10 @@ Codex model and effort (Aniket is on ChatGPT Plus: Astra is scarce and there's a
   | Tag | Budget | Covers |
   |---|---|---|
   | `dev` | $15 | spikes, debugging, smoke tests |
-  | `eval-sam` | $40 | SAM 3.1 tracking for the CalMS21 dev/test sets |
-  | `eval-llm` | $30 | planner, rule synthesis, adjudication during eval |
+  | `eval-sam` | $25 | SAM 3.1 tracking for the CalMS21 dev/test sets (was $40; $15 moved to demo-reserve, Nov 4) |
+  | `eval-llm` | $1 | planner, rule synthesis, adjudication during eval (was $30; $29 moved to demo-reserve, Nov 4) |
   | `ablation` | $20 | ablations, the second-species demo, Etho Local distillation labels |
-  | `demo-reserve` | $35 | **untouchable until Nov 3**: demo recording and the judging window |
+  | `demo-reserve` | $79 | **untouchable until Nov 3**: demo recording and the judging window (was $35; Aniket's budget move, Nov 4; enforced by `etho/gateway/prices.py` once the open-uploads change is deployed) |
 
   Crossing 80% of any tag escalates. Moving money between tags is an ADR-level decision.
 - Data mode: use `-contributor` model IDs for public datasets (CalMS21, MABe22) to stretch credits.
