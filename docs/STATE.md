@@ -2,6 +2,21 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 4, 02:15 ET: site fixes after Aniket's screenshot (live, 3 restarts, each notified, no jobs in flight)
+- Consent box missing for returning visitors: /static had no Cache-Control, so a browser paired the new index.html with
+  a heuristically cached old home.js (it showed "10 jobs per hour"). Pages now load /static/<f>?v=<sha256[:12]> and
+  /static is no-cache (31fa086). Uploads were never at risk: the server refuses a missing consent field.
+- `[hidden]` now beats `button { display: inline-block }` (Cancel showed on ended jobs); showcase card fills the row
+  (auto-fit); no "Progress streams live" on ended jobs; methods text says "every detector in this run was written fresh"
+  only for a first run with no reuse (wording unchanged otherwise, so `make demo` still matches: 56/56, labels equal)
+  (08272bb). Phones: subject/partner fields stack; header tagline hidden under 700 px (0a87403). 838 passed.
+- Headless Chromium check through the public URL, desktop and 390 px phone, home + showcase + done + declined pages: no
+  console errors, no failed requests (except the browser's normal aborted first video request), no horizontal overflow,
+  consent box visible, both overlay videos load (readyState 4).
+- Known, not changed: the per-visitor run counter is in memory, so a restart resets it (the $20/day and $60 caps are
+  ledger-based and survive). Drill 1 paid $0.21 for fresh rules only because the drill used non-default subject/partner
+  labels; the form defaults reuse the benchmark rules.
+
 ## Nov 4, 01:05 ET: open uploads LIVE, all drills passed
 - Site is live in open mode (no access code), `ops/app-readonly` removed 00:56 ET. Undo: `touch ops/app-readonly`.
 - First drill 1 (00:47) failed at $0: `/etc/etho-app/keys.env` had no Meta key (the hosted app had never made a model
