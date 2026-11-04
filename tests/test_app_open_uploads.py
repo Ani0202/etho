@@ -51,9 +51,11 @@ def friendly_ok(r, status, code):
 
 
 def points_onward(f):
-    """Every limit says where to go next: the showcase on the site, `make demo`, and the README link."""
+    """Every limit says where to go next: the showcase on the site, `make demo` in the README, and the README link,
+    worded so that it is true whether or not the replay demo has landed."""
     low = f.lower()
     assert "showcase" in low and "make demo" in f and README in f, f
+    assert "offline replay demo (`make demo`" in f and "is described in the project README" in f, f
 
 
 # ---- config ---------------------------------------------------------------------------------------------------
@@ -293,6 +295,7 @@ def test_one_worker_runs_the_jobs_and_two_are_allowed_in_flight_with_a_visible_p
     from tests.app_env import make_app
     client, c = make_app(tmp_path, monkeypatch, base_url="https://testserver", now=lambda: START,
                          cfg_kw={"public": True, "open": True, "tag": "dev", "rate_limit_jobs": 50, "max_queue": 9,
+                                 "max_jobs_per_client": 0,
                                  "gateway_cache_root": tmp_path / "gwc", "work_root": tmp_path,
                                  "maintenance_interval_s": 3600.0}, gw_kw={"cache_root": tmp_path / "gwc"},
                          app_kw={"isolation": lambda: {"mode": "bwrap", "detail": "t"}, "start_worker": False})
@@ -322,7 +325,7 @@ def test_the_manager_runs_exactly_one_worker_thread(tmp_path, monkeypatch):
 
 
 def test_a_revision_is_refused_when_two_jobs_are_in_flight(tmp_path, monkeypatch):
-    client, c = opened(tmp_path, monkeypatch)
+    client, c = opened(tmp_path, monkeypatch, cfg_kw={"max_jobs_per_client": 0})
     a = up(client, c).json()["id"]
     wait_terminal(c.manager, a)
     c.manager.stop()                                                      # the worker stops: new jobs stay queued
@@ -407,7 +410,16 @@ def test_the_deploy_notes_have_the_env_lines_and_every_drill():
     text = DOC.read_text()
     for line in ("ETHO_APP_OPEN=1", "ETHO_APP_RATE_JOBS=10", "ETHO_APP_RATE_WINDOW_S=86400",
                  "ETHO_APP_DAILY_CAP_USD=8", "ETHO_APP_JUDGING_DAILY_CAP_USD=20", "ETHO_APP_TOTAL_CAP_USD=60",
-                 "ETHO_APP_MAX_UPLOAD_MB=50", "ETHO_APP_MAX_DURATION_S=120", "--resolve", "199.38.181.54"):
+                 "ETHO_APP_MAX_UPLOAD_MB=50", "ETHO_APP_MAX_DURATION_S=120", "--resolve", "199.38.181.54",
+                 "ETHO_APP_MAX_IN_FLIGHT=2", "ETHO_APP_MAX_UPLOADS_PER_CLIENT=1", "ETHO_APP_MAX_JOBS_PER_CLIENT=1",
+                 "ETHO_APP_MAX_REJECTS_PER_HOUR=10", "ETHO_APP_UPLOAD_DEADLINE_S=120",
+                 "ETHO_APP_KILL_FILE=/home/ubuntu/work/etho/ops/app-kill",
+                 "ETHO_APP_READONLY_FILE=/home/ubuntu/work/etho/ops/app-readonly",
+                 "X-Forwarded-For: 9.9.9.9", "tail -c1", "$0.42", "keep the site read-only"):
         assert line in text, line
-    for drill in ("sample clip", "queue", "cap", "not a video", "no animal", "consent", "per-visitor"):
+    for drill in ("sample clip", "queue", "cap", "not a video", "no animal", "consent", "per-visitor", "worst case"):
         assert drill.lower() in text.lower(), drill
+    # the public health curl goes through the public IP, and drill 7 costs nothing (no key file, a limit of 2)
+    assert "curl -s --resolve $HOST:443:$IP https://$HOST/api/health" in text
+    assert "no-such-keys-file" in text and "ETHO_APP_RATE_JOBS=2" in text and "| 7 per-visitor limit" in text
+    assert "no further SAM evaluation run is possible" in text

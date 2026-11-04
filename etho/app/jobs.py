@@ -49,6 +49,10 @@ class QueueFull(Exception):
     pass
 
 
+class ClientBusy(QueueFull):
+    """This client already has its allowed number of jobs queued or running."""
+
+
 @dataclass
 class Stage:
     name: str
@@ -85,6 +89,7 @@ class Job:
     version: int = 0
     cancel_requested: bool = False
     gw: JobGateway | None = field(default=None, repr=False)
+    client: str | None = field(default=None, repr=False)   # who submitted it (memory only, never written to disk)
 
     def to_disk(self) -> dict:
         return {"id": self.id, "project_id": self.project_id, "kind": self.kind, "rev": self.rev,
@@ -191,6 +196,11 @@ class JobManager:
         """Jobs queued or running (analyses and revisions)."""
         with self._cv:
             return sum(1 for j in self.jobs.values() if j.status in ("queued", "running"))
+
+    def client_jobs(self, client: str) -> int:
+        """Jobs this client has queued or running."""
+        with self._cv:
+            return sum(1 for j in self.jobs.values() if j.client == client and j.status in ("queued", "running"))
 
     def busy(self) -> bool:
         """Is any job queued or running (so shared directories must not be swept)?"""
@@ -301,6 +311,11 @@ class JobManager:
                 raise QueueFull(f"{len(self._queue)} jobs are already waiting; try again later")
             if job.project_id in self._purging:
                 raise QueueFull("this project is being deleted (its retention time is over)")
+            cl = self.cfg.max_jobs_per_client
+            if cl and job.client is not None and sum(
+                    1 for j in self.jobs.values()
+                    if j.client == job.client and j.status in ("queued", "running")) >= cl:
+                raise ClientBusy("you already have a run in progress")
             lim = self.cfg.max_in_flight
             if lim and sum(1 for j in self.jobs.values() if j.status in ("queued", "running")) >= lim:
                 raise QueueFull(f"{lim} jobs are already queued or running; try again in a few minutes")

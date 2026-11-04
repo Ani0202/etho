@@ -131,6 +131,14 @@ class AppConfig:
     # Most jobs queued or running at once (analyses and revisions). None = only `max_queue` limits it; open mode: 2 (one
     # runs, one waits, since the worker runs one job at a time). ETHO_APP_MAX_IN_FLIGHT overrides; 0 = no limit.
     max_in_flight: int | None = field(default_factory=lambda: _env("ETHO_APP_MAX_IN_FLIGHT", None, int))
+    # Availability limits per client key (open mode defaults; 0 = no limit): uploads in progress at once, jobs queued or
+    # running at once, rejected uploads per hour (bad file, missing consent, too large), and the seconds the whole
+    # upload body may take. One visitor therefore cannot hold the two job slots or the two upload slots.
+    max_uploads_per_client: int | None = field(
+        default_factory=lambda: _env("ETHO_APP_MAX_UPLOADS_PER_CLIENT", None, int))
+    max_jobs_per_client: int | None = field(default_factory=lambda: _env("ETHO_APP_MAX_JOBS_PER_CLIENT", None, int))
+    max_rejects_per_hour: int | None = field(default_factory=lambda: _env("ETHO_APP_MAX_REJECTS_PER_HOUR", None, int))
+    upload_deadline_s: float | None = field(default_factory=lambda: _env("ETHO_APP_UPLOAD_DEADLINE_S", None, float))
     max_json_body_bytes: int = 256_000        # every POST except the upload
     max_concurrent_uploads: int = 2
     max_concurrent_probes: int = 2
@@ -159,6 +167,14 @@ class AppConfig:
             self.rate_window_s = 86400.0 if self.open else 3600.0
         if self.max_in_flight is None:
             self.max_in_flight = 2 if self.open else 0
+        if self.max_uploads_per_client is None:
+            self.max_uploads_per_client = 1 if self.open else 0
+        if self.max_jobs_per_client is None:
+            self.max_jobs_per_client = 1 if self.open else 0
+        if self.max_rejects_per_hour is None:
+            self.max_rejects_per_hour = 10 if self.open else 0
+        if self.upload_deadline_s is None:
+            self.upload_deadline_s = 120.0 if self.open else 0.0
         if self.caller_prefix is None:
             self.caller_prefix = "pub:job:" if pub else "job:"
         if self.tag is None:

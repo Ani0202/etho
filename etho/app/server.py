@@ -31,9 +31,10 @@ from . import progress as PG
 from .access import COOKIE, AccessControl, shared_bucket
 from .backend import FPS, Backend
 from .config import AppConfig
+from .deadline import UploadDeadline
 from .guards import RateLimiter, Refused, SpendGuard, client_key
 from .jobgw import AppLedger, stage_of_caller
-from .jobs import TERMINAL, Job, JobManager, QueueFull, new_job_id, sse
+from .jobs import TERMINAL, ClientBusy, Job, JobManager, QueueFull, new_job_id, sse
 from .live import LiveState
 from .retention import Retention
 from .store import ID_RE, Project, fork_showcase, list_showcases, read_json, resolve_project, write_json
@@ -104,7 +105,8 @@ def friendly_map(cfg: AppConfig) -> dict[str, str]:
     when it resets (the next day for the daily and per-visitor limits; never for the total cap)."""
     if not cfg.open:
         return FRIENDLY
-    offline = f"For an offline replay with no keys, run `make demo` from the repo (README: {cfg.readme_url})."
+    offline = ("An offline replay demo (`make demo`, no keys needed) is described in the project README: "
+               + cfg.readme_url)
     show = "The precomputed showcase runs stay open on this site (home page)."
     hours = cfg.rate_window_s / 3600
     window = "24 hours" if abs(hours - 24) < 1e-9 else f"{hours:g} hours"
@@ -122,6 +124,13 @@ def friendly_map(cfg: AppConfig) -> dict[str, str]:
                       f"{cfg.max_in_flight or cfg.max_queue} jobs at a time, one video takes about two minutes). "
                       "Please try again in a few minutes. " + show + " " + offline,
         "consent_required": CONSENT_FRIENDLY,
+        "client_busy": "You already have a run in progress: please wait for it to finish (its page shows the "
+                       "progress), then start the next one. " + show,
+        "too_many_rejected": "Several of your uploads were rejected in the last hour (a file that is not a video, "
+                             "a missing consent box, or a file that is too large), so uploads from your connection "
+                             "are paused for a while. Please try again in about an hour. " + show + " " + offline,
+        "upload_timeout": "The upload took too long to arrive, so it was stopped. Nothing was kept or spent. Please "
+                          "try again on a faster connection, or use a shorter clip. " + show,
         **{code: f"{what} Nothing was kept or spent. Please upload an mp4, mov or avi of up to "
                  f"{cfg.max_duration_s:g} seconds and {cfg.max_upload_mb:g} MB; the sample clip on the home page "
                  f"works as it is."
@@ -186,6 +195,10 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     access = AccessControl(cfg, now=now)
     live = LiveState(cfg, access, now=now, isolation=isolation or isolation_status_safe)
     limiter = RateLimiter(cfg.rate_limit_jobs, cfg.rate_window_s, **({"clock": clock} if clock else {}))
+    # rejected uploads (a bad file, no consent, too large) per client per hour; 0 = no limit
+    rejects = RateLimiter(max(1, cfg.max_rejects_per_hour), 3600.0, **({"clock": clock} if clock else {}))
+    uploads_by_client: dict[str, int] = {}
+    uploads_lock = threading.Lock()
     if gateway_factory is None:
         def gateway_factory():
             return Gateway(AppGatewayConfig(root=cfg.root, cache_override=cfg.gateway_cache_root))
@@ -264,7 +277,17 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                     resp = E(413, "too_large", f"upload is larger than the {cfg.max_upload_mb:g} MB limit")
                 else:
                     try:
-                        limiter.check(who(request))
+                        cid = who(request)
+                        if cfg.max_rejects_per_hour:
+                            try:
+                                rejects.check(cid)
+                            except Refused as e:
+                                raise Refused(f"{cfg.max_rejects_per_hour} rejected uploads in the last hour; try "
+                                              "again later", 429, "too_many_rejected",
+                                              retry_after=e.retry_after) from e
+                        limiter.check(cid)
+                        if cfg.max_jobs_per_client and manager.client_jobs(cid) >= cfg.max_jobs_per_client:
+                            raise Refused("you already have a run in progress", 429, "client_busy")
                         if manager.queue_len() >= cfg.max_queue:
                             raise Refused(f"{manager.queue_len()} jobs are already waiting; try again later", 503,
                                           "queue_full")
@@ -275,13 +298,27 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                     except Refused as e:
                         resp = refuse(e)
                 if resp is None:
-                    if not upload_sem.acquire(blocking=False):
+                    cid = who(request)
+                    with uploads_lock:
+                        mine = uploads_by_client.get(cid, 0)
+                        own = not cfg.max_uploads_per_client or mine < cfg.max_uploads_per_client
+                        if own:
+                            uploads_by_client[cid] = mine + 1
+                    if not own:
+                        resp = refuse(Refused("you already have an upload in progress", 429, "client_busy"))
+                    elif not upload_sem.acquire(blocking=False):
                         resp = E(503, "busy", "too many uploads in progress; try again in a moment")
+                        with uploads_lock:
+                            _drop(uploads_by_client, cid)
                     else:
                         try:
                             resp = await call_next(request)
+                            if cfg.max_rejects_per_hour and resp.status_code in (400, 408, 413, 415, 422):
+                                rejects.record(cid)
                         finally:
                             upload_sem.release()
+                            with uploads_lock:
+                                _drop(uploads_by_client, cid)
             elif te:
                 resp = E(411, "length_required", "Content-Length is required")
             elif cl and (not cl.isdigit() or int(cl) > cfg.max_json_body_bytes):
@@ -294,6 +331,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             resp.headers["Content-Security-Policy"] = PAGE_CSP
         return resp
 
+    app.add_middleware(UploadDeadline, path="/api/jobs", seconds=cfg.upload_deadline_s)
     app.add_middleware(HeadMiddleware)           # added last = outermost: HEAD is served as GET, minus the body
 
     # ---- pages -------------------------------------------------------------------------------
@@ -496,12 +534,15 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                     inp["consent"] = True
                 write_json(base / "input.json", inp)
                 try:
-                    manager.submit(Job(jid, jid, "analyze", base, est_cost_usd=est))   # reserves the spend ceiling
+                    # reserves the spend ceiling
+                    manager.submit(Job(jid, jid, "analyze", base, est_cost_usd=est, client=cid))
                 except (QueueFull, Refused):
                     limiter.release(cid)
                     raise
         except BaseException as e:
             shutil.rmtree(base, ignore_errors=True)
+            if isinstance(e, ClientBusy):
+                raise Refused(str(e), 429, "client_busy") from e
             if isinstance(e, QueueFull):
                 raise Refused(str(e), 503, "queue_full") from e
             raise
@@ -725,7 +766,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             n = p.next_revision()
             d = p.work / "revisions" / str(n)
             d.mkdir(parents=True, exist_ok=True)
-            job = Job(f"{p.id}-r{n}", p.id, "revise", d, rev=n, est_cost_usd=est,
+            job = Job(f"{p.id}-r{n}", p.id, "revise", d, rev=n, est_cost_usd=est, client=cid,
                       params={"corrections": cumulative, "base_version": latest,
                               "user_corrections": prior_user + [c.model_dump() for c in cs]})
             try:
@@ -734,12 +775,21 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                 shutil.rmtree(forked.base if forked else d, ignore_errors=True)
                 if isinstance(e, Refused):
                     raise
+                if isinstance(e, ClientBusy):
+                    raise Refused(str(e), 429, "client_busy") from e
                 raise Refused(str(e), 503, "queue_full") from e
             limiter.record(cid)
         return {"job_id": job.id, "project_id": p.id, "rev": n, "est_cost_usd": est,
                 "n_corrections": len(cumulative), "forked": forked is not None}
 
     return app
+
+
+def _drop(d: dict[str, int], key: str) -> None:
+    """One fewer in-flight item for `key`; the entry goes when it reaches zero."""
+    d[key] = d.get(key, 1) - 1
+    if d[key] <= 0:
+        del d[key]
 
 
 def isolation_status_safe() -> dict:

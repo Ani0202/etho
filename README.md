@@ -19,8 +19,10 @@ the published supervised baselines:
   one-time detector synthesis, hosting, and human review.
 - **Every label is auditable:** the rule that fired, the frame-strip verdict, and which step decided.
 
-**[See it live](https://etho-vm.tail9158ab.ts.net)**: precomputed runs open to everyone, no login (uploads are off on
-the hosted demo).
+**[See it live](https://etho-vm.tail9158ab.ts.net)**: no login and no access code. Precomputed runs open instantly
+with zero spend, and you can upload your own video (up to 2 minutes and 50 MB, after ticking "I have the right to upload
+this video, and it contains no people"). A sample clip to download is on the home page. Live use is limited to 10 runs
+per visitor per day and a small daily and total budget; when a limit is reached the page says so and the showcase stays open.
 
 Upload lab video, write behavior definitions in plain English, and get a scored ethogram, metrics, and an auditable
 methods report. Built for the Meta Global AI Developer Hackathon (Push the Frontier). Numbers: `eval/results/test1_report.md`
@@ -118,8 +120,12 @@ Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
   in the app's gateway cache (what cannot be deleted is listed in `etho/app/retention.py` and `docs/HOSTING.md`);
 - uploads use Standard (non-contributor) models; a showcase's `result.json` decides whether its copies may use
   contributor models.
-Public hosting (`ETHO_APP_PUBLIC=1`): the showcases are open read-only; uploads and revisions need an access code kept in a
-file, a kill-switch file and a read-only flag file work without a restart, live mode ends itself on a set date, and the
+Public hosting (`ETHO_APP_PUBLIC=1`): the showcases are open read-only. Uploads and revisions need an access code kept in a
+file, unless the operator sets `ETHO_APP_OPEN=1` (the hosted demo does): then there is no code or login, an upload must carry
+a consent field (the page shows the checkbox "I have the right to upload this video, and it contains no people"), each
+visitor gets 10 runs per rolling 24 hours (a revision counts as a run), at most 2 jobs are queued or running and a visitor
+may have one, and the daily ($8, $20 on Nov 4-9 ET) and total ($60) budgets apply; without `ETHO_APP_OPEN` a public app
+with no code stays read-only. A kill-switch file and a read-only flag file work without a restart, live mode ends itself on a set date, and the
 service runs as its own unix user. Setup, the exact sudo commands and checks are in `docs/HOSTING.md`; `GET /api/health`
 reports the mode and the budget left (the operator sees more). Every refusal (a cap, read-only, kill switch, expiry,
 no code, a full queue) shows a plain message in the page and leaves the showcase browsable. `bin/app-watchdog` restarts
