@@ -1,22 +1,35 @@
 # Etho
 
-![SAM 3.1 tracks two mice while Etho's ethogram fills in, next to the expert's labels](docs/media/etho-tracking.gif)
-<sub>Video: CalMS21 test-split video mouse075 (Sun et al. 2021), CC BY 4.0; Etho's run of the clip shown on the hosted demo.</sub>
+**[Watch the 3-min video](https://youtu.be/6yoZPROj7PA)** · **[Try it live](https://etho-vm.tail9158ab.ts.net)** · **[Run it with no keys (`make demo`)](#try-it-in-1-minute-no-keys)** · **[Test results report](eval/results/test1_report.md)** · **[What we learned about Meta's models](#what-we-learned-about-metas-models)**
 
 **Animal behavior scored from plain-English definitions, with no training,¹ on Meta's SAM 3.1, Muse Spark and
 Muse Spark Open.** Scored once on the official test set of a published, expert-labeled benchmark (CalMS21), against
 the published supervised baselines:
 
-| CalMS21 Task 1 test set, 19 videos, frame-level F1 | Macro | Attack | Investigation | Mount |
-|---|---|---|---|---|
-| **Etho, no training¹** | **0.58** (95% CI 0.49–0.62) | 0.449 | 0.635 | 0.656 |
-| Supervised, trained on the labeled Task 1 training videos from pose keypoints (Sun et al. 2021, Tables 1, 2: .793 is the 1D ConvNet baseline; .829 adds task-programming features learned from the unlabeled set; .864, the MABe 2021 top entry, also used Task 2/3 labels and unlabeled trajectories) | 0.79–0.86 | | | |
+| CalMS21 Task 1, official test set (19 videos), scored once | Result |
+|---|---|
+| **Accuracy** (frame-level macro F1) | **0.58** with no training¹ (95% CI 0.49–0.62; attack 0.449, investigation 0.635, mount 0.656) vs **0.79–0.86** supervised² |
+| **Speed** | **0.88× real time** on test (worst video 1.54×); manual scoring takes 3–4× (Segalin et al. 2021)³ |
+| **Cost** | **$11.25 per hour of video** in model API cost³ |
+| **Muse Spark Open's frame-strip check** | **+0.205 macro F1** on top of the rules alone (0.375 to 0.580; the CI excludes zero) |
 
-- **Speed:** scores a video unattended in about its own length (0.88× real time on test; worst 1.54×); manual
-  scoring takes 3–4× (Segalin et al. 2021). A runtime comparison, not demonstrated labor savings: human review and
-  correction time were not measured.
-- **Cost:** model API cost for this fixed benchmark pipeline was $11.25 per hour of video, excluding the planner,
-  one-time detector synthesis, hosting, and human review.
+¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
+videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling
+rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`. The split file `eval/splits/calms21_v1.json` still says "DRAFT" in its
+status field: it was frozen by its sha256 (`59bfcd47…880b`, cited in the test report) and is left unedited so that hash
+stays valid.
+
+² Supervised, trained on the labeled Task 1 training videos from pose keypoints (Sun et al. 2021, Tables 1, 2: .793 is
+the 1D ConvNet baseline; .829 adds task-programming features learned from the unlabeled set; .864, the MABe 2021 top
+entry, also used Task 2/3 labels and unlabeled trajectories).
+
+³ A runtime comparison, not demonstrated labor savings: human review and correction time were not measured. The cost is
+for this fixed benchmark pipeline, excluding the planner, one-time detector synthesis, hosting, and human review.
+Numbers: `eval/results/test1_report.md` §11.1 (supervised references: Sun et al. 2021, arXiv:2104.02710, Tables 1 and 2).
+
+![SAM 3.1 tracks two mice while Etho's ethogram fills in, next to the expert's labels](docs/media/etho-tracking.gif)
+<sub>Video: CalMS21 test-split video mouse075 (Sun et al. 2021), CC BY 4.0; Etho's run of the clip shown on the hosted demo.</sub>
+
 - **Every label is auditable:** the rule that fired, the frame-strip verdict, and which step decided.
 
 **[See it live](https://etho-vm.tail9158ab.ts.net)**: no login and no access code. Precomputed runs open instantly
@@ -25,14 +38,7 @@ this video, and it contains no people"). A sample clip to download is on the hom
 per visitor per day and a small daily and total budget; when a limit is reached the page says so and the showcase stays open.
 
 Upload lab video, write behavior definitions in plain English, and get a scored ethogram, metrics, and an auditable
-methods report. Built for the Meta Global AI Developer Hackathon (Push the Frontier). Numbers: `eval/results/test1_report.md`
-§11.1 (supervised references: Sun et al. 2021, arXiv:2104.02710, Tables 1 and 2: .793, .829, .864).
-
-¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
-videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling
-rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`. The split file `eval/splits/calms21_v1.json` still says "DRAFT" in its
-status field: it was frozen by its sha256 (`59bfcd47…880b`, cited in the test report) and is left unedited so that hash
-stays valid.
+methods report. Built for the Meta Global AI Developer Hackathon (Push the Frontier).
 
 ## Try it in 1 minute (no keys)
 
@@ -272,6 +278,25 @@ which stay under the SAM License. Third-party licenses and dataset credits are l
   (`etho/tracking/mask_codec.py`, `sam_lines.py`). It is derived from SAM Materials and redistributed
   under the SAM License; a copy is in `third_party/meta-sam-parser/LICENSE`. This project uses SAM
   Materials (Segment Anything Model 3.1, Meta).
+
+## Built during the hackathon
+
+Etho was built during the event; third-party libraries and ported open-source code are credited in [NOTICE](NOTICE).
+The first commit is Oct 27, 11:50 PM ET (`4646383`), and every row below can be checked against the commits it cites
+(`git show <hash>`). Dates are US Eastern; to count commits per day:
+`TZ=America/New_York git log --date=format-local:%m-%d --format=%ad | sort | uniq -c`.
+
+| Date (ET) | What was built | Commits to check |
+|---|---|---|
+| Oct 27 | Project scaffold: agent configuration and tooling | `4646383`, `9d9cc88` |
+| Oct 28 | Model gateway with spend caps, cache and retries; CalMS21 data tooling; SAM 3.1 tracking pipeline and a fast mask decoder; frame-level scorer and eval plan (targets committed before any test run); rule synthesis sandbox; Muse Spark Open frame-strip check; perception planner; report; web app; bubblewrap sandbox isolation; **CalMS21 test set scored once**; Fly vs. Fly second species (train gate NO-GO, so qualitative only); public hosting with caps and kill switch; Apache-2.0 license | `8c7b7a2`, `f8ca54a`, `73d54b7`, `b9732ea`, `e68f1e7`, `2f3c448`, `ed7488a`, `4ada51c`, `13afead`, `3d8fc43`, `1d11ed1`, `20ef03c`, `6fcdf2d`, `f82696e` |
+| Oct 29 | Codex review fixes (retention of shared cache keys and Meta files, fly velocity margin); hosted service settings for the bubblewrap sandbox and the approved caps | `d0a9e83`, `3b5decc` |
+| Oct 30 | Uptime alerts and Funnel keepalive; HEAD on every route; showcase representativeness check; video production kit (cards rendered from committed numbers); README first screen; fly clip | `244d819`, `0ca9698`, `30035b0`, `3892217`, `ba7fcd7`, `842d416` |
+| Oct 31 | Regression tests for the showcase metric path (Codex review) | `723c796` |
+| Nov 1 | No commits | |
+| Nov 2 | Recorded live run on test video mouse075 (3:08 for 5:00, $0.90); headless capture of it; voice-over pipeline | `f3a4618`, `3c9306b`, `52e2bc6` |
+| Nov 3 | Final demo video cut; no access codes; offline replay demo (`make demo`); pre-submission audit fixes; test report Table 2 correction | `b3221b2`, `6341406`, `3953cf7`, `9e4c93b`, `693055f` |
+| Nov 4 | Open public uploads (consent, per-visitor and in-flight limits) deployed and drilled; cache-busted static assets; UI fixes | `0c80149`, `487db62`, `31fa086`, `08272bb`, `0a87403` |
 
 ## How this was built
 
