@@ -24,16 +24,21 @@ import numpy as np
 from etho.app.config import REPO_ROOT
 
 from . import LABEL
+from .backend import live_sentence
 
 SAMPLE = REPO_ROOT / "demo" / "sample"
 RULE = "=" * 78
 EXIT_OK, EXIT_FAILED, EXIT_MISS, EXIT_DIFFERS = 0, 1, 3, 4
 
 
+_LIVE: dict | None = None      # the recording's live-run figures, for the second line of the banner
+
+
 def banner(stream=None) -> None:
     stream = stream or sys.stdout
     print(RULE, file=stream)
     print(LABEL, file=stream)
+    print(live_sentence(_LIVE), file=stream)
     print(RULE, file=stream)
 
 
@@ -86,8 +91,10 @@ def run(index_path: Path, clip: Path, definitions_path: Path, out: Path, *, serv
     from .lockdown import lockdown
     from .session import load_definitions, run_job
 
-    banner()
+    global _LIVE
     index = ReplayIndex.load(index_path)
+    _LIVE = index.header.get("live_run")
+    banner()
     recorded_clip = index.header.get("clip", {})
     if file_sha256(clip) != recorded_clip.get("sha256"):
         print(f"\nthis recording belongs to {recorded_clip.get('file', 'its own clip')}; for other clips add your own "

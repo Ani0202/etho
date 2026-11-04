@@ -336,6 +336,8 @@ def test_labels_that_differ_from_the_recorded_run_exit_4(tmp_path, monkeypatch, 
     assert code == demo.EXIT_DIFFERS == 4
     assert "NO: bouts differ" in cap.out and "56 of 56 recorded calls served" in cap.out
     assert "exit code 4" in cap.err and LABEL in cap.err
+    sentence = "the recorded live run's (109 s, $0.29). This replay made no model call"
+    assert cap.out.count(sentence) == 1 and sentence in cap.err                    # stdout banner, stderr banner
 
 
 def test_exit_codes_are_documented_in_help(replayed, capsys):
