@@ -2,6 +2,19 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 4, 01:05 ET: open uploads LIVE, all drills passed
+- Site is live in open mode (no access code), `ops/app-readonly` removed 00:56 ET. Undo: `touch ops/app-readonly`.
+- First drill 1 (00:47) failed at $0: `/etc/etho-app/keys.env` had no Meta key (the hosted app had never made a model
+  call). Site went back to read-only; Aniket added new keys; no restart needed (the gateway reads the file per call).
+- Drills (public URL with `--resolve` unless noted): 4.0 forged XFF ignored; 1 sample upload done, $0.46, 310 s (fresh
+  rule synthesis $0.21; the recorded run reused rules: $0.29, 109 s); 2 same-IP second upload 429 client_busy; 2b second
+  visitor (loopback key) queued at position 1, cancelled $0; 3 consent missing / consent=no 400 consent_required; 4 fake
+  mp4 400 unreadable, .txt 415 bad_type; 6 no-animal testsrc declined no_animals in 25 s, $0.05, tracking never ran;
+  5 daily cap and 5b total cap (local copy, keys unset) 429 with the right wording; 7 per-visitor limit (local, limit 2)
+  third run 429 rate_limited.
+- Drill spend $0.51 (ledger total $73.20). Caps now: $19.49 left today, $59.49 total.
+- Next: Aniket edits the submission from docs/FORM_FINAL_with_uploads.md; phone check of the home page on mobile data.
+
 ## Nov 4, 00:30 ET
 - **Baseline submitted by Aniket** (repo public, video unlisted, form from FORM_FINAL.md). Edits allowed until 21:00 ET.
 - Public clone check: `git clone https://github.com/Ani0202/etho.git`, then `uv sync` and `make demo`, exits 0; labels match
