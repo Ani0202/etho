@@ -37,6 +37,8 @@
       <div class="fit"><a class="btn primary" id="sample-dl" href="/api/sample/clip" download hidden>Download the sample clip</a></div>
       <div class="sub" id="sample-info" aria-live="polite">Checking for the sample clip...</div>
     </div>
+    <p class="hint" id="sample-upload-hint" style="margin:0 0 8px" hidden>No video of your own? Download the clip, then
+      upload it in the form below: the animals and definitions are already filled in. It shows only mice, no people.</p>
     <h3>Behavior definitions to paste</h3>
     <p class="hint" style="margin:0 0 4px">The dataset authors' definitions (Segalin et al., MARS, eLife 2021). They are already filled in on the upload form;
       paste them as they are if you edit the form. Subject: <span id="sample-subject"></span>. Partner: <span id="sample-partner"></span>.</p>
@@ -73,10 +75,15 @@
       resident-intruder definitions (Segalin et al., MARS, eLife 2021).</p>
     <div id="behs"></div>
     <button type="button" class="small" id="add">+ Add behavior</button>
+    <div class="consent" id="consent-row" hidden>
+      <label class="check" for="consent"><input type="checkbox" id="consent" name="consent" value="yes">
+        <span id="consent-text">I have the right to upload this video, and it contains no people</span></label>
+    </div>
     <div class="row">
       <div class="fit"><button type="submit" class="primary" id="go">Score video</button></div>
       <div id="est" class="sub"></div>
     </div>
+    <div class="hint" id="visitor-info" aria-live="polite"></div>
     <div class="err" id="err" role="alert"></div>
   </form>
 

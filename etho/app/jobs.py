@@ -1,6 +1,6 @@
 """Job state machine, FIFO queue (one job runs at a time) and progress snapshots for SSE.
 
-  queued -> running -> done | failed | cancelled
+  queued -> running -> done | failed | cancelled | declined (the planner found no animals: not an error)
 Stages (analysis):  validate, plan, track, synthesize, predict, tier1, report, overlay
 Stages (revision):  revise, predict, tier1, report, overlay
 A stage ends `done`, `skipped` (non-essential stage failed; the job goes on) or `failed` (the job stops).
@@ -26,17 +26,18 @@ from pathlib import Path
 from etho.gateway import Gateway
 
 from . import tuning
-from .backend import Backend, Ctx, StageSkipped
+from .backend import Backend, Ctx, JobDeclined, StageSkipped
 from .config import AppConfig
 from .guards import Refused, SpendGuard
 from .jobgw import AppLedger, JobBudgetExceeded, JobCancelled, JobGateway, caller_for
 from .metafiles import delete_job_files
+from .progress import NO_ANIMALS
 from .retention import project_created, purge_project
 from .store import read_json, resolve_project, write_json
 
 ANALYZE_STAGES = ("validate", "plan", "track", "synthesize", "predict", "tier1", "report", "overlay")
 REVISE_STAGES = ("revise", "predict", "tier1", "report", "overlay")
-TERMINAL = ("done", "failed", "cancelled")
+TERMINAL = ("done", "failed", "cancelled", "declined")
 # Consecutive stages that run concurrently: the first name starts the group, the others join it. Model-call
 # cost during a group is attributed to the first stage (the others make no model calls).
 PARALLEL_GROUPS = (("report", "overlay"),)
@@ -47,6 +48,10 @@ log = logging.getLogger("etho.app")
 
 class QueueFull(Exception):
     pass
+
+
+class ClientBusy(QueueFull):
+    """This client already has its allowed number of jobs queued or running."""
 
 
 @dataclass
@@ -85,6 +90,7 @@ class Job:
     version: int = 0
     cancel_requested: bool = False
     gw: JobGateway | None = field(default=None, repr=False)
+    client: str | None = field(default=None, repr=False)   # who submitted it (memory only, never written to disk)
 
     def to_disk(self) -> dict:
         return {"id": self.id, "project_id": self.project_id, "kind": self.kind, "rev": self.rev,
@@ -187,6 +193,16 @@ class JobManager:
         return any(j.status in ("queued", "running") and (project_id is None or j.project_id == project_id)
                    for j in self.jobs.values())
 
+    def in_flight(self) -> int:
+        """Jobs queued or running (analyses and revisions)."""
+        with self._cv:
+            return sum(1 for j in self.jobs.values() if j.status in ("queued", "running"))
+
+    def client_jobs(self, client: str) -> int:
+        """Jobs this client has queued or running."""
+        with self._cv:
+            return sum(1 for j in self.jobs.values() if j.client == client and j.status in ("queued", "running"))
+
     def busy(self) -> bool:
         """Is any job queued or running (so shared directories must not be swept)?"""
         with self._cv:
@@ -288,14 +304,32 @@ class JobManager:
                     return j
         return None
 
+    def _check_capacity_locked(self, client: str | None) -> None:
+        """Raise QueueFull / ClientBusy if one more job from `client` may not be queued (call with the lock held)."""
+        if len(self._queue) >= self.cfg.max_queue:
+            raise QueueFull(f"{len(self._queue)} jobs are already waiting; try again later")
+        cl = self.cfg.max_jobs_per_client
+        if cl and client is not None and sum(
+                1 for j in self.jobs.values() if j.client == client and j.status in ("queued", "running")) >= cl:
+            raise ClientBusy("you already have a run in progress")
+        lim = self.cfg.max_in_flight
+        if lim and sum(1 for j in self.jobs.values() if j.status in ("queued", "running")) >= lim:
+            raise QueueFull(f"{lim} jobs are already queued or running; try again in a few minutes")
+
+    def check_capacity(self, client: str | None) -> None:
+        """A cheap early look at the queue limits (the client's job limit, the global in-flight limit, the queue
+        length), for callers that would otherwise do expensive work (forking a showcase) before `submit` refuses.
+        Not atomic: `submit` repeats the check under the lock and is the one that decides."""
+        with self._cv:
+            self._check_capacity_locked(client)
+
     def submit(self, job: Job) -> Job:
         """Queue a job and reserve its spend ceiling against the caps in the same step. Raises QueueFull, or Refused
         when the daily or total cap leaves no room."""
         with self._cv:
-            if len(self._queue) >= self.cfg.max_queue:
-                raise QueueFull(f"{len(self._queue)} jobs are already waiting; try again later")
             if job.project_id in self._purging:
                 raise QueueFull("this project is being deleted (its retention time is over)")
+            self._check_capacity_locked(job.client)
             job.ceiling_usd = self.guard.reserve(job.id, job.est_cost_usd)
             job.stages = [Stage(n) for n in (ANALYZE_STAGES if job.kind == "analyze" else REVISE_STAGES)]
             self.jobs[job.id] = job
@@ -506,6 +540,9 @@ class JobManager:
             st.status = "done"
         except StageSkipped as e:
             st.status, st.message = "skipped", str(e)
+        except JobDeclined as e:
+            st.status, st.message = "done", f"stopped: {e}"
+            err = e
         except Exception as e:
             err = e
         finally:
@@ -515,7 +552,7 @@ class JobManager:
             st.cost_usd = round(gw.stage_cost.get(st.name, 0.0), 6)
             st.started = None
             self._tls.stage = None
-            if err is not None:
+            if err is not None and not isinstance(err, JobDeclined):
                 st.status = "failed"
             self._persist(job)
             self.touch(job)
@@ -523,7 +560,10 @@ class JobManager:
 
     def _fail_stage(self, job: Job, st: Stage, e: Exception) -> None:
         """Mark a stage failed; the first failure in stage order decides how the job ends."""
-        if isinstance(e, JobCancelled):
+        if isinstance(e, JobDeclined):
+            log.info("job %s declined at %s: %s", job.id, st.name, e)
+            job.outcome, job.error_code, job.message = job.outcome or "declined", "no_animals", NO_ANIMALS
+        elif isinstance(e, JobCancelled):
             st.message = "cancelled"
             job.outcome = job.outcome or "cancelled"
             job.message = "cancelled"

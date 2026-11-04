@@ -20,6 +20,11 @@ What the visitor sees:
 | `killed` | the file `ops/app-kill` exists | Like read-only, and the running job is cancelled at its next model call and the queue is cancelled. |
 | `expired` | after `ETHO_APP_LIVE_UNTIL` (default 2026-11-10 23:59:59 America/New_York) | Like killed. |
 
+**Open mode (`ETHO_APP_OPEN=1`, Nov 4).** In the `live` row, "who may upload" becomes anyone: no code, no login, but the upload form must carry
+a consent field (HTTP 400 without it), each visitor gets 10 runs per rolling 24 h, at most 2 jobs are queued or running (one per visitor, one upload at a time per visitor, a 120 s deadline for the upload body, 10 rejected uploads per hour). The
+kill switch, the read-only file and the live-until date still apply. Settings, the deploy steps and the drills are in
+`docs/DEPLOY_OPEN_UPLOADS.md`. Without `ETHO_APP_OPEN`, nothing in this document changes.
+
 In every one of these states the browser UI shows a plain sentence ("Today's live budget for this demo is used up ...
 the precomputed showcase runs stay open") and the showcase stays browsable; an API client still gets the structured
 4xx. A proxy error page or a dropped connection is turned into a sentence too (`static/common.js`).

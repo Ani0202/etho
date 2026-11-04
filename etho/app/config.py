@@ -49,6 +49,13 @@ class AppConfig:
     # "(public)" below unless the env says otherwise. Plain localhost runs keep the old behaviour.
     public: bool = field(default_factory=lambda: _env("ETHO_APP_PUBLIC", False, _flag))
     read_only: bool = field(default_factory=lambda: _env("ETHO_APP_READ_ONLY", False, _flag))
+    # "Open" public mode (ETHO_APP_OPEN=1): uploads and revisions need no access code and no login. It is a switch the
+    # operator must set on purpose: a public deployment without it and without a readable code file stays read-only.
+    # The kill switch, the read-only file/flag and the live-until date still apply, the showcase stays open, and an
+    # upload must carry the consent field (server.py). The code file, if one exists, is then only an operator key.
+    open: bool = field(default_factory=lambda: _env("ETHO_APP_OPEN", False, _flag))
+    # Where the friendly cap messages send a visitor who cannot use live scoring (repo README: `make demo`).
+    readme_url: str = field(default_factory=lambda: _env("ETHO_APP_README_URL", "https://github.com/Ani0202/etho#readme"))
     # Operator switches checked on every request, so they work without a restart. KILL stops live work at once
     # (running job cancelled, queue cleared); READ_ONLY only refuses new work. The showcase stays up in both.
     kill_file: Path | None = field(default_factory=lambda: _env("ETHO_APP_KILL_FILE", None, _path))
@@ -116,10 +123,22 @@ class AppConfig:
     est_revise_per_behavior_usd: float = 0.15
     # Per-client rate limit (analysis and revision jobs both count). The client is request.client.host; behind a
     # reverse proxy run uvicorn with --forwarded-allow-ips so it rewrites the address (bin/app passes it through).
-    rate_limit_jobs: int = field(default_factory=lambda: _env("ETHO_APP_RATE_JOBS", 3, int))
-    rate_window_s: float = 3600.0
+    # (default 3 per hour; open mode: 10 per rolling 24 hours, Aniket 2026-11-03)
+    rate_limit_jobs: int | None = field(default_factory=lambda: _env("ETHO_APP_RATE_JOBS", None, int))
+    rate_window_s: float | None = field(default_factory=lambda: _env("ETHO_APP_RATE_WINDOW_S", None, float))
     max_corrections: int = 40
     max_queue: int = 5
+    # Most jobs queued or running at once (analyses and revisions). None = only `max_queue` limits it; open mode: 2 (one
+    # runs, one waits, since the worker runs one job at a time). ETHO_APP_MAX_IN_FLIGHT overrides; 0 = no limit.
+    max_in_flight: int | None = field(default_factory=lambda: _env("ETHO_APP_MAX_IN_FLIGHT", None, int))
+    # Availability limits per client key (open mode defaults; 0 = no limit): uploads in progress at once, jobs queued or
+    # running at once, rejected uploads per hour (bad file, missing consent, too large), and the seconds the whole
+    # upload body may take. One visitor therefore cannot hold the two job slots or the two upload slots.
+    max_uploads_per_client: int | None = field(
+        default_factory=lambda: _env("ETHO_APP_MAX_UPLOADS_PER_CLIENT", None, int))
+    max_jobs_per_client: int | None = field(default_factory=lambda: _env("ETHO_APP_MAX_JOBS_PER_CLIENT", None, int))
+    max_rejects_per_hour: int | None = field(default_factory=lambda: _env("ETHO_APP_MAX_REJECTS_PER_HOUR", None, int))
+    upload_deadline_s: float | None = field(default_factory=lambda: _env("ETHO_APP_UPLOAD_DEADLINE_S", None, float))
     max_json_body_bytes: int = 256_000        # every POST except the upload
     max_concurrent_uploads: int = 2
     max_concurrent_probes: int = 2
@@ -142,6 +161,20 @@ class AppConfig:
             self.job_ceiling_mult = 1.5 if pub else 2.0
         if self.job_ceiling_extra_usd is None:
             self.job_ceiling_extra_usd = 0.25 if pub else 0.5
+        if self.rate_limit_jobs is None:
+            self.rate_limit_jobs = 10 if self.open else 3
+        if self.rate_window_s is None:
+            self.rate_window_s = 86400.0 if self.open else 3600.0
+        if self.max_in_flight is None:
+            self.max_in_flight = 2 if self.open else 0
+        if self.max_uploads_per_client is None:
+            self.max_uploads_per_client = 1 if self.open else 0
+        if self.max_jobs_per_client is None:
+            self.max_jobs_per_client = 1 if self.open else 0
+        if self.max_rejects_per_hour is None:
+            self.max_rejects_per_hour = 10 if self.open else 0
+        if self.upload_deadline_s is None:
+            self.upload_deadline_s = 120.0 if self.open else 0.0
         if self.caller_prefix is None:
             self.caller_prefix = "pub:job:" if pub else "job:"
         if self.tag is None:
@@ -162,6 +195,11 @@ class AppConfig:
             self.live_until = DEFAULT_LIVE_UNTIL if pub else None
         if self.gateway_cache_root is None and pub:
             self.gateway_cache_root = self.data_dir / "gateway_cache"
+
+    @property
+    def consent_required(self) -> bool:
+        """An upload must say the visitor may upload it and that it shows no people (open mode only)."""
+        return self.open
 
     def daily_cap_at(self, now: datetime) -> float:
         """The rolling-24 h cap in force at `now`: the judging-window cap inside the window, else `daily_cap_usd`."""

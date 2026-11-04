@@ -48,13 +48,15 @@ HARD_CAPS: dict[str, float] = {
     "together": 5.0,  # Aniket's own money; small until he says otherwise (DECISIONS.md)
 }
 
-# Soft sub-budgets for Meta spend, by tag. Calls are refused once a tag is exhausted.
+# Soft sub-budgets for Meta spend, by tag. Calls are refused once a tag is exhausted. The sum is still 140, the Meta
+# hard cap. Moved on Nov 3 (Aniket; DECISIONS 2026-11-04): evaluation is finished, so eval-llm ($0.07 spent of 30) gives
+# $29 and eval-sam ($24.58 spent of 40) gives $15 to demo-reserve, for open live uploads. No provider cap changed.
 META_TAG_BUDGETS: dict[str, float] = {
     "dev": 15.0,
-    "eval-sam": 40.0,
-    "eval-llm": 30.0,
+    "eval-sam": 25.0,
+    "eval-llm": 1.0,
     "ablation": 20.0,
-    "demo-reserve": 35.0,
+    "demo-reserve": 79.0,
 }
 TAGS = tuple(META_TAG_BUDGETS)
 

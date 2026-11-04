@@ -20,7 +20,7 @@
   }
 
   function showJob(p) {
-    const title = h("div", { class: "card" }, h("h1", {}, p.status === "queued" ? "Queued" : p.status === "running" ? "Scoring your video" : p.status === "failed" ? "The job failed" : "Job " + p.status),
+    const title = h("div", { class: "card" }, h("h1", {}, p.status === "queued" ? "Queued" : p.status === "running" ? "Scoring your video" : p.status === "failed" ? "The job failed" : p.status === "declined" ? "No animals found" : "Job " + p.status),
       h("p", { class: "sub" }, "Progress streams live. You can close this tab and come back to this address."));
     const card = progressCard(pid, sn => { if (sn.status === "done") boot(); }, {});
     root.replaceChildren(title, card);
@@ -337,7 +337,7 @@
     if (!lv || lv.can_submit) return null;
     return h("div", { class: "note" }, lv.mode === "live" && lv.access_required && !lv.access_granted
       ? h("span", {}, "Revising makes paid model calls and needs the access code. ", h("a", { href: "/" }, "Enter it on the home page"), ", then come back.")
-      : (lv.message || "Revising is switched off on this site.") + " You can still browse every result, report and audit trail.");
+      : h("span", {}, ...linkify((lv.message || "Revising is switched off on this site.") + " You can still browse every result, report and audit trail.")));
   }
 
   function reviseBar(disabled) {
@@ -351,7 +351,7 @@
         S.pending = []; drawPending(); drawEtho();
         watchRevision(r.job_id);
       } catch (e) {
-        err.textContent = e.message;
+        err.replaceChildren(...linkify(e.message));
         if (LIVE_OFF.has(e.code)) {          // live use became unavailable: keep the results, say why, disable revising
           const c = await loadHeader();
           if (c && c.live) window.ETHO_CFG.live = { ...c.live, can_submit: false, message: c.live.message || e.message };

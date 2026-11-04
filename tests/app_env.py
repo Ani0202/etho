@@ -50,7 +50,7 @@ def wait_terminal(manager, jid: str, timeout: float = 90.0):
     t0 = time.time()
     while time.time() - t0 < timeout:
         j = manager.jobs.get(jid)
-        if j and j.status in ("done", "failed", "cancelled"):
+        if j and j.status in ("done", "failed", "cancelled", "declined"):
             return j
         time.sleep(0.05)
     raise TimeoutError(f"job {jid} did not finish: {manager.jobs.get(jid)}")

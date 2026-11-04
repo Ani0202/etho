@@ -182,6 +182,15 @@ class RateLimiter:
                 raise Refused(f"rate limit: {self.limit} jobs per {self.window_s / 3600:g} h per client; "
                               f"try again in {wait / 60:.0f} min", 429, "rate_limited", retry_after=wait)
 
+    def usage(self, client: str) -> int:
+        """How many hits this client has in the window (for display; does not record anything)."""
+        with self._lock:
+            q = self._hits.get(client)
+            if not q:
+                return 0
+            self._trim(q, self.clock())
+            return len(q)
+
     def record(self, client: str) -> None:
         with self._lock:
             self._prune(self.clock())

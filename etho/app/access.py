@@ -79,7 +79,10 @@ class AccessControl:
 
     @property
     def required(self) -> bool:
-        """Live use needs a code on a public deployment, or wherever a code file is configured."""
+        """Live use needs a code on a public deployment, or wherever a code file is configured. Never in open mode
+        (ETHO_APP_OPEN), where uploads need no code and no login."""
+        if self.cfg.open:
+            return False
         return self.cfg.public or self.cfg.access_code_file is not None
 
     def problem(self) -> str | None:
@@ -103,8 +106,11 @@ class AccessControl:
 
     def valid(self, cookie: str | None) -> bool:
         """True when no code is required, or the cookie is unexpired and signed for the current code."""
-        if not self.required:
-            return True
+        return (not self.required) or self.valid_cookie(cookie)
+
+    def valid_cookie(self, cookie: str | None) -> bool:
+        """True only for an unexpired cookie signed for the current code, whether or not a code is required. The
+        operator's view (health details) uses this, so open mode does not make every visitor an operator."""
         code = self.code()
         if code is None or not cookie:
             return False

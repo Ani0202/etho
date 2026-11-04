@@ -48,6 +48,21 @@ async function api(path, opts) {
   return body;
 }
 
+/* Plain text with any http(s) URL turned into a link (DOM nodes only, never markup), for the server's own sentences. */
+function linkify(text) {
+  text = String(text || "");
+  const out = [];
+  let last = 0;
+  for (const m of text.matchAll(/https?:\/\/[^\s)]+/g)) {
+    const url = m[0].replace(/[.,;]+$/, "");
+    if (m.index > last) out.push(document.createTextNode(text.slice(last, m.index)));
+    out.push(h("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, url));
+    last = m.index + url.length;
+  }
+  if (last < text.length) out.push(document.createTextNode(text.slice(last)));
+  return out;
+}
+
 const fmt = {
   usd(x) { if (x === null || x === undefined) return "n/a"; return x < 0.1 && x > 0 ? "$" + x.toFixed(3) : "$" + x.toFixed(2); },
   time(sec) {
@@ -122,7 +137,7 @@ function progressCard(jobId, onEnd, opts) {
     const cur = phases.find(p => p.status === "running");
     status.textContent = sn.status === "queued" ? `Queued, position ${sn.queue_position}. It starts as soon as the job ahead finishes.` :
       sn.status === "running" ? (cur ? `${cur.label}: ${cur.message}` : "Working") :
-      sn.status === "done" ? "Done. Opening the results." : sn.status === "cancelled" ? "Cancelled" : "Did not finish";
+      sn.status === "done" ? "Done. Opening the results." : sn.status === "cancelled" ? "Cancelled" : sn.status === "declined" ? "No animals found, so nothing was tracked" : "Did not finish";
     meta.textContent = `cost so far ${fmt.usd(sn.cost_usd)} (estimate before start ${fmt.usd(sn.est_cost_usd)})`;
     list.replaceChildren(...phases.map((p, i) => h("li", { class: p.status },
       h("span", { class: `dot ${p.status}`, title: PH_LABEL[p.status] || p.status }),
@@ -131,9 +146,9 @@ function progressCard(jobId, onEnd, opts) {
       h("span", { class: "state" }, PH_LABEL[p.status] || p.status),
       h("span", { class: "num" }, p.status === "pending" ? "" : fmt.time(p.elapsed_s)),
       h("span", { class: "num cost" }, p.status === "pending" ? "" : fmt.usd(p.cost_usd)))));
-    const bad = sn.status === "failed" || sn.status === "cancelled";
+    const bad = sn.status === "failed" || sn.status === "cancelled" || sn.status === "declined";
     fail.hidden = !bad;
-    if (bad) fail.replaceChildren(sn.friendly || FALLBACK_FAILURE, " ", h("a", { href: "/" }, "Open the showcase runs"));
+    if (bad) fail.replaceChildren(...linkify(sn.friendly || FALLBACK_FAILURE), " ", h("a", { href: "/" }, "Open the showcase runs"));
     cancel.hidden = !(sn.status === "queued" || sn.status === "running");
   }
   const es = new EventSource(`/api/jobs/${jobId}/events`);

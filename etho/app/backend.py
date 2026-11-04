@@ -45,6 +45,28 @@ class StageSkipped(Exception):
     """A non-essential stage failed; the job continues with what it has (the message is shown)."""
 
 
+class JobDeclined(Exception):
+    """The job is stopped on purpose, before it spends more: not an error (the job ends `declined`)."""
+
+
+
+def found_no_animals(steps: list[dict]) -> str | None:
+    """Why the planner's own record says the video has no animals to track (None = it did, or it cannot be told).
+    Two cases: the model proposed an expected count of 0, or no proposed phrase found even one object in the SAM image
+    check on any of the probe frames. Reads only what the planner recorded (`Plan.steps`); it makes no call."""
+    prop = next((s.get("answer") for s in steps if s.get("step") == "propose"), None)
+    if isinstance(prop, dict) and prop.get("expected_count") is not None:
+        try:
+            if int(float(prop["expected_count"])) == 0:
+                return "the planner expects no animals in the video"
+        except (TypeError, ValueError):
+            pass
+    counts = [c for s in steps if s.get("step") == "image_check" for c in s.get("counts", [])]
+    if counts and all(isinstance(c, int) and c == 0 for c in counts):
+        return "no proposed phrase found an object on any probe frame"
+    return None
+
+
 def meta_model(public_data: bool) -> str:
     return "muse-spark-1.3-contributor" if public_data else "muse-spark-1.3"
 
@@ -145,6 +167,9 @@ class Backend:
         p = run_planner(video, gw=ctx.gw, public_data=ctx.public_data, tag=self.cfg.tag)
         write_json(ctx.project.base / "plan.json", asdict(p))
         ctx.state["plan"] = asdict(p)
+        why = found_no_animals(p.steps)
+        if why:                    # nothing is tracked and no SAM video call is made: the job ends here, declined
+            raise JobDeclined(why)
         ctx.say(f'SAM phrase "{p.phrase}", expecting {p.expected_count} animals ({p.identity_method} identity)')
 
     def _since(self, ctx: Ctx) -> float:
@@ -490,4 +515,4 @@ class Backend:
                                 "rule_before": rule["before"], "rule_after": rule["after"], "rule_n": rule["n"]}}
 
 
-__all__ = ["Backend", "Ctx", "StageSkipped"]
+__all__ = ["Backend", "Ctx", "JobDeclined", "StageSkipped"]
