@@ -36,30 +36,30 @@ hand-labeled examples of every behavior.
 Etho needs one sentence per behavior.
 
 9
-00:00:35,450 --> 00:00:38,800
-This is a test video Etho was never tuned on.
+00:00:35,450 --> 00:00:38,100
+This is a video from the official test set.
 
 10
-00:00:39,550 --> 00:00:44,450
+00:00:38,550 --> 00:00:43,800
 I paste the dataset authors' own definitions
 of attack, investigation and mount.
 
 11
-00:00:45,000 --> 00:00:46,850
+00:00:44,450 --> 00:00:46,200
 Muse Spark decides what to track.
 
 12
-00:00:47,450 --> 00:00:52,750
+00:00:46,900 --> 00:00:52,350
 SAM 3.1 follows both mice, and keeps them
 apart even when they're tangled together.
 
 13
-00:00:53,450 --> 00:00:57,115
+00:00:53,150 --> 00:00:56,708
 Muse Spark turns each definition
 into a short Python rule,
 
 14
-00:00:57,115 --> 00:01:02,106
+00:00:56,708 --> 00:01:01,554
 and Muse Spark Open double-checks the
 borderline moments from strips of frames.
 

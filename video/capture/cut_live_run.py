@@ -31,6 +31,10 @@ SEGMENTS = [
 ]
 TOTAL_S = 29.0
 
+# On-screen notes (text, start s, end s in the cut), top centre, clear of the captions. The rules sentence of the
+# voice-over plays over a run that reused the rules Muse Spark wrote for the benchmark (Aniket, Nov 3): say so.
+NOTES = [("Rules: written by Muse Spark for the benchmark, reused for these definitions", 18.1, 22.0)]
+
 
 def fmt(sec: float) -> str:
     sec = int(round(sec))
@@ -73,6 +77,12 @@ def filter_graph(segments=SEGMENTS) -> str:
                      f"boxcolor=black@0.72:boxborderw=14:x=w-tw-50:y=h-th-50:"
                      f"enable='between(t,{r['out_in']},{r['out_in'] + TAG_S})'{nxt}")
         cur, n = nxt, n + 1
+    for k, (text, a, b) in enumerate(NOTES):
+        nxt = f"[n{k}]"
+        parts.append(f"{cur}drawtext=fontfile={FONT}:text='{text.replace(':', chr(92) + ':')}':fontsize=36:"
+                     f"fontcolor=white:box=1:boxcolor=black@0.78:boxborderw=18:x=(w-tw)/2:y=60:"
+                     f"enable='between(t,{a},{b})'{nxt}")
+        cur = nxt
     parts.append(f"{cur}format=yuv420p[v]")
     return ";".join(parts)
 
