@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -158,6 +159,25 @@ def err(status: int, code: str, message: str, headers: dict | None = None, frien
 def refusal(e: Refused, table: dict[str, str] | None = None) -> JSONResponse:
     h = {"Retry-After": str(int(e.retry_after) + 1)} if e.retry_after else None
     return err(e.status, e.code, e.message, h, e.friendly, table)
+
+
+class NoCacheStatic(StaticFiles):
+    """Static files that the browser revalidates on every use (a cheap 304 via the ETag), never reused on a guess."""
+
+    def file_response(self, *args, **kwargs):
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
+def versioned_html(page: Path) -> str:
+    """The page with each /static/<file> reference suffixed by ?v=<first 12 hex of the file's sha256>."""
+    def ref(m: re.Match) -> str:
+        f = STATIC / m.group(2)
+        if not f.is_file():
+            return m.group(0)
+        return f'{m.group(1)}/static/{m.group(2)}?v={hashlib.sha256(f.read_bytes()).hexdigest()[:12]}"'
+    return re.sub(r'((?:src|href)=")/static/([\w.-]+)"', ref, page.read_text())
 
 
 @dataclass
@@ -336,15 +356,19 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     app.add_middleware(HeadMiddleware)           # added last = outermost: HEAD is served as GET, minus the body
 
     # ---- pages -------------------------------------------------------------------------------
+    # The pages name each asset with a content hash (/static/home.js?v=...), so a browser that cached an older script
+    # under heuristic freshness fetches the new one on its next visit instead of pairing it with the new page.
+    pages = {name: versioned_html(STATIC / name) for name in ("index.html", "project.html")}
+
     @app.get("/", include_in_schema=False)
     def home():
-        return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(pages["index.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/p/{pid}", include_in_schema=False)
     def project_page(pid: str):
-        return FileResponse(STATIC / "project.html", headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(pages["project.html"], headers={"Cache-Control": "no-cache"})
 
-    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    app.mount("/static", NoCacheStatic(directory=STATIC), name="static")
 
     # ---- config and showcases ----------------------------------------------------------------
     def cap_status() -> dict:
