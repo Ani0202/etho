@@ -2,6 +2,12 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 4, 14:00 ET: skip reasons per Aniket (45b1607), verified from GitHub
+- Reasons "needs bubblewrap (Linux); skipped on macOS" and "needs a git clone, not a ZIP download"; README Setup one line.
+- GitHub ZIP (archive/refs/heads/main.zip), no bwrap on PATH: make check exit 0, 768 passed / 70 skipped (55 bwrap,
+  2 git, 1 eval "no git history", 4 data). GitHub clone with bwrap: exit 0, 834 passed / 4 skipped (data only).
+  Claude reviewer: no blockers; no runtime file changed in 9b9c3d4..45b1607.
+
 ## Nov 4, 13:45 ET: tests skip cleanly without bubblewrap or git (9b9c3d4, ba6bd26; tests/Makefile/README only)
 - Aniket's clean-machine report: ~16 failures without bwrap (public mode refuses live use, 503, by design) and
   test_flies_frozen failing on a fresh copy (root cause: scripts/freeze_flies.py runs `git status`; a ZIP has no .git).
