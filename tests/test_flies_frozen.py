@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from etho.flies import predict as P
+from tests.markers import needs_git
 from tests.test_fly_features import blank, fin
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +46,7 @@ def test_frozen_detectors_execute_on_a_full_synthetic_table():
     assert out["wing_threat"][:2000].sum() == 0  # a quiet, symmetric stretch is not a wing threat
 
 
+@needs_git
 def test_frozen_config_schema_and_hashes(tmp_path):
     out = tmp_path / "frozen.json"
     r = subprocess.run([sys.executable, "scripts/freeze_flies.py", "freeze", "--allow-dirty", "--out", str(out)],

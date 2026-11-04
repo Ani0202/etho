@@ -9,12 +9,14 @@ from pathlib import Path
 
 from etho.gateway.config import ENV_KEYS
 from tests.app_env import no_jobs, post_job
+from tests.markers import needs_bwrap
 from tests.test_app_open_availability import asgi_post, make_open, visitor
 from tests.test_app_open_uploads import YES, friendly_ok, up
 
 DOC = Path(__file__).resolve().parents[1] / "docs" / "DEPLOY_OPEN_UPLOADS.md"
 
 
+@needs_bwrap
 def test_rejected_showcase_revisions_never_fork_the_showcase(tmp_path, monkeypatch):
     from etho.app import server as S
     from tests.test_app_showcase import BODY, build_showcase

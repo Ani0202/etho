@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from etho.app.config import AppConfig
 from etho.app.jobs import ClientBusy, Job
 from tests.app_env import make_app, no_jobs, post_job, wait_for, wait_terminal
+from tests.markers import needs_bwrap
 from tests.test_app_hosting import REVISE, START
 from tests.test_app_open_uploads import YES, clean_env, friendly_ok, points_onward, up
 
@@ -40,6 +41,7 @@ def test_availability_defaults_in_open_mode_only(monkeypatch):
     assert e.max_jobs_per_client == 2 and e.upload_deadline_s == 30.0
 
 
+@needs_bwrap
 def test_one_job_per_client_in_the_middleware_and_in_submit(tmp_path, monkeypatch):
     client, c = make_open(tmp_path, monkeypatch, worker=False)
     a = up(client, c)
@@ -59,6 +61,7 @@ def test_one_job_per_client_in_the_middleware_and_in_submit(tmp_path, monkeypatc
     assert up(client, c).status_code == 200
 
 
+@needs_bwrap
 def test_a_revision_is_refused_while_the_client_has_a_job(tmp_path, monkeypatch):
     client, c = make_open(tmp_path, monkeypatch)
     a = up(client, c).json()["id"]
@@ -132,6 +135,7 @@ def test_there_is_no_body_deadline_without_open_mode(tmp_path, monkeypatch):
     assert asyncio.run(scenario()) is False                        # it simply waited for the body
 
 
+@needs_bwrap
 def test_rejected_uploads_are_limited_per_client_per_hour(tmp_path, monkeypatch):
     t = [0.0]
     client, c = make_open(tmp_path, monkeypatch, t=t, max_rejects_per_hour=3)
@@ -147,6 +151,7 @@ def test_rejected_uploads_are_limited_per_client_per_hour(tmp_path, monkeypatch)
     wait_for(lambda: not c.manager.busy())
 
 
+@needs_bwrap
 def test_refusals_that_are_not_rejections_do_not_count(tmp_path, monkeypatch):
     t = [0.0]
     client, c = make_open(tmp_path, monkeypatch, t=t, max_rejects_per_hour=2, rate_limit_jobs=1, worker=False)

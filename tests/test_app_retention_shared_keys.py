@@ -9,6 +9,7 @@ from etho.app.config import AppConfig
 from etho.app.jobgw import AppLedger
 from etho.app.retention import purge_project
 from etho.gateway.cache import DiskCache
+from tests.markers import needs_bwrap
 from tests.test_app_hosting import write_rows
 
 SHARED, ONLY_OLD, FILE_SHARED = "ab" * 32, "cd" * 32, "ef" * 32
@@ -150,6 +151,7 @@ def test_early_delete_deletes_at_once_when_no_other_job_needs_the_file(tmp_path,
     assert c.gw.deleted == ["file-early"] and not entry(root, key).exists()
 
 
+@needs_bwrap
 def test_two_projects_expiring_in_the_same_pass_both_release_a_shared_key(tmp_path, monkeypatch):
     import time
 

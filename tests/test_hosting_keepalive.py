@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 from etho.app import uptime
 from etho.hosting import funnel
+from tests.markers import needs_git
 
 T0 = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
 URL = "https://etho-vm.tail9158ab.ts.net"
@@ -189,6 +190,7 @@ def test_persistent_status_error_notifies_after_three_then_rate_limited(tmp_path
     assert r.sudo_calls() == []
 
 
+@needs_git
 def test_every_bin_script_in_install_autostart_is_executable_in_git():
     root = Path(__file__).resolve().parents[1]
     names = set(re.findall(r"\$root/bin/([\w-]+)", (root / "bin" / "install-autostart").read_text()))

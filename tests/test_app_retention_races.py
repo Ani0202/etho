@@ -10,6 +10,7 @@ import pytest
 from etho.app.jobs import Job, QueueFull
 from etho.app.retention import CHUNK_REFS, note_chunk_dirs
 from tests.app_env import make_app, post_job, wait_for, wait_terminal
+from tests.markers import needs_bwrap
 from tests.test_app_hosting import BODY, REVISE, hosted, unlock, wait_done
 from tests.test_app_showcase import build_showcase
 
@@ -51,6 +52,7 @@ def test_only_chunks_cut_from_the_projects_own_video_are_recorded(tmp_path):
     assert json.loads((base / CHUNK_REFS).read_text())["chunk_dirs"] == [str(cdir.resolve())]
 
 
+@needs_bwrap
 def test_purge_deletes_only_direct_children_of_the_apps_own_chunk_dir(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     unlock(client)
@@ -108,6 +110,7 @@ def test_tier1s_hardcoded_chunk_path_is_redirected_to_the_apps_own_dir(tmp_path,
     assert got[-1][0] == cfg.chunk_cache_dir and got[-1][1]["chunk_s"] == 20
 
 
+@needs_bwrap
 def test_shared_sweeps_are_skipped_while_a_job_is_queued_or_running(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, gw_kw={"delay": 0.4})
     unlock(client)
@@ -130,6 +133,7 @@ def test_shared_sweeps_are_skipped_while_a_job_is_queued_or_running(tmp_path, mo
     assert rep["sweeps_skipped"] is False and not orphan_cache.exists() and not orphan_chunks.exists()
 
 
+@needs_bwrap
 def test_a_revision_cannot_be_queued_while_its_project_is_being_purged(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     unlock(client)
@@ -150,6 +154,7 @@ def test_a_revision_cannot_be_queued_while_its_project_is_being_purged(tmp_path,
     assert c.app.state.guard.outstanding() == 0                               # nothing was reserved for it
 
 
+@needs_bwrap
 def test_a_project_with_a_queued_revision_is_skipped_at_the_moment_of_purging(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, gw_kw={"delay": 0.3})
     unlock(client)

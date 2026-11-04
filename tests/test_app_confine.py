@@ -7,8 +7,8 @@ import pytest
 
 from etho.app.config import AppConfig
 from etho.app.validate import ValidationError, check_video, confined, probe, remux_clean
-from etho.rules.sandbox import _probe_bwrap
 from tests.app_helpers import make_video
+from tests.markers import needs_bwrap
 
 
 def test_localhost_commands_are_unchanged(tmp_path):
@@ -31,9 +31,6 @@ def test_a_missing_bwrap_refuses_instead_of_running_unconfined(tmp_path, monkeyp
     with pytest.raises(ValidationError) as e:
         confined(["ffprobe"], tmp_path)
     assert e.value.status == 503
-
-
-needs_bwrap = pytest.mark.skipif(not _probe_bwrap()[0], reason="bubblewrap is not usable here")
 
 
 @needs_bwrap

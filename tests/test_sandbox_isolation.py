@@ -9,8 +9,7 @@ import numpy as np
 import pytest
 
 from etho.rules import sandbox as sb
-
-needs_bwrap = pytest.mark.skipif(not sb._probe_bwrap()[0], reason="bwrap unavailable")
+from tests.markers import needs_bwrap
 
 TABLE = {"a": np.linspace(0, 1, 300), "b": np.sin(np.linspace(0, 20, 300))}
 
@@ -157,6 +156,7 @@ def test_unsafe_roots_refused(monkeypatch):
         sb._py_roots()
 
 
+@needs_bwrap
 def test_unsafe_roots_fallback_and_forced(monkeypatch):
     monkeypatch.setattr(sb, "_probe_state", {"ok": None, "why": "", "at": 0.0, "logged": None})
     monkeypatch.setattr(sb.sys, "prefix", "/")

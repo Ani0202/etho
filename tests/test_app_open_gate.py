@@ -8,6 +8,7 @@ from etho.app import progress as PG
 from etho.app.backend import found_no_animals
 from etho.perception.planner import Plan
 from tests.app_env import make_app, post_job, wait_terminal
+from tests.markers import needs_bwrap
 
 EXACT = ("We couldn't find animals in this video, so nothing was tracked or charged beyond a quick check. "
          "Etho scores animal behavior in lab videos; try the sample clip on this page.")
@@ -92,6 +93,7 @@ def test_the_declined_message_is_exactly_the_agreed_text_and_is_a_friendly_sente
     assert PG.friendly_failure({"status": "done"}, FRIENDLY) is None
 
 
+@needs_bwrap
 def test_the_hosted_view_of_a_declined_job_has_no_raw_error_text(tmp_path, monkeypatch):
     client, c = make_app(tmp_path, monkeypatch, cfg_kw={"public": True, "tag": "dev", "access_code_file": None,
                                                        "open": True, "gateway_cache_root": tmp_path / "g",

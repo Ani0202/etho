@@ -17,6 +17,7 @@ from etho.app.guards import Refused, SpendGuard
 from etho.app.jobgw import AppLedger, JobBudgetExceeded, JobGateway
 from tests.app_env import make_app, no_jobs, post_job, wait_for, wait_terminal
 from tests.app_helpers import FakeGateway
+from tests.markers import needs_bwrap
 from tests.test_app_showcase import BODY, build_showcase
 
 CODE = "CODE-3f9a-unit-test-code"
@@ -124,6 +125,7 @@ def test_config_comes_from_env_and_paths_need_not_be_under_home(monkeypatch, tmp
 
 
 # ---- access code, cookie, throttle --------------------------------------------------------------------------
+@needs_bwrap
 def test_upload_and_revise_need_the_access_code(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     r = post_job(client, c.video)
@@ -232,6 +234,7 @@ def test_code_comparison_is_constant_time_digest_compare(tmp_path, monkeypatch):
     assert seen[:4] == [(32, 32)] * 4        # the code and the guess are hashed first: equal length whatever the guess
 
 
+@needs_bwrap
 def test_cookie_expires_is_tamper_proof_and_dies_when_the_code_rotates(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     unlock(client)
@@ -352,6 +355,7 @@ def test_read_only_blocks_every_spending_endpoint_and_spends_nothing(tmp_path, m
     assert not c.cfg.ledger_path.exists() and not c.gw.calls
 
 
+@needs_bwrap
 def test_read_only_flag_flips_without_a_restart(tmp_path, monkeypatch):
     flag = tmp_path / "ops" / "app-readonly"
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"readonly_file": flag})
@@ -367,6 +371,7 @@ def test_read_only_flag_flips_without_a_restart(tmp_path, monkeypatch):
 
 
 # ---- kill switch ----------------------------------------------------------------------------------------------
+@needs_bwrap
 def test_kill_switch_stops_the_running_job_and_the_queue_and_keeps_the_showcase(tmp_path, monkeypatch):
     kill = tmp_path / "ops" / "app-kill"
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"kill_file": kill}, gw_kw={"delay": 0.4})
@@ -395,6 +400,7 @@ def test_kill_switch_stops_the_running_job_and_the_queue_and_keeps_the_showcase(
 
 
 # ---- auto-off -----------------------------------------------------------------------------------------------
+@needs_bwrap
 def test_live_mode_switches_itself_off_after_the_deadline_by_clock(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     build_showcase(c, monkeypatch)
@@ -417,6 +423,7 @@ def test_live_mode_switches_itself_off_after_the_deadline_by_clock(tmp_path, mon
     assert post_job(client, c.video).status_code == 503 and len(c.gw.calls) == n
 
 
+@needs_bwrap
 def test_expiry_cancels_queued_jobs(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, gw_kw={"delay": 0.3})
     unlock(client)
@@ -546,6 +553,7 @@ def test_job_gateway_counts_a_cost_the_gateway_booked_for_a_failed_call(tmp_path
         jg.chat("meta", "muse-spark-1.3", [{"role": "user", "content": "x" * 3000}], effort="low", max_tokens=20000)
 
 
+@needs_bwrap
 def test_the_job_ceiling_is_reserved_when_the_job_is_admitted(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"daily_cap_usd": 1.0}, gw_kw={"delay": 0.3})
     unlock(client)
@@ -557,6 +565,7 @@ def test_the_job_ceiling_is_reserved_when_the_job_is_admitted(tmp_path, monkeypa
     assert g.reserved(a) is None and g.outstanding() == 0                       # released when the job ended
 
 
+@needs_bwrap
 def test_caps_via_the_api_daily_and_total(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"daily_cap_usd": 3.0, "total_cap_usd": 0.5})
     unlock(client)
@@ -570,6 +579,7 @@ def test_caps_via_the_api_daily_and_total(tmp_path, monkeypatch):
 
 
 # ---- retention ----------------------------------------------------------------------------------------------
+@needs_bwrap
 def test_retention_timer_deletes_everything_a_job_left(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"maintenance_interval_s": 0.1})
     unlock(client)
@@ -634,6 +644,7 @@ def test_retention_sweeps_orphans_in_the_private_cache_and_chunk_dir(tmp_path, m
     assert fresh2.exists()                                              # young entries stay
 
 
+@needs_bwrap
 def test_retention_counts_from_the_upload_and_default_is_24h(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     assert c.cfg.retention_hours == 24.0
@@ -663,6 +674,7 @@ def test_privacy_notice_is_on_the_upload_page(tmp_path, monkeypatch):
     assert html.index('id="privacy"') > html.index('id="form"')
 
 
+@needs_bwrap
 def test_the_access_code_is_never_shown_sent_or_logged(tmp_path, monkeypatch, caplog):
     caplog.set_level(logging.DEBUG)
     client, c = hosted(tmp_path, monkeypatch)
@@ -690,6 +702,7 @@ def test_the_access_code_is_never_shown_sent_or_logged(tmp_path, monkeypatch, ca
         assert CODE not in f.read_text() and "access_code" not in f.read_text()
 
 
+@needs_bwrap
 def test_health_reports_mode_sandbox_and_caps_without_secrets(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     unlock(client)
@@ -709,6 +722,7 @@ def test_health_reports_mode_sandbox_and_caps_without_secrets(tmp_path, monkeypa
     assert h2["caps"]["spent_24h_usd"] > 0 and h2["caps"]["remaining_usd"] < h["caps"]["remaining_usd"]
 
 
+@needs_bwrap
 def test_nothing_from_one_visitors_upload_is_visible_to_another(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     unlock(client)
@@ -774,6 +788,7 @@ def delete_rows(c):
     return [json.loads(x) for x in c.cfg.ledger_path.read_text().splitlines() if '"DELETE"' in x]
 
 
+@needs_bwrap
 def test_meta_files_are_deleted_right_after_tracking_not_at_24h(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     unlock(client)
@@ -791,6 +806,7 @@ def test_meta_files_are_deleted_right_after_tracking_not_at_24h(tmp_path, monkey
     assert not (c.cfg.data_dir / "meta_files_undeleted.jsonl").exists()
 
 
+@needs_bwrap
 def test_a_failed_delete_is_retried_by_retention_and_listed_only_if_it_fails_again(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     c.gw.delete_fails = True

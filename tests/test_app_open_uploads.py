@@ -18,6 +18,7 @@ from etho.app.server import CONSENT_TEXT
 from etho.gateway.ledger import CapExceeded, Ledger
 from etho.gateway.prices import DEMO_RESERVE_OPENS_UTC, HARD_CAPS, META_TAG_BUDGETS
 from tests.app_env import no_jobs, post_job, wait_for, wait_terminal
+from tests.markers import needs_bwrap
 from tests.test_app_hosting import REVISE, START, hosted, spent_nothing, write_rows
 
 STATIC = Path(__file__).resolve().parents[1] / "etho" / "app" / "static"
@@ -96,6 +97,7 @@ def test_a_public_app_without_a_code_is_read_only_unless_it_is_open(tmp_path, mo
     assert client.get("/api/health").json()["open"] is True
 
 
+@needs_bwrap
 def test_open_mode_takes_uploads_and_revisions_without_a_code_or_cookie(tmp_path, monkeypatch):
     client, c = opened(tmp_path, monkeypatch)
     r = up(client, c)
@@ -120,6 +122,7 @@ def test_open_mode_does_not_make_every_visitor_an_operator(tmp_path, monkeypatch
     assert h["open"] is True and "client_seen_as" in h and h["access_required"] is False
 
 
+@needs_bwrap
 def test_kill_switch_read_only_file_expiry_and_sandbox_still_apply_when_open(tmp_path, monkeypatch):
     kill, ro = tmp_path / "ops" / "app-kill", tmp_path / "ops" / "app-readonly"
     client, c = opened(tmp_path, monkeypatch, cfg_kw={"kill_file": kill, "readonly_file": ro})
@@ -153,6 +156,7 @@ def test_showcases_stay_open_and_a_showcase_revision_is_open_too(tmp_path, monke
 
 # ---- consent --------------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("form", [{}, {"consent": ""}, {"consent": "no"}, {"consent": "false"}, {"consent": "0"}])
+@needs_bwrap
 def test_an_upload_without_the_consent_field_is_a_400_and_costs_nothing(tmp_path, monkeypatch, form):
     client, c = opened(tmp_path, monkeypatch)
     r = post_job(client, c.video, **form)
@@ -165,6 +169,7 @@ def test_an_upload_without_the_consent_field_is_a_400_and_costs_nothing(tmp_path
 
 
 @pytest.mark.parametrize("v", ["yes", "true", "1", "on", "YES"])
+@needs_bwrap
 def test_consent_values_that_count(tmp_path, monkeypatch, v):
     client, c = opened(tmp_path, monkeypatch)
     assert post_job(client, c.video, consent=v).status_code == 200
@@ -179,6 +184,7 @@ def test_consent_is_checked_before_the_file_is_looked_at(tmp_path, monkeypatch):
     assert no_jobs(c) and not c.gw.calls
 
 
+@needs_bwrap
 def test_consent_is_logged_as_given_and_nothing_personal(tmp_path, monkeypatch, caplog):
     client, c = opened(tmp_path, monkeypatch)
     with caplog.at_level("INFO", logger="etho.app"):
@@ -191,6 +197,7 @@ def test_consent_is_logged_as_given_and_nothing_personal(tmp_path, monkeypatch, 
     assert inp["consent"] is True and "testclient" not in json.dumps(inp)
 
 
+@needs_bwrap
 def test_without_open_mode_the_upload_needs_no_consent_field(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch)
     client.post("/api/access", json={"code": "CODE-3f9a-unit-test-code"})
@@ -209,6 +216,7 @@ def test_the_page_shows_the_consent_box_next_to_the_upload_button_and_sends_it()
 
 
 # ---- per-visitor limit ----------------------------------------------------------------------------------------
+@needs_bwrap
 def test_the_limit_is_per_visitor_per_rolling_24h_and_revisions_count(tmp_path, monkeypatch):
     t = [0.0]
     from tests.app_env import make_app
@@ -240,6 +248,7 @@ def test_the_limit_is_per_visitor_per_rolling_24h_and_revisions_count(tmp_path, 
     wait_for(lambda: not c.manager.busy())
 
 
+@needs_bwrap
 def test_a_rejected_upload_does_not_use_up_a_run(tmp_path, monkeypatch):
     client, c = opened(tmp_path, monkeypatch, cfg_kw={"rate_limit_jobs": 1})
     bad = tmp_path / "x.mp4"
@@ -291,6 +300,7 @@ def test_the_judging_window_cap_is_the_one_the_guard_uses(tmp_path, monkeypatch)
 
 
 # ---- in flight, queue position, worker -------------------------------------------------------------------------
+@needs_bwrap
 def test_one_worker_runs_the_jobs_and_two_are_allowed_in_flight_with_a_visible_position(tmp_path, monkeypatch):
     from tests.app_env import make_app
     client, c = make_app(tmp_path, monkeypatch, base_url="https://testserver", now=lambda: START,
@@ -324,6 +334,7 @@ def test_the_manager_runs_exactly_one_worker_thread(tmp_path, monkeypatch):
     assert len([t for t in threading.enumerate() if t.name == "etho-jobs"]) == before + 1
 
 
+@needs_bwrap
 def test_a_revision_is_refused_when_two_jobs_are_in_flight(tmp_path, monkeypatch):
     client, c = opened(tmp_path, monkeypatch, cfg_kw={"max_jobs_per_client": 0})
     a = up(client, c).json()["id"]
@@ -337,6 +348,7 @@ def test_a_revision_is_refused_when_two_jobs_are_in_flight(tmp_path, monkeypatch
 
 
 # ---- uploads: validation, limits, sample clip ----------------------------------------------------------------
+@needs_bwrap
 def test_a_file_that_is_not_a_video_is_rejected_with_a_plain_message_and_no_spend(tmp_path, monkeypatch):
     client, c = opened(tmp_path, monkeypatch)
     txt = tmp_path / "notes.txt"
@@ -361,6 +373,7 @@ def test_public_upload_limits_stay_50mb_and_120s(tmp_path, monkeypatch):
     assert lim["rate_limit_jobs"] == 50 and lim["rate_window_s"] == 86400.0       # `hosted` raises the count to 50
 
 
+@needs_bwrap
 def test_the_sample_clip_link_is_on_the_home_page_and_downloadable_in_open_mode(tmp_path, monkeypatch):
     client, c = opened(tmp_path, monkeypatch)
     sd = c.cfg.sample_dir

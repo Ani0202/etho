@@ -14,6 +14,7 @@ import pytest
 
 from etho.app.config import DEFAULT_LIVE_UNTIL
 from tests.app_env import post_job
+from tests.markers import needs_bwrap
 from tests.test_app_hosting import REVISE, hosted, unlock, write_rows
 from tests.test_app_showcase import BODY, build_showcase
 
@@ -100,6 +101,7 @@ def test_the_daily_and_total_caps_fall_back_to_the_showcase_with_a_message(tmp_p
     check_refusal(post_job(client2, c2.video), 429, "total_cap")
 
 
+@needs_bwrap
 def test_admission_refusals_render_a_message(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"max_queue": 0})                  # a full queue
     unlock(client)
@@ -113,6 +115,7 @@ def test_admission_refusals_render_a_message(tmp_path, monkeypatch):
     check_refusal(client.post("/api/access", json={"code": "x" * 20}), 429, "access_throttled")
 
 
+@needs_bwrap
 def test_a_job_estimate_over_the_remaining_budget_is_refused_with_a_message(tmp_path, monkeypatch):
     client, c = hosted(tmp_path, monkeypatch, cfg_kw={"daily_cap_usd": 0.5})          # a 6 s upload is estimated at $0.21
     unlock(client)

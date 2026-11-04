@@ -50,7 +50,7 @@ From a fresh clone, with no API key and no network after the install (needs [uv]
 ```bash
 git clone https://github.com/Ani0202/etho.git && cd etho
 uv sync                      # Python 3.11+ and the dependencies, once (this step needs the network)
-make demo                    # about 20 s: the web app's real job pipeline on the 60 s CalMS21 sample clip
+make demo                    # under a minute: the web app's real job pipeline on the 60 s CalMS21 sample clip
 ```
 
 `make demo` re-encodes the clip, then plans, tracks, runs the rules Muse Spark wrote for these three definitions (reused
@@ -71,7 +71,7 @@ Other clips and definitions need the live path: add your own Meta Model API key 
 
 What is recorded and what is measured: the costs, the methods paragraph's timings and the validate stage's cost
 estimate are the recorded live run's (109 s, $0.29); this replay made no model call and spent nothing, and its own
-wall-clock (about 20 s) is local compute only. The banner on every page and report says so. The recording belongs to the
+wall-clock (under a minute) is local compute only. The banner on every page and report says so. The recording belongs to the
 sample clip (it is checked by SHA-256 before anything runs). Exit codes of `python -m etho.replay.demo` (see `--help`):
 0 ok, 1 the run failed, 3 a `REPLAY MISS` or a clip other than the recorded one, 4 the scored labels differ from the
 recorded run's.
@@ -85,6 +85,10 @@ its rlimit-only mode.
 uv sync                      # Python 3.11+, installs deps into .venv
 make check                   # lint + tests (no network needed)
 ```
+
+Without bubblewrap (e.g. on macOS) the tests that need it are skipped, not failed: public mode checks uploads and runs
+detector code only under bubblewrap and refuses live use without it, so those tests cannot run there. Tests that read
+git metadata are skipped likewise outside a git checkout (e.g. a ZIP download). `pytest -rs` lists each skip and why.
 
 Model-written detector code runs in a sandbox: an AST check, rlimits, and (when available) bubblewrap
 isolation with no network and a minimal read-only filesystem. Install it with `sudo apt install bubblewrap`.
@@ -115,7 +119,7 @@ uv run python scripts/package_job_showcase.py --help   # package a finished app 
 uv run python -m tests.mock_server              # the real app on synthetic stages and a fake gateway (no spend)
 ```
 
-Upload (mp4/mov/avi, <= 200 MB, <= 5 min, checked with a hardened ffprobe that counts real frames, before anything is
+Upload (mp4/mov/avi; up to 200 MB and 5 min by default on a local instance, 50 MB and 2 min on the hosted site; checked with a hardened ffprobe that counts real frames, before anything is
 spent), edit the behavior definitions, and watch the job stream stage by stage. Results show the overlay video synced
 with the ethogram, per-stage time and cost, the end-to-end speed as a multiple of the video's duration, and the audit
 trail. Mark wrong or missed bouts and "Revise rules" to see what changed. Trying the correction loop on a showcase
@@ -137,7 +141,7 @@ page offers it for download next to the dataset authors' behavior definitions, w
 2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. On the hosted
 demo you can upload it (or your own clip) with no login; to score it on your own machine, run `bin/app` with your own keys (Setup), or replay it offline with `make demo`.
 
-Packaging a real app run as a showcase (after the lead's paid run; no model call, no spend):
+Packaging a real app run as a showcase (after a paid live run; no model call, no spend):
 
 ```bash
 uv run python scripts/package_job_showcase.py --job data/app/jobs/<job id> --name calms21-live-run \
