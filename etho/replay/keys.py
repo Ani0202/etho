@@ -132,15 +132,16 @@ def texts(desc: dict) -> list[str]:
 
     def walk(o: Any) -> None:
         if isinstance(o, dict):
-            if isinstance(o.get("text"), str):
-                out.append(o["text"])
             for k, v in o.items():
-                if k != "text":
+                if isinstance(v, str):
+                    if k in ("text", "content") and v not in (IMAGE, VIDEO):
+                        out.append(v)           # not `role`, `type`, ...
+                else:
                     walk(v)
         elif isinstance(o, list):
             for v in o:
                 walk(v)
-        elif isinstance(o, str) and o not in (IMAGE, VIDEO):
+        elif isinstance(o, str):
             out.append(o)
 
     req = desc["request"]
