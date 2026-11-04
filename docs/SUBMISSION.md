@@ -41,7 +41,6 @@ participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10
 - [ ] Only Aniket listed as a team member.
 - [ ] Paste the answers from `docs/FORM_FINAL.md` (one code block per field, short and full versions, sources
   table at the end). Fill the placeholders: repo URL, unlisted video URL, live app URL, X post link if any.
-  public page. If Discord confirms a private notes field on Nov 3, move it there.
 - [ ] The access code written on Nov 3 was never shared; it can be deleted (HOSTING.md section 15) or left unused.
 
 ## Before submitting (Nov 4 morning, before the 12:00 PM ET internal target)
