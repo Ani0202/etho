@@ -2,6 +2,15 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 4, 00:30 ET
+- **Baseline submitted by Aniket** (repo public, video unlisted, form from FORM_FINAL.md). Edits allowed until 21:00 ET.
+- Public clone check: `git clone https://github.com/Ani0202/etho.git`, then `uv sync` and `make demo`, exits 0; labels match
+  the recording, 56/56 calls served, $0.
+- Open uploads moved up to tonight: Codex gate review (P1 fork before capacity check, P2 deadline, P2 drill keys,
+  P3 drill cost) + no-animal gate in progress on branch open-uploads. Cutoff: deployed and drilled by 03:00 ET, or
+  read-only and resume tomorrow (finish by 17:00 ET). Push notification before any restart (Nov 4-9).
+- Final video: data/video/final_v1.mp4 (sha256 63cccd78...), new take 03 + rules-reused tag.
+
 ## Nov 3, 23:20 ET
 - **The replay demo is merged** (3953cf7, ac221b8). `make demo` on main: 56/56 recorded calls served, $0, labels match.
   The reviewer passed twice. The sandbox RLIMIT_AS fallback applies on macOS only.
