@@ -10,7 +10,7 @@ the published supervised baselines:
 | CalMS21 Task 1 test set, 19 videos, frame-level F1 | Macro | Attack | Investigation | Mount |
 |---|---|---|---|---|
 | **Etho, no training¹** | **0.58** (95% CI 0.49–0.62) | 0.449 | 0.635 | 0.656 |
-| Supervised, trained on the 70 labeled training videos from pose keypoints (Sun et al. 2021, Tables 1, 2; .793 is the 1D ConvNet baseline, .829 adds task programming, .864 is the MABe 2021 top entry, which used additional training data) | 0.79–0.86 | | | |
+| Supervised, trained on the labeled Task 1 training videos from pose keypoints (Sun et al. 2021, Tables 1, 2: .793 is the 1D ConvNet baseline; .829 adds task-programming features learned from the unlabeled set; .864, the MABe 2021 top entry, also used Task 2/3 labels and unlabeled trajectories) | 0.79–0.86 | | | |
 
 - **Speed:** scores a video unattended in about its own length (0.88× real time on test; worst 1.54×); manual
   scoring takes 3–4× (Segalin et al. 2021). A runtime comparison, not demonstrated labor savings: human review and
