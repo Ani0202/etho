@@ -6,8 +6,9 @@ publishes, or changes repo visibility.
 **Official deadline: Wed Nov 4, 9:00 PM, via the CV platform. Late submissions are not considered.** The
 participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10-28).
 **Internal target: Nov 4, 12:00 PM ET** (our own margin; it stays there).
-- [ ] **Nov 3:** ask in Discord whether submission pages are public and whether there's a private notes field; if
-  yes, move the access code there (it is in the #4 Project Description for now, because the form has no notes field).
+- [x] **Nov 3:** Discord (organizers): no private field or channel for judge access and the README is public, so no
+  access codes anywhere; judges work from the repo and the video, a hosted demo is optional and must be
+  credential-free. Submissions can be edited until Nov 4, 9:00 PM ET.
 - [ ] **Nov 3:** the form is fully filled and ready to submit, so any platform issue can be raised in Discord that
   day (Nov 3 is the last full day for submission questions and troubleshooting). Find out whether submissions
   can be edited after sending.
@@ -29,21 +30,19 @@ participants page shows no time zone, so treat it as 9:00 PM ET (Aniket, 2026-10
     our gateway and cascade code).
   - [ ] Captions burned in, large fonts, even audio levels (finals are shown live on a shared screen).
   - [ ] Honesty checks in `docs/DEMO_PLAN.md` pass.
-- [ ] **Live product:** the public read-only showcase plus live uploads behind the access code
+- [ ] **Live product:** the public read-only showcase, no login; uploads of visitors' own videos stay off
   (`docs/HOSTING.md`).
   - [ ] Up from submission through Nov 9 (finals); live mode turns itself off on Nov 10 ET.
   - [ ] The watchdog and the 15-min external uptime check run, and `ops/uptime.jsonl` shows no gaps.
   - [ ] Caps from `demo-reserve`: $3 a day before Nov 4, **$8 a day Nov 4-9 ET** (judging window), **$30 in total**; when a cap is hit, the app falls back to the
     showcase with a message.
-  - [ ] The access code goes only in the submission form (end of #4), never on the public page.
 
 ## Form
 - [ ] Only Aniket listed as a team member.
 - [ ] Paste the answers from `docs/FORM_FINAL.md` (one code block per field, short and full versions, sources
   table at the end). Fill the placeholders: repo URL, unlisted video URL, live app URL, X post link if any.
-- [ ] The access code is at the end of the #4 full description (the form has no notes field). It is never on the
   public page. If Discord confirms a private notes field on Nov 3, move it there.
-- [ ] **After Nov 9:** rotate the access code (`docs/HOSTING.md`: write a new value to `/etc/etho-app/access_code`).
+- [ ] The access code written on Nov 3 was never shared; it can be deleted (HOSTING.md section 15) or left unused.
 
 ## Before submitting (Nov 4 morning, before the 12:00 PM ET internal target)
 - [ ] Pre-submission audit: the Claude reviewer plus `bin/codex-ask --gate pre-submission`.

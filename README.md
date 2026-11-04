@@ -19,8 +19,8 @@ the published supervised baselines:
   one-time detector synthesis, hosting, and human review.
 - **Every label is auditable:** the rule that fired, the frame-strip verdict, and which step decided.
 
-**[Try it live](https://etho-vm.tail9158ab.ts.net)**: the precomputed showcase is open to everyone; live uploads
-need the access code from the submission form.
+**[See it live](https://etho-vm.tail9158ab.ts.net)**: precomputed runs open to everyone, no login (uploads are off on
+the hosted demo).
 
 Upload lab video, write behavior definitions in plain English, and get a scored ethogram, metrics, and an auditable
 methods report. Built for the Meta Global AI Developer Hackathon (Push the Frontier). Numbers: `eval/results/test1_report.md`

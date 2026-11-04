@@ -34,7 +34,7 @@ Many labs still hand-score animal behavior, at 3-4x the video's length. I built 
 
 ## 4. Project Description
 
-Short (if you must use it, the access code is not in it: use the full version, or ask on Nov 3 where the code can go):
+Short:
 
 ```
 Behavior labs often still score video by hand, at 3-4 times the video's length for social behavior. Behavior scoring underpins neuroscience research and drug-safety studies (ICH S7A; OECD TG 424). I built Etho: lab video and plain-English definitions in, a scored ethogram and auditable report out, with no model training. On the 19 CalMS21 test videos, scored once: 0.58 macro F1 (averaged over attack, investigation and mount); supervised methods reach 0.79-0.86. Tuned on 13 labeled dev videos.
@@ -55,7 +55,7 @@ Disclosure: pipeline settings were tuned on 13 labeled development videos. Test-
 
 Code, results and every disclosure are in the public repo.
 
-Live app: <URL>. Access code for live uploads: <code>.
+Live app (no login; precomputed runs, read-only): <URL>.
 ```
 
 ## 5. Public GitHub Repository
