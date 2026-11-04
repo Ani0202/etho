@@ -2,6 +2,13 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 4, 12:55 ET: README polish (docs only, b1ecdbb)
+- Quick-links row (video https://youtu.be/6yoZPROj7PA, live app, make demo, test report, What we learned); compact
+  first-screen results table (0.58 vs 0.79-0.86, 0.88x, $11.25/video-hour, +0.205) with footnotes ¹²³ from approved
+  wording; "Built during the hackathon" table (Oct 27-Nov 4 ET, 38 cited commits all on main and on their stated dates).
+- Every README link checked logged out: GitHub blob links 200, anchors present in the rendered page, YouTube oEmbed 200,
+  live site 200, Caltech and uv docs 200. ops/spend.jsonl left uncommitted (it holds pub:job rows).
+
 ## Nov 4, 02:15 ET: site fixes after Aniket's screenshot (live, 3 restarts, each notified, no jobs in flight)
 - Consent box missing for returning visitors: /static had no Cache-Control, so a browser paired the new index.html with
   a heuristically cached old home.js (it showed "10 jobs per hour"). Pages now load /static/<f>?v=<sha256[:12]> and
