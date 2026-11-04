@@ -2,7 +2,18 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
-## Nov 2 (19:55 ET)
+## Nov 3 night (22:40 ET): plan to the deadline (hard stop on building: Nov 4 21:00 ET)
+- The hosted app is **read-only** (`ops/app-readonly` touched by the lead after the organizers' answer). The access code
+  file exists but was never shared. No access code appears in any doc.
+- Building in worktrees:
+  - (1) replay demo `make demo` (merge only after the Claude reviewer, by about 05:00 ET);
+  - (2) open uploads on a branch, deployed Nov 4 afternoon after Aniket's app.env edit and the public-URL drills, or
+    the site stays read-only after 17:00 ET.
+- 05:00-08:00 ET: pre-submission audit on main (Claude reviewer + `bin/codex-ask --gate pre-submission`). Aniket submits
+  the baseline after the audit and edits until 21:00 ET. FORM_FINAL in two versions (with and without uploads;
+  "make demo" only if merged).
+- Final video: data/video/final_v1.mp4 (2:56, -16.2 LUFS), sent to Aniket for YouTube (Unlisted).
+
 - Hosted showcase = Nov 2 live run (0.44), verified on the public URL. The Oct 28 package is archived.
 - VO pipeline merged (52e2bc6). Caption-safe cards merged (e49ca91): all card text above y=860, tested. Final cut:
   once Aniket's takes are in data/video/vo/ (01_hook ... 09_close), run `uv run python -m video.assemble --vo`, then
