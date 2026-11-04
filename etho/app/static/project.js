@@ -21,7 +21,7 @@
 
   function showJob(p) {
     const title = h("div", { class: "card" }, h("h1", {}, p.status === "queued" ? "Queued" : p.status === "running" ? "Scoring your video" : p.status === "failed" ? "The job failed" : p.status === "declined" ? "No animals found" : "Job " + p.status),
-      h("p", { class: "sub" }, "Progress streams live. You can close this tab and come back to this address."));
+      (p.status === "queued" || p.status === "running") ? h("p", { class: "sub" }, "Progress streams live. You can close this tab and come back to this address.") : null);
     const card = progressCard(pid, sn => { if (sn.status === "done") boot(); }, {});
     root.replaceChildren(title, card);
   }

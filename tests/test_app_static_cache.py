@@ -34,3 +34,9 @@ def test_the_home_page_script_reveals_the_consent_box():
     js = (STATIC / "home.js").read_text()
     assert '$("consent-row").hidden = !cfg.limits.consent_required' in js
     assert 'id="consent-row" hidden' in (STATIC / "index.html").read_text()
+
+
+def test_the_hidden_attribute_beats_author_display_rules():
+    # button { display: inline-block } kept the Cancel button visible on finished jobs
+    css = (STATIC / "app.css").read_text()
+    assert "[hidden] { display: none !important; }" in css

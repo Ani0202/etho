@@ -399,13 +399,19 @@ class Backend:
         self._ensure_final(ctx)
         names, final = ctx.state["names"], ctx.state["final"]
         v, job = ctx.state["video"], ctx.job
+        # The methods paragraph is written from this list. A first run that wrote every detector fresh says so: the
+        # general "is reused" clause got paraphrased as "was reused" there. With any reuse, and in revisions, the
+        # wording is unchanged (the offline replay demo's recorded methods call depends on it).
+        prov = ctx.state.get("provenance") or {}
+        fresh = not ctx.version and not any((prov.get(n) or {}).get("source") in ("seed", "cache") for n in names)
+        reuse = ("every detector in this run was written fresh" if fresh else
+                 "a detector already written for the same definition is reused (see each detector's source)")
+        written = (f"{meta_model(ctx.public_data)} writes one Python detector per behavior from the English definition "
+                   f"(sandboxed); {reuse}")
         meta = {"video": v.get("name", "upload"), "phrase": (ctx.state.get("plan") or {}).get("phrase"),
-                "pipeline": ["Muse Spark plans the SAM concept phrase", "SAM 3.1 tracks both animals",
-                             f"{meta_model(ctx.public_data)} writes one Python detector per behavior from the "
-                             "English definition (sandboxed); a detector already written for the same definition "
-                             "is reused (see each detector's source)", "Muse Spark Open (Fireworks) judges borderline "
-                             "bouts from frame strips"] + (["Detectors revised from researcher corrections"]
-                                                          if ctx.version else []),
+                "pipeline": ["Muse Spark plans the SAM concept phrase", "SAM 3.1 tracks both animals", written,
+                             "Muse Spark Open (Fireworks) judges borderline bouts from frame strips"]
+                + (["Detectors revised from researcher corrections"] if ctx.version else []),
                 "behavior_definitions": ctx.state["defs"], "version": ctx.version,
                 **({"n_corrections": len(ctx.state["corrections"])} if ctx.version and ctx.state.get("corrections")
                    else {}),

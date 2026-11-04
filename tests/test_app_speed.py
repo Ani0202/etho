@@ -129,6 +129,10 @@ def test_second_upload_reuses_detectors_without_a_synthesis_call(tmp_path, monke
     # the report's audit trail (embedded JSON) says it too
     html = client.get(f"/api/projects/{j2}/report").text
     assert "&quot;source&quot;: &quot;cache&quot;" in html
+    # the pipeline description the methods paragraph is written from says reuse only when it happened
+    assert "a detector already written for the same definition is reused" in html
+    html1 = client.get(f"/api/projects/{j1}/report").text
+    assert "every detector in this run was written fresh" in html1 and "was reused" not in html1
     # a different definition text is a miss: only that behavior is written again
     j3 = run_job(client, c, defs={"investigation": DEFS["investigation"], "attack": DEFS["attack"] + " Also chasing."})
     assert [str(x["caller"]).rsplit(":", 1)[-1] for x in synth_calls(c)][2:] == ["attack"]
