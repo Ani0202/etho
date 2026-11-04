@@ -78,8 +78,13 @@ def run_job(gateway, clip: Path, definitions: dict, work_dir: Path, *, replay: b
         raise RuntimeError(f"the app refused the clip: HTTP {r.status_code} {r.text[:400]}")
     jid = r.json()["id"]
     manager = app.state.manager
-    job, last, t0 = manager.jobs[jid], None, time.monotonic()
+    job, last, t0, stopped = manager.jobs[jid], None, time.monotonic(), False
     while job.status not in ("done", "failed", "cancelled"):
+        if getattr(gateway, "misses", None) and not stopped:
+            stopped = True                      # a call had no recording: stop the job, the run is void
+            manager.cancel(jid)
+            if say:
+                say("  a model call has no recording; stopping")
         if time.monotonic() - t0 > timeout_s:
             raise TimeoutError(f"job {jid} did not finish in {timeout_s:.0f} s")
         msg = job.message

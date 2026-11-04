@@ -19,6 +19,18 @@ from . import keys
 VERSION = 1
 
 
+HINTS = {
+    "etho.rules.synthesize": "a behavior definition (or the subject/partner wording) differs from the recorded run's, "
+                             "so its detector would have to be written by a model; the recorded run reused the "
+                             "committed benchmark detectors for the dataset authors' exact definitions",
+    "etho.adjudication.tier1": "the frame-strip check asked about a different window or prompt than the recorded run "
+                               "(its prompt carries the time window and the definitions)",
+    "etho.perception.planner": "the planner saw a different clip or sampled different frames than the recorded run",
+    "etho.tracking.pipeline": "the clip was cut into different chunks than the recorded run's",
+    "etho.report.methods": "the report facts (metrics, costs, definitions) differ from the recorded run's",
+}
+
+
 class ReplayMiss(Exception):
     """A call that has no recording. There is no fallback: the demo never reaches a model or the network."""
 
@@ -94,12 +106,16 @@ class ReplayIndex:
                  + (f" (this request was recorded {have} time{'s' if have != 1 else ''}; it is being asked for "
                     f"more often than that)" if have else ""),
                  f"  caller {caller}"]
+        if desc["caller"] in HINTS:
+            lines.append(f"  likely cause: {HINTS[desc['caller']]}")
         near = self.nearest(desc)
         if near:
+            if not any(e["desc"]["caller"] == desc["caller"] for e in near):
+                lines.append(f"  (the recording holds no call from {desc['caller']} at all)")
             lines.append("  nearest recorded keys:")
             for e in near:
                 lines.append(f"    {e['key'][:16]} (x{self.occurrences(e['key'])})  {keys.summary(e['desc'])}")
-            diff = _text_diff(desc, near[0]["desc"])
+            diff = _text_diff(desc, near[0]["desc"]) if near[0]["desc"]["caller"] == desc["caller"] else []
             if diff:
                 lines.append("  difference from the nearest recording (- requested, + recorded):")
                 lines += [f"    {ln}" for ln in diff]

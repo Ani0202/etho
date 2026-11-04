@@ -143,6 +143,7 @@ def serve_app(sess, host: str, port: int) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     warnings.filterwarnings("ignore")
+    sys.stdout.reconfigure(line_buffering=True)     # type: ignore[attr-defined]  # keep stdout and stderr in order
     ap = argparse.ArgumentParser(description="Etho offline replay demo (no keys, no network)")
     ap.add_argument("--index", type=Path, default=SAMPLE / "replay.jsonl.gz")
     ap.add_argument("--clip", type=Path, default=SAMPLE / "calms21_dev_60s.mp4")

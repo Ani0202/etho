@@ -143,7 +143,8 @@ def texts(desc: dict) -> list[str]:
         elif isinstance(o, str) and o not in (IMAGE, VIDEO):
             out.append(o)
 
-    walk(desc["request"])
+    req = desc["request"]
+    walk(req.get("messages") if "messages" in req else req.get("input"))
     return out
 
 
@@ -155,5 +156,5 @@ def summary(desc: dict) -> str:
         return f"{head} phrase={r.get('phrase')!r} media={r.get('media')} n_frames={r.get('n_frames')}"
     if desc["method"] == "upload_file":
         return f"{head} purpose={r.get('purpose')} duration_s={r.get('duration_s')} n_frames={r.get('n_frames')}"
-    first = (texts(desc) or [""])[0]
-    return f"{head} effort={r.get('effort')} images={r.get('n_images')} text={first[:90]!r}"
+    last = (texts(desc) or [""])[-1]       # the user prompt comes last (after any system prompt)
+    return f"{head} effort={r.get('effort')} images={r.get('n_images')} text={last[:110]!r}"
