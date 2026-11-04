@@ -86,9 +86,7 @@ uv sync                      # Python 3.11+, installs deps into .venv
 make check                   # lint + tests (no network needed)
 ```
 
-Without bubblewrap (e.g. on macOS) the tests that need it are skipped, not failed: public mode checks uploads and runs
-detector code only under bubblewrap and refuses live use without it, so those tests cannot run there. Tests that read
-git metadata are skipped likewise outside a git checkout (e.g. a ZIP download). `pytest -rs` lists each skip and why.
+On macOS (no bubblewrap) or from a ZIP download (no `.git`), some tests are skipped by design; `make check` lists each skip and why.
 
 Model-written detector code runs in a sandbox: an AST check, rlimits, and (when available) bubblewrap
 isolation with no network and a minimal read-only filesystem. Install it with `sudo apt install bubblewrap`.

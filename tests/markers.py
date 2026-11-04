@@ -30,11 +30,6 @@ def git_checkout() -> bool:
     return r.returncode == 0 and Path(r.stdout.strip()).resolve() == ROOT.resolve()
 
 
-_BWRAP_OK, _BWRAP_WHY = bwrap_usable()
-needs_bwrap = pytest.mark.skipif(
-    not _BWRAP_OK,
-    reason=f"needs a usable bubblewrap ({_BWRAP_WHY}): public mode checks uploads and runs detector code only under it "
-           "and refuses live use without it (503); bubblewrap does not exist on macOS")
-needs_git = pytest.mark.skipif(
-    not git_checkout(),
-    reason="needs a git checkout: reads git metadata (commit, status or file modes); a ZIP download has no .git")
+_BWRAP_OK = bwrap_usable()[0]
+needs_bwrap = pytest.mark.skipif(not _BWRAP_OK, reason="needs bubblewrap (Linux); skipped on macOS")
+needs_git = pytest.mark.skipif(not git_checkout(), reason="needs a git clone, not a ZIP download")

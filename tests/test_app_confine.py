@@ -17,7 +17,7 @@ def test_localhost_commands_are_unchanged(tmp_path):
 
 def test_the_confined_command_shape(tmp_path):
     if not shutil.which("bwrap"):
-        pytest.skip("bwrap not installed")
+        pytest.skip("needs bubblewrap (Linux); skipped on macOS")
     cmd = confined(["ffprobe", "x.mp4"], tmp_path)
     assert cmd[-2:] == ["ffprobe", "x.mp4"] and "--unshare-all" in cmd and "--die-with-parent" in cmd
     assert "--clearenv" in cmd and "--share-net" not in cmd
