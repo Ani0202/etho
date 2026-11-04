@@ -101,7 +101,8 @@ def test_cut_is_29_seconds_and_tagged_at_every_skip():
 
 def test_cut_filter_graph_has_one_input_per_segment_and_a_tag_per_skip():
     g = cut.filter_graph()
-    assert g.count("concat=n=5") == 1 and g.count("drawtext") == 4
+    assert g.count("concat=n=5") == 1 and g.count("drawtext") == 4 + len(cut.NOTES)
+    assert "reused for these definitions" in g
     assert "[4:v]" in g and "[5:v]" not in g
     args = cut.inputs("raw.mp4")
     assert args.count("-i") == 5 and args[:4] == ["-ss", "7.0", "-t", "3.000"]

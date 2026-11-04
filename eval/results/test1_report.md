@@ -928,11 +928,28 @@ keypoints** from the MARS pose estimator, which was itself trained on labeled mo
 methods reach 0.79–0.86" is accurate, and the evaluator adopts it.
 
 Notes that go with the line, for the README:
-1. **Use of test trajectories.** Table 2's "Unlabeled Set" column is headed "(all splits)". The caption says
-   "'all splits' indicates that both labeled train set and trajectory from unlabeled test set are used." On the
-   literal reading, the .829 and .864 entries used the test sequences' pose trajectories, without labels, in
-   their self- or semi-supervised training. That is transductive use of test inputs, not test labels. The
-   evaluator reports the caption as written and has not resolved it further.
+1. **Use of test trajectories (corrected 2026-11-04; see the correction note below).** Table 2 has three
+   "Data Used During Training" columns. The headers are "Task 1 (train split)", "Unlabeled Set" (no
+   sub-heading), and "All Tasks (all splits)". So "(all splits)" qualifies **All Tasks**, not Unlabeled Set. The
+   caption says "'all splits' indicates that both labeled train set and trajectory from unlabeled test set are
+   used." Only the .864 row (MABe 2021 Task 1 Top-1) ticks All Tasks. On the literal reading of the caption,
+   only the .864 entry used test-sequence pose trajectories, without labels, which would be transductive use of
+   test inputs, not test labels. The evaluator reports that caption as written and has not resolved it further.
+   The .829 row ("Baseline w/ task prog") ticks Task 1 and Unlabeled Set only. Section 4.2 says its
+   task-programming features were learned "from the unlabeled set". **Table 2 gives no support for the claim that
+   the .829 method used test trajectories.**
+
+   > **Correction note (2026-11-04, evaluator).** Earlier text of this note (written 2026-10-28) read: "Table 2's
+   > 'Unlabeled Set' column is headed '(all splits)' ... On the literal reading, the .829 and .864 entries used the
+   > test sequences' pose trajectories, without labels, in their self- or semi-supervised training." That
+   > misattributed the "(all splits)" sub-heading. The evaluator rechecked it against the HTML table structure of
+   > arXiv:2104.02710v4 (same file, sha256 `23545b537c3351bc39a2a2ac0ff6d02bb60cee17bbb3f8603f408c5c34d14efd`,
+   > re-downloaded 2026-11-04). The `(all splits)` cell is the third sub-header cell, under "All Tasks". The
+   > "Unlabeled Set" sub-header cell is empty. The inference about .829 is **withdrawn**. The finding was raised
+   > in the Codex pre-submission gate review (`ops/codex/ask-20261104-041230-1814697.md`, finding 7). Nothing else
+   > changes: no result number, metric, split, or frozen-protocol item. The three reference values (.793, .829,
+   > .864) are unchanged, and so is the verdict that all three are supervised Task 1 methods on the same metric
+   > and test set.
 2. **Rounding.** "0.79–0.86" rounds .793 and .864 to two decimals (.864 to .86). This is conventional rounding,
    as the gate asked. For the citation, give the exact values: .793, .829, .864.
 3. **What the comparison does not show.** It is not a like-for-like model comparison. Etho reads video through

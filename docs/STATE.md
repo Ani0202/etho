@@ -2,6 +2,14 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 3, 23:20 ET
+- **The replay demo is merged** (3953cf7, ac221b8). `make demo` on main: 56/56 recorded calls served, $0, labels match.
+  The reviewer passed twice. The sandbox RLIMIT_AS fallback applies on macOS only.
+- FORM_FINAL.md (baseline, with make demo) and FORM_FINAL_with_uploads.md (for the edit) are committed (4899261).
+- **The pre-submission audit has started early:** the Claude reviewer, plus `bin/codex-ask --gate pre-submission`
+  (log ops/codex/presub-run.log).
+- Open uploads: reviewer fixes in progress on branch open-uploads; not deployed.
+
 ## Nov 3 night (22:40 ET): plan to the deadline (hard stop on building: Nov 4 21:00 ET)
 - The hosted app is **read-only** (`ops/app-readonly` touched by the lead after the organizers' answer). The access code
   file exists but was never shared. No access code appears in any doc.
@@ -68,7 +76,7 @@ _Updated 2026-10-31 15:40 UTC (11:40 ET)._
   It is session-only and expires Nov 6. **Re-create it after any session restart, and before Nov 6** (CronCreate).
   At session start, also read ops/notify.jsonl.
 - **Funnel outages (Oct 28 22:41, Oct 29 05:35 UTC):** both were `sudo tailscale funnel reset` from SSH sessions on
-  pts/1 (128.135.204.122; 73.9.100.228), not tailscaled or VM events. Funnel was back Oct 30 04:03 UTC.
+  pts/1 (two of Aniket's SSH sessions), not tailscaled or VM events. Funnel was back Oct 30 04:03 UTC.
 - **Merged and live (04:41 UTC restart by Claude):** uptime down/up alerts + Funnel keepalive (244d819; needs
   Aniket's funnel sudoers rule + `bin/install-autostart`); HEAD 200 on all GET routes (also via the public Funnel IP),
   privacy notice in every mode, read-only wording, Revise disabled with the real reason, timing card width, retention

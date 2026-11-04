@@ -28,7 +28,7 @@ Etho needs one sentence per behavior.
 
 8
 00:00:35,317 --> 00:00:39,455
-This is a test video Etho was never tuned on.
+This is a video from the official test set.
 
 9
 00:00:39,455 --> 00:00:44,421

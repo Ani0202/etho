@@ -38,3 +38,13 @@ ops/funnel-off
 ops/.funnel-state.json
 ops/.uptime.lock
 ops/public-url
+
+# the 60 s CalMS21 dev-split sample clip for the offline replay demo (CC BY 4.0, demo/sample/CREDITS.md)
+!demo/sample/calms21_dev_60s.mp4
+
+# runtime markers and scratch (not for the repo)
+ops/alerts.jsonl
+ops/app-readonly
+ops/app-kill
+ops/codex/presub-context.md
+ops/codex/presub-run.log

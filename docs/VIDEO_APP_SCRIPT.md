@@ -87,7 +87,7 @@ drawn as an ethogram timeline, from `data/demo/expert_mouse075_task1_annotator1.
 ## Scene 3: Live run (0:35-1:04): the Nov 2 live run (job j46d77dd8aee9)
 
 **Voice-over**
-> This is a test video Etho was never tuned on. I paste the dataset authors' own definitions of attack,
+> This is a video from the official test set. I paste the dataset authors' own definitions of attack,
 > investigation and mount. Muse Spark decides what to track. SAM 3.1 follows both mice, and keeps them apart even
 > when they're tangled together. Muse Spark turns each definition into a short Python rule, and Muse Spark Open
 > double-checks the borderline moments from strips of frames.
