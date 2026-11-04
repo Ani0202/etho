@@ -30,6 +30,34 @@ methods report. Built for the Meta Global AI Developer Hackathon (Push the Front
 videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling
 rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`.
 
+## Try it in 1 minute (no keys)
+
+> **Replay of recorded Meta model responses; for live results, add your own Meta Model API key.**
+
+From a fresh clone, with no API key and no network after the install (needs [uv](https://docs.astral.sh/uv/) and
+`ffmpeg` on the PATH, e.g. `brew install uv ffmpeg`):
+
+```bash
+git clone https://github.com/Ani0202/etho.git && cd etho
+uv sync                      # Python 3.11+ and the dependencies, once (this step needs the network)
+make demo                    # about 20 s: the web app's real job pipeline on the 60 s CalMS21 sample clip
+```
+
+`make demo` re-encodes the clip, then plans, tracks, writes the rules, runs the frame-strip check and builds the
+report, exactly as an upload does in the app. The only difference is the gateway: every Muse Spark, SAM 3.1 and Muse
+Spark Open call is answered from 56 responses recorded in one live run (`demo/sample/replay.jsonl.gz`, matched by what
+each request means, not by image bytes), so nothing is sent anywhere and nothing is spent. It prints the label above,
+per-stage timings next to the recorded live run's (109 s, $0.29), the scored bouts for attack, investigation and
+mount, a check that they equal the recorded run's labels, and where the report is (`data/replay_demo/.../report.html`,
+which carries the label in its header). `make demo-serve` does the same and then serves the result read-only in the
+app at <http://127.0.0.1:8000> (the label is on every page); `make demo-test` is the offline test that replays end to
+end and asserts the labels equal the recorded run's.
+
+A call with no recording stops the run with a `REPLAY MISS` that names the request, the caller and the nearest recorded
+requests; there is no fallback to a model or the network (try `--definitions` with one word of a definition changed).
+Other clips and definitions need the live path: add your own Meta Model API key (and Fireworks key) as described in
+**Setup** below and run `bin/app`. Clip: CalMS21 (Sun et al. 2021), CC BY 4.0, see `demo/sample/CREDITS.md`.
+
 ## Setup
 
 ```bash

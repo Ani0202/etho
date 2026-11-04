@@ -1,0 +1,12 @@
+{
+ "file": "calms21_dev_60s.mp4",
+ "sequence": "mouse008_task1_annotator1",
+ "split": "dev",
+ "source_start_s": 270.0,
+ "duration_s": 60.0,
+ "size_bytes": 17555484,
+ "sha256": "6a61a64aa6a8ae4ed4e4b73ad42517d2d25b5755c0e9d5ddd11cef863ffe4a41",
+ "dataset": "CalMS21 task 1 (Sun et al. 2021, Caltech)",
+ "license": "CC BY 4.0",
+ "trimmed": "cut from mouse008_task1_annotator1.mp4, 270 s to 330 s, re-encoded without audio"
+}
