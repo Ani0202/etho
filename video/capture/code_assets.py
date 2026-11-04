@@ -33,7 +33,7 @@ EXCERPTS = [
      [(154, 156), (167, 181)], "with _FW_SLOTS"),
     ("sandbox", "etho/rules/sandbox.py", "The sandbox for model-written rules: AST check, then bubblewrap",
      "No imports, no dunder names, no network, read-only filesystem, empty environment.",
-     [(167, 168), (250, 267)], "a = [shutil.which"),
+     [(170, 171), (253, 270)], "a = [shutil.which"),
 ]
 
 PAGE = """<!doctype html><meta charset="utf-8"><style>
