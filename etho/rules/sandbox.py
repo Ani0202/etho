@@ -88,7 +88,10 @@ def bouts_clean(mask, fps, min_s=0.2, max_gap_s=0.3):
 RUNNER = r'''
 import json, os, resource, sys
 resource.setrlimit(resource.RLIMIT_CPU, (int(sys.argv[3]), int(sys.argv[3])))
-resource.setrlimit(resource.RLIMIT_AS, (2 << 30, 2 << 30))
+try:
+    resource.setrlimit(resource.RLIMIT_AS, (2 << 30, 2 << 30))
+except (ValueError, OSError):  # some platforms (macOS) cannot set RLIMIT_AS; every other limit still applies
+    pass
 resource.setrlimit(resource.RLIMIT_FSIZE, (256 << 20, 256 << 20))
 resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
 import numpy as np

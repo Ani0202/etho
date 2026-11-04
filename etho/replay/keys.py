@@ -8,7 +8,8 @@ would miss on a judge's Mac. A semantic key instead covers what a request MEANS:
     placeholder (the prompt text, the NUMBER of images, the SAM phrase and the other parameters are kept)
 
 plus an occurrence counter for requests whose keys are identical (the planner asks SAM for the same phrase on two
-different frames: the first call replays the first recording, the second call the second). Tier-1 prompts carry the
+different frames: the first call replays the first recording, the second call the second; the planner makes these
+calls one after another, so the order is stable). Tier-1 prompts carry the
 window being judged ("t=12.3s to t=14.1s"), so a window that drifts changes the key and misses.
 """
 

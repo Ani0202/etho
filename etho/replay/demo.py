@@ -27,6 +27,7 @@ from . import LABEL
 
 SAMPLE = REPO_ROOT / "demo" / "sample"
 RULE = "=" * 78
+EXIT_OK, EXIT_FAILED, EXIT_MISS, EXIT_DIFFERS = 0, 1, 3, 4
 
 
 def banner(stream=None) -> None:
@@ -54,19 +55,28 @@ def stage_table(res: dict, live: dict) -> list[str]:
     return lines
 
 
+def file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
 def labels_sha(path: Path) -> str:
     return hashlib.sha256(np.ascontiguousarray(np.load(path)["labels"]).tobytes()).hexdigest()
 
 
-def compare_with_recorded(res: dict, job_dir: Path, expected: dict | None) -> str:
+def compare_with_recorded(res: dict, job_dir: Path, expected: dict | None) -> tuple[bool | None, str]:
+    """(None when there is nothing to compare with, else whether the labels equal the recorded run's; a sentence)."""
     if not expected:
-        return "no recorded labels to compare with"
+        return None, "no recorded labels to compare with"
     same_bouts = res["versions"][0]["bouts"] == expected["bouts"]
     same_labels = labels_sha(job_dir / "labels.npz") == expected["labels_sha256"]
     if same_bouts and same_labels:
-        return "yes: the scored labels equal the recorded live run's, sample for sample"
+        return True, "yes: the scored labels equal the recorded live run's, sample for sample"
     n = int((np.load(job_dir / "labels.npz")["labels"] != 0).sum())
-    return f"NO: bouts differ from the recorded run (labelled samples: {n}); this machine's numerics differ"
+    return False, f"NO: bouts differ from the recorded run (labelled samples: {n}); this machine's numerics differ"
 
 
 def run(index_path: Path, clip: Path, definitions_path: Path, out: Path, *, serve: bool, host: str,
@@ -77,8 +87,14 @@ def run(index_path: Path, clip: Path, definitions_path: Path, out: Path, *, serv
     from .session import load_definitions, run_job
 
     banner()
+    index = ReplayIndex.load(index_path)
+    recorded_clip = index.header.get("clip", {})
+    if file_sha256(clip) != recorded_clip.get("sha256"):
+        print(f"\nthis recording belongs to {recorded_clip.get('file', 'its own clip')}; for other clips add your own "
+              "Meta Model API key (README, Setup)\n", file=sys.stderr)
+        banner(sys.stderr)
+        return EXIT_MISS
     with lockdown():
-        index = ReplayIndex.load(index_path)
         expected_path = index_path.with_name("expected.json")
         expected = json.loads(expected_path.read_text()) if expected_path.exists() else None
         shutil.rmtree(out, ignore_errors=True)
@@ -90,15 +106,15 @@ def run(index_path: Path, clip: Path, definitions_path: Path, out: Path, *, serv
         t0 = time.monotonic()
         try:
             sess = run_job(gw, clip, load_definitions(definitions_path), out, replay=True,
-                           say=lambda m: print(f"  {m.lstrip('. ')}"))
+                           say=lambda m: print(f"  {m.lstrip('. ')}"), live=index.header.get("live_run"))
         except ReplayMiss as e:
             print(f"\n{e}\n", file=sys.stderr)
             banner(sys.stderr)
-            return 3
+            return EXIT_MISS
         except Exception as e:
             print(f"\nthe demo run failed: {type(e).__name__}: {e}\n", file=sys.stderr)
             banner(sys.stderr)
-            return 1
+            return EXIT_FAILED
         wall = time.monotonic() - t0
         res, job_dir = sess.result, sess.out_dir
         fps = res["fps"]
@@ -112,22 +128,31 @@ def run(index_path: Path, clip: Path, definitions_path: Path, out: Path, *, serv
         m = res["versions"][0]["metrics"]
         for name, bouts in res["versions"][0]["bouts"].items():
             print(f"  {name:<14}{len(bouts):>3} bouts, {m[name]['total_s']:>5.1f} s   {fmt_bouts(bouts, fps)}")
-        print(f"\nMatches the recorded live run: {compare_with_recorded(res, job_dir, expected)}")
-        print(f"All {len(gw.served)} model calls were served from the recording; the replay spent $0.00 "
-              f"(the live run cost ${live.get('cost_usd', 0.0):.4f}).")
+        same, verdict = compare_with_recorded(res, job_dir, expected)
+        print(f"\nMatches the recorded live run: {verdict}")
+        print(f"{len(gw.served)} of {len(index)} recorded calls served; the replay made no model call and spent "
+              f"$0.00 (the live run cost ${live.get('cost_usd', 0.0):.4f}).")
+        if len(gw.served) != len(index):
+            print(f"WARNING: {len(index) - len(gw.served)} recorded calls were not used, so this run differs from "
+                  "the recorded one.")
         print("\nReport (open in a browser)   " + str(job_dir / "report.html"))
         print("Overlay video                " + str(job_dir / "overlay.mp4"))
         print("Audit trail (every call)     " + str(job_dir / "calls.jsonl"))
         print(f"Total wall time              {wall:.1f} s")
+        if same is False:
+            sess.close()
+            print("\nFAILED: the scored labels differ from the recorded run's (exit code 4).", file=sys.stderr)
+            banner(sys.stderr)
+            return EXIT_DIFFERS
         if serve:
-            return serve_app(sess, host, port)
+            return serve_app(sess, host, port, live)
         sess.close()
         print("\nTo browse the result in the app: make demo-serve")
         banner()
-        return 0
+        return EXIT_OK
 
 
-def serve_app(sess, host: str, port: int) -> int:
+def serve_app(sess, host: str, port: int, live: dict | None = None) -> int:
     """Serve the finished project through the app, read-only, with the label on every page."""
     import uvicorn
 
@@ -137,14 +162,17 @@ def serve_app(sess, host: str, port: int) -> int:
     url = f"http://{host}:{port}/p/{sess.job_id}"
     print(f"\nServing the result, read-only: {url}\n(Ctrl-C to stop)\n")
     banner()
-    uvicorn.run(LabelMiddleware(sess.app), host=host, port=port, log_level="warning")
+    uvicorn.run(LabelMiddleware(sess.app, live), host=host, port=port, log_level="warning")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     warnings.filterwarnings("ignore")
     sys.stdout.reconfigure(line_buffering=True)     # type: ignore[attr-defined]  # keep stdout and stderr in order
-    ap = argparse.ArgumentParser(description="Etho offline replay demo (no keys, no network)")
+    ap = argparse.ArgumentParser(
+        description="Etho offline replay demo (no keys, no network)",
+        epilog="exit codes: 0 ok; 1 the run failed; 3 REPLAY MISS (a call, or the clip, has no recording); "
+               "4 the scored labels differ from the recorded run's")
     ap.add_argument("--index", type=Path, default=SAMPLE / "replay.jsonl.gz")
     ap.add_argument("--clip", type=Path, default=SAMPLE / "calms21_dev_60s.mp4")
     ap.add_argument("--definitions", type=Path, default=REPO_ROOT / "configs" / "calms21_definitions.json",

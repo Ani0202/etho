@@ -56,7 +56,7 @@ def make_config(work_dir: Path) -> AppConfig:
 
 
 def run_job(gateway, clip: Path, definitions: dict, work_dir: Path, *, replay: bool, say=print,
-            timeout_s: float = 900.0, backend=None) -> Session:
+            timeout_s: float = 900.0, backend=None, live: dict | None = None) -> Session:
     """Submit `clip` with `definitions` ({"definitions": {...}, "subject": ..., "partner": ...}) and wait.
     Raises RuntimeError with the job's error when it does not finish `done`."""
     from fastapi.testclient import TestClient
@@ -67,7 +67,7 @@ def run_job(gateway, clip: Path, definitions: dict, work_dir: Path, *, replay: b
     cfg.work_dir.mkdir(parents=True, exist_ok=True)
     os.chdir(cfg.work_dir)          # tier 1 reads cache/chunks relative to the working directory (as bin/app does)
     ledger = AppLedger(work_dir / "ops" / "spend.jsonl", cfg.caller_prefix)
-    backend = backend(cfg) if backend else (ReplayBackend if replay else Backend)(cfg)
+    backend = backend(cfg) if backend else (ReplayBackend(cfg, live) if replay else Backend(cfg))
     app = create_app(cfg, backend=backend, gateway_factory=lambda: gateway, ledger=ledger)
     client = TestClient(app, base_url="http://testserver")
     with open(clip, "rb") as f:

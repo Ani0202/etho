@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import gzip
 import hashlib
+import html
 import json
 import re
 import socket
@@ -16,9 +17,10 @@ import numpy as np
 import pytest
 
 from etho.replay import LABEL, keys
+from etho.replay.backend import live_sentence
 from etho.replay.gateway import ReplayGateway
 from etho.replay.index import ReplayIndex, ReplayMiss
-from etho.replay.lockdown import RealGatewayBlocked, lockdown
+from etho.replay.lockdown import RealGatewayBlocked, _local, lockdown
 from tests.app_helpers import make_video
 
 SAMPLE = Path(__file__).resolve().parents[1] / "demo" / "sample"
@@ -208,10 +210,12 @@ def replayed(tmp_path_factory):
     from etho.replay.session import load_definitions, run_job
     here = os.getcwd()
     work = tmp_path_factory.mktemp("replay_run")
-    gw = ReplayGateway(ReplayIndex.load(INDEX), work / "scratch")
+    index = ReplayIndex.load(INDEX)
+    gw = ReplayGateway(index, work / "scratch")
     try:
         with lockdown():
-            sess = run_job(gw, CLIP, load_definitions(), work, replay=True, say=None)
+            sess = run_job(gw, CLIP, load_definitions(), work, replay=True, say=None,
+                           live=index.header["live_run"])
             yield sess, gw, work
             sess.close()
     finally:
@@ -236,17 +240,30 @@ def test_end_to_end_label_everywhere_and_no_spend(replayed):
     sess, gw, work = replayed
     assert LABEL in (sess.out_dir / "report.html").read_text()
     res = sess.result
-    assert res["replay"]["label"] == LABEL
+    assert res["replay"]["label"] == LABEL and "recorded live run's (109 s, $0.29)" in res["replay"]["note"]
+    assert "(109 s, $0.29)" in (sess.out_dir / "report.html").read_text()
+    validate = next(st for st in res["stages"] if st["name"] == "validate")
+    assert "estimate for a live run; this replay spends $0" in validate["message"]
     assert not (work / "ops" / "spend.jsonl").exists() or not (work / "ops" / "spend.jsonl").read_text().strip()
     # the page the app serves carries the label too
     from fastapi.testclient import TestClient
 
     from etho.replay.serve import LabelMiddleware
     sess.cfg.readonly_path.write_text("x")
-    c = TestClient(LabelMiddleware(sess.app))
+    live = ReplayIndex.load(INDEX).header["live_run"]
+    c = TestClient(LabelMiddleware(sess.app, live))
+    sentence = live_sentence(live)
+    assert "(109 s, $0.29)" in sentence and "spent nothing" in sentence and "local compute only" in sentence
     for path in ("/", f"/p/{sess.job_id}", f"/api/projects/{sess.job_id}/report"):
         body = c.get(path).text
         assert body.count("replay-label") == 1 and LABEL in body, path
+        assert html.escape(sentence) in body, path  # second sentence, recorded figures
+        assert body.index(LABEL) < body.index("Costs and the methods-paragraph")      # the label comes first
+    page = c.get(f"/p/{sess.job_id}").text
+    assert '<script src="/replay-tiles.js" defer></script>' in page
+    js = c.get("/replay-tiles.js")
+    assert js.status_code == 200 and "javascript" in js.headers["content-type"]
+    assert "End-to-end speed" in js.text and "Model cost" in js.text and "spent $0" in js.text
     assert c.post("/api/jobs", data={"definitions": "{}"}, files={"video": ("a.mp4", b"x")}).status_code == 403
 
 
@@ -275,3 +292,88 @@ def test_committed_package_is_small_dev_split_and_has_no_keys():
     assert sha == clip["sha256"] == ReplayIndex.load(INDEX).header["clip"]["sha256"]
     credits = (SAMPLE / "CREDITS.md").read_text()
     assert "Sun et al. 2021" in credits and "CC BY 4.0" in credits and "data.caltech.edu/records/s0vdx-0k302" in credits
+
+
+# ---- review fixes --------------------------------------------------------------------------------
+def test_lockdown_local_accepts_only_literal_loopback():
+    for ok in (("127.0.0.1", 80), ("127.5.4.3", 80), ("::1", 80, 0, 0), ("localhost", 80), ("::ffff:127.0.0.1", 80),
+               "/run/some.sock"):
+        assert _local(ok), ok
+    for bad in (("127.evil.example", 80), ("127.0.0.1.evil.example", 80), ("93.184.216.34", 443), ("example.com", 80),
+                ("", 80), ("localhost.evil.example", 80), ("::ffff:93.184.216.34", 80)):
+        assert not _local(bad), bad
+    with lockdown():
+        s = socket.socket()
+        try:
+            with pytest.raises(RealGatewayBlocked, match="network connection"):
+                s.connect(("127.evil.example", 80))
+        finally:
+            s.close()
+
+
+def test_other_clip_is_refused_before_anything_runs(tmp_path, capsys):
+    from etho.replay import demo
+    other = make_video(tmp_path / "other.mp4", 2.0, 64, 48)
+    code = demo.main(["--clip", str(other), "--out", str(tmp_path / "out")])
+    err = capsys.readouterr().err
+    assert code == demo.EXIT_MISS == 3
+    assert "this recording belongs to calms21_dev_60s.mp4; for other clips add your own Meta Model API key" in err
+    assert LABEL in err
+    assert not (tmp_path / "out").exists()                      # nothing ran
+
+
+def test_labels_that_differ_from_the_recorded_run_exit_4(tmp_path, monkeypatch, capsys):
+    from etho.replay import demo
+    d = tmp_path / "sample"
+    d.mkdir()
+    (d / "replay.jsonl.gz").write_bytes(INDEX.read_bytes())
+    exp = json.loads((SAMPLE / "expected.json").read_text())
+    exp["labels_sha256"] = "0" * 64                              # as if this machine scored differently
+    (d / "expected.json").write_text(json.dumps(exp))
+    monkeypatch.chdir(tmp_path)
+    code = demo.main(["--index", str(d / "replay.jsonl.gz"), "--clip", str(CLIP), "--out", str(tmp_path / "out")])
+    cap = capsys.readouterr()
+    assert code == demo.EXIT_DIFFERS == 4
+    assert "NO: bouts differ" in cap.out and "56 of 56 recorded calls served" in cap.out
+    assert "exit code 4" in cap.err and LABEL in cap.err
+
+
+def test_exit_codes_are_documented_in_help(replayed, capsys):
+    sess, gw, work = replayed
+    assert len(gw.served) == len(gw.index) == 56
+    from etho.replay import demo
+    with pytest.raises(SystemExit):
+        demo.main(["--help"])
+    assert "4 the scored labels differ" in capsys.readouterr().out
+
+
+def test_rlimit_runner_survives_a_platform_that_cannot_set_rlimit_as(tmp_path):
+    """macOS cannot set RLIMIT_AS: only that limit is skipped, every other one is still applied."""
+    import subprocess
+    import sys
+
+    from etho.rules import sandbox as sb
+    np.savez(tmp_path / "in.npz", __fps__=np.float64(10.0), x=np.arange(5.0))
+    (tmp_path / "det.py").write_text("def detect(t, fps):\n    return t['x'] > 2\n")
+    driver = tmp_path / "driver.py"
+    driver.write_text(
+        "import json, resource, sys\n"
+        "seen = []\n"
+        "real = resource.setrlimit\n"
+        "def fake(kind, lim):\n"
+        "    seen.append(kind)\n"
+        "    if kind == resource.RLIMIT_AS:\n"
+        "        raise ValueError('current limit exceeds maximum limit')\n"
+        "    real(kind, lim)\n"
+        "resource.setrlimit = fake\n"
+        f"exec(compile({sb.RUNNER!r}, 'runner', 'exec'))\n"
+        "json.dump([k for k in seen], open(sys.argv[4] + '.seen', 'w'))\n")
+    out = tmp_path / "out.npy"
+    p = subprocess.run([sys.executable, str(driver), str(tmp_path / "in.npz"), str(tmp_path / "det.py"), "30",
+                        str(out)], capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr
+    assert np.load(out).tolist() == [False, False, False, True, True]
+    import resource
+    seen = json.loads((tmp_path / "out.npy.seen").read_text())
+    others = {resource.RLIMIT_CPU, resource.RLIMIT_FSIZE, resource.RLIMIT_NOFILE}
+    assert resource.RLIMIT_AS in seen and others <= set(seen)

@@ -12,13 +12,13 @@ Nothing under `etho/gateway/` is edited: the guards are installed on the running
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import socket
 from contextlib import contextmanager
 
 NO_SECRETS = "/nonexistent/etho-replay-no-secrets.env"
 KEY_VARS = ("META_MODEL_API_KEY", "BASETEN_API_KEY", "FIREWORKS_API_KEY", "TOGETHER_API_KEY")
-ACTIVE = False
 
 
 class RealGatewayBlocked(RuntimeError):
@@ -31,15 +31,23 @@ def _msg(what: str) -> str:
 
 
 def _local(address) -> bool:
+    """Only a literal loopback IP or the name `localhost` (never another name: `127.evil.example` is a hostname)."""
     if isinstance(address, (str, bytes)):          # AF_UNIX path
         return True
-    host = address[0] if address else ""
-    return host in ("localhost", "::1", "::ffff:127.0.0.1", "") or str(host).startswith("127.")
+    host = str(address[0]) if address else ""
+    if host == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_loopback
 
 
 @contextmanager
 def lockdown():
-    global ACTIVE
     import httpx
 
     from etho.gateway import gateway as gwmod
@@ -71,11 +79,9 @@ def lockdown():
     httpx.HTTPTransport.handle_request = no_http    # type: ignore[method-assign]
     socket.socket.connect = guarded(real_connect)         # type: ignore[method-assign]
     socket.socket.connect_ex = guarded(real_connect_ex)   # type: ignore[method-assign]
-    ACTIVE = True
     try:
         yield
     finally:
-        ACTIVE = False
         gwmod.Gateway.__init__, gwmod.Gateway._request = real_init, real_request   # type: ignore[method-assign]
         httpx.HTTPTransport.handle_request = real_handle                            # type: ignore[method-assign]
         socket.socket.connect, socket.socket.connect_ex = real_connect, real_connect_ex   # type: ignore[method-assign]

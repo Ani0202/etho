@@ -58,6 +58,16 @@ requests; there is no fallback to a model or the network (try `--definitions` wi
 Other clips and definitions need the live path: add your own Meta Model API key (and Fireworks key) as described in
 **Setup** below and run `bin/app`. Clip: CalMS21 (Sun et al. 2021), CC BY 4.0, see `demo/sample/CREDITS.md`.
 
+What is recorded and what is measured: the costs, the methods paragraph's timings and the validate stage's cost
+estimate are the recorded live run's (109 s, $0.29); this replay made no model call and spent nothing, and its own
+wall-clock (about 20 s) is local compute only. The banner on every page and report says so. The recording belongs to the
+sample clip (it is checked by SHA-256 before anything runs). Exit codes of `python -m etho.replay.demo` (see `--help`):
+0 ok, 1 the run failed, 3 a `REPLAY MISS` or a clip other than the recorded one, 4 the scored labels differ from the
+recorded run's.
+
+Tested on Linux (Ubuntu 24.04) with and without bubblewrap; macOS not tested: without bubblewrap the rule sandbox uses
+its rlimit-only mode.
+
 ## Setup
 
 ```bash
