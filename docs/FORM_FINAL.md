@@ -53,6 +53,8 @@ Results on the public CalMS21 mouse benchmark, all 19 official test videos, scor
 
 Disclosure: pipeline settings were tuned on 13 labeled development videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling rate and the targets; no test predictions were used to choose settings. A second species (fighting fruit flies) runs on the same pipeline but is shown only as a qualitative preview, because it did not clear the confidence bar I set in advance.
 
+Try it without any keys: `make demo` in the repo runs the full pipeline on a 60-second CalMS21 sample clip in about a minute, replaying recorded Meta model responses (clearly labelled as a replay; it never calls a model or the network, and it stops with an error on anything it has no recording for). With your own Meta Model API key, the same pipeline runs live on your video.
+
 Code, results and every disclosure are in the public repo.
 
 Live app (no login; precomputed runs, read-only): <URL>.
@@ -92,6 +94,7 @@ Etho's runtime uses only Meta models, and every call goes through a gateway I bu
 - Muse Spark Open (Fireworks, serverless): the high-volume checker. It judges strips of six overlay frames at low reasoning effort and can confirm or reject a borderline label.
 - Muse Spark Open (Baseten, video): I tested sending disputed clips as video. It added +0.005 F1 on dev for $2.30, so it is not in the final pipeline.
 - Meta Files API: uploaded videos go to SAM and are deleted from Meta right after tracking.
+- Offline replay for judges: `make demo` replays recorded Meta model responses (planner, SAM 3.1, Muse Spark Open, report) matched by meaning rather than bytes, refuses anything it has no recording for, and never touches the network, so the pipeline runs with no keys.
 
 I used Claude Code and Codex as development tools, credited in the README's "How this was built" section. The product itself runs only on Meta models.
 ```
