@@ -1,7 +1,7 @@
 # Etho
 
 ![SAM 3.1 tracks two mice while Etho's ethogram fills in, next to the expert's labels](docs/media/etho-tracking.gif)
-<sub>Video: CalMS21 (Sun et al. 2021), CC BY 4.0.</sub>
+<sub>Video: CalMS21 test-split video mouse075 (Sun et al. 2021), CC BY 4.0; Etho's run of the clip shown on the hosted demo.</sub>
 
 **Animal behavior scored from plain-English definitions, with no training,¹ on Meta's SAM 3.1, Muse Spark and
 Muse Spark Open.** Scored once on the official test set of a published, expert-labeled benchmark (CalMS21), against
@@ -10,7 +10,7 @@ the published supervised baselines:
 | CalMS21 Task 1 test set, 19 videos, frame-level F1 | Macro | Attack | Investigation | Mount |
 |---|---|---|---|---|
 | **Etho, no training¹** | **0.58** (95% CI 0.49–0.62) | 0.449 | 0.635 | 0.656 |
-| Supervised, trained on the 70 labeled training videos from pose keypoints (Sun et al. 2021, Tables 1, 2) | 0.79–0.86 | | | |
+| Supervised, trained on the 70 labeled training videos from pose keypoints (Sun et al. 2021, Tables 1, 2; .793 is the 1D ConvNet baseline, .829 adds task programming, .864 is the MABe 2021 top entry, which used additional training data) | 0.79–0.86 | | | |
 
 - **Speed:** scores a video unattended in about its own length (0.88× real time on test; worst 1.54×); manual
   scoring takes 3–4× (Segalin et al. 2021). A runtime comparison, not demonstrated labor savings: human review and
@@ -28,7 +28,9 @@ methods report. Built for the Meta Global AI Developer Hackathon (Push the Front
 
 ¹ Pipeline settings were tuned on 13 labeled development videos and scored once on the 19 official test
 videos. Test-label summaries (behavior and bout counts) informed dev-set selection, the 10 fps sampling
-rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`.
+rate, and targets; no test predictions were used to choose settings. Full results and disclosures: `eval/results/test1_report.md`. The split file `eval/splits/calms21_v1.json` still says "DRAFT" in its
+status field: it was frozen by its sha256 (`59bfcd47…880b`, cited in the test report) and is left unedited so that hash
+stays valid.
 
 ## Try it in 1 minute (no keys)
 
@@ -43,7 +45,8 @@ uv sync                      # Python 3.11+ and the dependencies, once (this ste
 make demo                    # about 20 s: the web app's real job pipeline on the 60 s CalMS21 sample clip
 ```
 
-`make demo` re-encodes the clip, then plans, tracks, writes the rules, runs the frame-strip check and builds the
+`make demo` re-encodes the clip, then plans, tracks, runs the rules Muse Spark wrote for these three definitions (reused
+from the benchmark, as the live app does for them; a new definition would need a live Muse Spark call), runs the frame-strip check and builds the
 report, exactly as an upload does in the app. The only difference is the gateway: every Muse Spark, SAM 3.1 and Muse
 Spark Open call is answered from 56 responses recorded in one live run (`demo/sample/replay.jsonl.gz`, matched by what
 each request means, not by image bytes), so nothing is sent anywhere and nothing is spent. It prints the label above,
@@ -123,8 +126,8 @@ decided the label. `?present=1` enlarges everything for recording (`?present=0` 
 Sample clip for judges. `scripts/make_sample_clip.py` cuts 60 s from a CalMS21 sequence of the **dev** split
 (`eval/splits/calms21_v1.json`, read only; any other sequence is refused) with ffmpeg into `data/showcase/_sample/` (gitignored; inside the showcase dir so the public unit can read it). The home
 page offers it for download next to the dataset authors' behavior definitions, with the attribution "Clip from CalMS21 (Sun et al.
-2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. A judge with the access
-code uploads it and gets a full run in about 90 s.
+2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. Uploads are off on the hosted
+demo; to score it yourself, run `bin/app` with your own keys (Setup), or replay it offline with `make demo`.
 
 Packaging a real app run as a showcase (after the lead's paid run; no model call, no spend):
 
@@ -156,7 +159,7 @@ Guards (all in `etho/app/config.py`, env overrides `ETHO_APP_*`):
   in the app's gateway cache (what cannot be deleted is listed in `etho/app/retention.py` and `docs/HOSTING.md`);
 - uploads use Standard (non-contributor) models; a showcase's `result.json` decides whether its copies may use
   contributor models.
-Public hosting (`ETHO_APP_PUBLIC=1`): the showcases are open read-only; uploads and revisions need an access code kept in a
+Public hosting (`ETHO_APP_PUBLIC=1`, for operators; uploads are off on the hosted demo): the showcases are open read-only; uploads and revisions need an access code kept in a
 file, a kill-switch file and a read-only flag file work without a restart, live mode ends itself on a set date, and the
 service runs as its own unix user. Setup, the exact sudo commands and checks are in `docs/HOSTING.md`; `GET /api/health`
 reports the mode and the budget left (the operator sees more). Every refusal (a cap, read-only, kill switch, expiry,
@@ -210,7 +213,7 @@ Measured during the event. Each claim links to the committed evidence.
     tracking line).
   - Etho tells the two mice apart by mask brightness rather than by phrase (ADR-001).
 - **Once SAM 3.1 has a track, it keeps it through a mount.**
-  - With 60 s chunks, both mice stay labeled on 100% of mount frames.
+  - With 60 s chunks, both mice stay labeled on 100% of mount frames (development video mouse016).
   - A chunk that starts while one mouse is hidden under the other never picks it up again: 10 s chunks
     dropped to 15.6% ([docs/DECISIONS.md](docs/DECISIONS.md), chunk-length table).
   - Identity error against the dataset's keypoints is 0.29% on the 19 test videos
@@ -222,8 +225,8 @@ Measured during the event. Each claim links to the committed evidence.
 - **Muse Spark Open, shown 6 frames at its lowest effort, adds 0.205 F1, but only as a checker.**
   - The frame-strip check lifts test macro F1 from 0.375 to 0.580, a gain whose CI excludes zero; investigation
     gains +0.395 ([test1_report](eval/results/test1_report.md)).
-  - On dev, its attack and mount verdicts at low effort were only 21-26% right, so Etho lets it confirm
-    investigation or reject a label and never relabel. That restriction is also what set aside a correct
+  - On dev, its attack and mount verdicts at low effort were only 21-26% right, so Etho lets it change a
+    window only to investigation or none; its attack and mount verdicts never overwrite the rule. That restriction is also what set aside a correct
     "attack" in the demo clip.
   - Medium effort didn't help on dev (0.471 vs 0.482).
 - **Video input added little over frame strips here.** Sending disagreements to Muse Spark Open with video
@@ -256,7 +259,8 @@ which stay under the SAM License. Third-party licenses and dataset credits are l
 
 - **CalMS21** (Caltech Mouse Social Interactions), CC BY 4.0. Sun et al., "The Multi-Agent Behavior
   Dataset: Mouse Dyadic Social Interactions", arXiv:2104.02710 (2021).
-  https://data.caltech.edu/records/s0vdx-0k302. Raw data is never committed; fetch it with the
+  https://data.caltech.edu/records/s0vdx-0k302. Raw data is not committed, except the 60 s sample clip in
+  `demo/sample/` (dev split, credited in `demo/sample/CREDITS.md`) and short credited excerpts in `docs/media/` and the video; fetch it with the
   scripts in `etho/datasets/` (individual videos are range-read from the 28 GB archive).
 - **SAM 3.1** output is decoded with a numba port of Meta's `meta-sam-parser` codec
   (`etho/tracking/mask_codec.py`, `sam_lines.py`). It is derived from SAM Materials and redistributed

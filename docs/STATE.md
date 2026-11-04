@@ -76,7 +76,7 @@ _Updated 2026-10-31 15:40 UTC (11:40 ET)._
   It is session-only and expires Nov 6. **Re-create it after any session restart, and before Nov 6** (CronCreate).
   At session start, also read ops/notify.jsonl.
 - **Funnel outages (Oct 28 22:41, Oct 29 05:35 UTC):** both were `sudo tailscale funnel reset` from SSH sessions on
-  pts/1 (128.135.204.122; 73.9.100.228), not tailscaled or VM events. Funnel was back Oct 30 04:03 UTC.
+  pts/1 (two of Aniket's SSH sessions), not tailscaled or VM events. Funnel was back Oct 30 04:03 UTC.
 - **Merged and live (04:41 UTC restart by Claude):** uptime down/up alerts + Funnel keepalive (244d819; needs
   Aniket's funnel sudoers rule + `bin/install-autostart`); HEAD 200 on all GET routes (also via the public Funnel IP),
   privacy notice in every mode, read-only wording, Revise disabled with the real reason, timing card width, retention

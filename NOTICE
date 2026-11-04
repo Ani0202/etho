@@ -27,13 +27,15 @@ Etho calls Meta models (SAM 3.1, Muse Spark, Muse Spark Open) through their
 hosted APIs. No model weights are distributed in this repository.
 
 -------------------------------------------------------------------------------
-Datasets (not redistributed; download instructions in README)
+Datasets (not redistributed, except one 60 s CalMS21 clip for the offline demo; download instructions in README)
 -------------------------------------------------------------------------------
 CalMS21: Caltech Mouse Social Interactions dataset, CC BY 4.0.
   Sun, J. J., Karigo, T., Chakraborty, D., Mohanty, S. P., Wild, B., Sun, Q.,
   Chen, C., Anderson, D. J., Perona, P., Yue, Y., Kennedy, A. "The Multi-Agent
   Behavior Dataset: Mouse Dyadic Social Interactions." NeurIPS Datasets and
   Benchmarks 2021. arXiv:2104.02710. Data: https://data.caltech.edu/records/s0vdx-0k302
+  Redistributed excerpt: demo/sample/calms21_dev_60s.mp4 (dev-split mouse008, 270-330 s, re-encoded), CC BY 4.0;
+  see demo/sample/CREDITS.md.
   Behavior definitions quoted from Segalin, C., et al. "The Mouse Action
   Recognition System (MARS) software pipeline for automated analysis of social
   behaviors in mice." eLife 10:e63720 (2021). doi:10.7554/eLife.63720
