@@ -28,8 +28,12 @@ class UploadDeadline:
             nonlocal expired
             if expired:
                 return {"type": "http.disconnect"}
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:               # past the deadline no read is allowed, even one whose data is ready
+                expired = True
+                return {"type": "http.disconnect"}
             try:
-                return await asyncio.wait_for(receive(), max(0.001, deadline - time.monotonic()))
+                return await asyncio.wait_for(receive(), remaining)
             except asyncio.TimeoutError:
                 expired = True
                 return {"type": "http.disconnect"}

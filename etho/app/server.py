@@ -90,6 +90,7 @@ FRIENDLY = {
     "queue_full": "The scoring queue is full right now. Please try again in a few minutes. " + OPEN,
     "rate_limited": "You have reached the hourly limit for scoring jobs. Please try again later. " + OPEN,
     "busy": "The server is busy with other uploads. Please try again in a moment.",
+    "no_animals": PG.NO_ANIMALS,
 }
 
 
@@ -752,6 +753,12 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             prior = (prev_rev or {}).get("corrections", [])
             cs = C.validate(payload, names=names, duration_s=res["video"]["duration_s"], fps=FPS,
                             max_total=cfg.max_corrections, existing=len(prior_user))
+            try:                        # refuse before loading labels or forking a showcase copy (megabytes of strips)
+                manager.check_capacity(cid)
+            except ClientBusy as e:
+                raise Refused(str(e), 429, "client_busy") from e
+            except QueueFull as e:
+                raise Refused(str(e), 503, "queue_full") from e
             labels = np.load(p.version_file(latest, "labels"))["labels"]
             new = C.to_revise_format(cs, labels, names, FPS)
             cumulative = prior + new

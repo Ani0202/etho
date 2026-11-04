@@ -128,8 +128,8 @@ decided the label. `?present=1` enlarges everything for recording (`?present=0` 
 Sample clip for judges. `scripts/make_sample_clip.py` cuts 60 s from a CalMS21 sequence of the **dev** split
 (`eval/splits/calms21_v1.json`, read only; any other sequence is refused) with ffmpeg into `data/showcase/_sample/` (gitignored; inside the showcase dir so the public unit can read it). The home
 page offers it for download next to the dataset authors' behavior definitions, with the attribution "Clip from CalMS21 (Sun et al.
-2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. Uploads are off on the hosted
-demo; to score it yourself, run `bin/app` with your own keys (Setup), or replay it offline with `make demo`.
+2021, Caltech), licensed CC BY 4.0", links to the dataset and the licence, and a note that it was trimmed. `make_sample_clip.py` needs `data/calms21` locally and ffmpeg. On the hosted
+demo you can upload it (or your own clip) with no login; to score it on your own machine, run `bin/app` with your own keys (Setup), or replay it offline with `make demo`.
 
 Packaging a real app run as a showcase (after the lead's paid run; no model call, no spend):
 

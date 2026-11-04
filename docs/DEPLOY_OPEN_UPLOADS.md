@@ -24,6 +24,7 @@ of headroom left: no further SAM evaluation run is possible without a new budget
 | Rejected uploads | 10 per client per hour (bad file, missing consent, too large), then 429 `too_many_rejected` for the rest of the hour |
 | Jobs at once | at most 2 queued or running across all visitors (`ETHO_APP_MAX_IN_FLIGHT`); the worker runs **one** job at a time, so the second waits with a visible position ("Queued, position 1"). Because one client may hold only one job, a second visitor is needed to see the queue |
 | Upload | mp4, mov, avi; 50 MB; 120 s; ffprobe check before anything is spent |
+| A video with no animals | after the planner (about $0.03) the job ends `declined`, not failed: no tracking, no SAM video call; the page says "We couldn't find animals in this video, so nothing was tracked or charged beyond a quick check..." The gate reads the planner's own record: expected count 0, or no phrase found an object on any probe frame. It is in the app's job backend only (not the benchmark or the planner) |
 | Daily cap | $8 per rolling 24 h before Nov 4 ET, **$20 inside Nov 4-9 ET** (judging window), $8 again on Nov 10 |
 | Total cap | $60 over all time, counting only this instance's own ledger rows (`pub:job:`) |
 | When a limit is hit | a plain message that points to the showcase on the site and says an offline replay demo (`make demo`) is described in the project README (with the link), and says when it resets: tomorrow for the daily and per-visitor limits, "live use is over for this demo" for the total cap, "a few minutes" for a full queue, "about an hour" for the rejection limit |
@@ -76,7 +77,7 @@ set_env ETHO_APP_MAX_REJECTS_PER_HOUR 10
 set_env ETHO_APP_UPLOAD_DEADLINE_S 120
 unset -f set_env
 ```
-The lines this leaves in the file, exactly:
+The final lines this leaves in the file, exactly (nothing else is added by this deploy):
 ```
 ETHO_APP_KILL_FILE=/home/ubuntu/work/etho/ops/app-kill
 ETHO_APP_READONLY_FILE=/home/ubuntu/work/etho/ops/app-readonly
@@ -197,16 +198,16 @@ stay read-only, because the 10-runs limit would then be 10 for the whole site.
 | 4.0 spoof check | $0 | $0 |
 | 1 sample upload | $0.29 (measured on the Nov 3 recording run, 109 s) | $0.89 (the reserved ceiling; the job cannot spend past it) |
 | 2 second upload, same IP | $0 | $0 (refused before the body is read) |
-| 2b queued upload from a phone | $0 (cancelled while queued) | $0.37 (its ceiling, if it starts before you cancel) |
+| 2b queued upload from a phone (the 2 s clip only) | $0 (cancelled while queued) | $0.37 (the 2 s, one-behavior clip's ceiling, if it starts before you cancel; the sample clip would be $0.89) |
 | 3 consent missing | $0 | $0 |
 | 4 not a video | $0 | $0 |
-| 5 cap hit (throwaway instance) | $0 | $0 (refused at admission) |
-| 6 no-animal clip | $0.10 to $0.25 (not measured) | $0.48 (the 20 s job's ceiling) |
-| 7 per-visitor limit (throwaway instance, no keys) | $0 | $0 (no key file: the first model call fails) |
-| Total | about $0.4 to $0.6 | $1.74 if every job ran to its ceiling |
+| 5 cap hit (local copy, keys unset) | $0 | $0 (no key reaches it; refused at admission anyway) |
+| 6 no-animal clip | about $0.03 (the planner only; measured $0.032 and $0.034 on the two sample-clip runs) | $0.08 if the gate stops it (planner call, 6 SAM image calls and 3 video probes); $0.48 (the 20 s job's ceiling) if the gate does not recognise the clip as empty |
+| 7 per-visitor limit (local copy, keys unset) | $0 | $0 (no key reaches it: the first model call fails) |
+| Total | about $0.3 to $0.4 (drill 1 plus the planner check) | $1.74 if the sample job and the no-animal job both ran to their ceilings and 2b started; $1.00 with the gate working and 2b cancelled in time ($0.89 + $0.08) |
 
 The worst case is the sum of the ceilings, about three times what these jobs measure; `adm` after the drills gives the
-real figure. Under $1 holds unless a job runs far above its measured cost.
+real figure. Drills 5 and 7 never use a provider key and never touch the public budget.
 
 **Drill 1. Upload of the sample clip.**
 ```
@@ -224,8 +225,9 @@ up $W/tiny.mp4 $W/one_def.json "$CONSENT"
 Expect `HTTP 429`, `"error":"client_busy"` and a `friendly` sentence: "You already have a run in progress: please wait
 for it to finish...". Nothing is created.
 
-**Drill 2b. The queue, from a second visitor.** Open `$BASE` on a phone on mobile data (a different address), upload the
-sample clip or a short clip with the consent box ticked while drill 1 is running. Expect the job page to say "Queued,
+**Drill 2b. The queue, from a second visitor.** Copy `tiny.mp4` (the 2 s clip from the setup; not the sample clip, whose
+ceiling is $0.89) to the phone, open `$BASE` there on mobile data (a different address), and upload it with the one
+behavior in `one_def.json` and the consent box ticked while drill 1 is running. Expect the job page to say "Queued,
 position 1. It starts as soon as the job ahead finishes." Press **Cancel** on it (a cancelled queued job costs nothing;
 it still counts as one of that phone's 10 runs). A third visitor while two jobs are in flight would get 503 `queue_full`;
 that case is covered by tests, not drilled.
@@ -249,13 +251,14 @@ a `friendly` sentence saying nothing was kept or spent and pointing to the sampl
 Together with drill 3 that is 4 rejections from this address in the hour (the limit is 10, then 429
 `too_many_rejected` with a message that says to try again in about an hour; covered by tests, not drilled).
 
-**Drill 5. A forced cap hit via a temporary low cap.** $0 (refused before any model call). A throwaway instance on port
-8011 with a $0.05 cap, with its own data dir and caller prefix, so it neither reads nor writes the public instance's
-budget. Run from the main checkout after the merge. This function starts a throwaway instance with extra `NAME=value`
-settings:
+**Drill 5. A forced cap hit via a low cap, on a local copy only.** $0. It is never run against the public instance or
+its budget: the public caps are not edited for a drill. The local copy runs on port 8011 with its own data dir and caller
+prefix, a nonexistent secrets file, and **every provider key variable unset** (`ETHO_SECRETS` pointing at nothing does
+not help if a key is exported in your shell; the gateway lets an exported key win). So nothing it does can reach a model.
+Run from the main checkout after the merge. This function starts a local copy with extra `NAME=value` settings:
 ```
 throwaway() {
-  ( cd /home/ubuntu/work/etho && env ETHO_APP_PUBLIC=1 ETHO_APP_OPEN=1 ETHO_SANDBOX=bwrap ETHO_APP_TAG=dev ETHO_APP_CALLER_PREFIX=drill:job: ETHO_APP_DATA_DIR=$W/appdata$1 ETHO_APP_SHOWCASE_DIR=/home/ubuntu/work/etho/data/showcase ETHO_APP_KILL_FILE=$W/nokill ETHO_APP_READONLY_FILE=$W/noro "${@:2}" bin/app --port $1 > $W/t$1.log 2>&1 & )
+  ( cd /home/ubuntu/work/etho && env -u META_MODEL_API_KEY -u BASETEN_API_KEY -u FIREWORKS_API_KEY -u TOGETHER_API_KEY ETHO_SECRETS=$W/no-such-keys-file ETHO_APP_PUBLIC=1 ETHO_APP_OPEN=1 ETHO_SANDBOX=bwrap ETHO_APP_TAG=dev ETHO_APP_CALLER_PREFIX=drill:job: ETHO_APP_DATA_DIR=$W/appdata$1 ETHO_APP_SHOWCASE_DIR=/home/ubuntu/work/etho/data/showcase ETHO_APP_KILL_FILE=$W/nokill ETHO_APP_READONLY_FILE=$W/noro "${@:2}" bin/app --port $1 > $W/t$1.log 2>&1 & )
   sleep 15; curl -s http://127.0.0.1:$1/api/health | jq -c .
 }
 throwaway 8011 ETHO_APP_DAILY_CAP_USD=0.05 ETHO_APP_JUDGING_DAILY_CAP_USD=0.05
@@ -266,36 +269,36 @@ Expect health `"mode":"live","open":true`; the upload `HTTP 429 "error":"daily_c
 today's budget is used up, the precomputed showcase stays open on the site, an offline replay demo (`make demo`) is described
 in the project README (with the link), and "try again tomorrow"; `/api/config` shows `"capped":"daily_cap","can_submit":false`
 and the same message (the home page then shows it in the note at the top, with the links, and hides the form). If the mode
-says `read-only` instead, bubblewrap is not usable for your shell user: the cap can then only be drilled on the public
-instance (edit `ETHO_APP_DAILY_CAP_USD` and `ETHO_APP_JUDGING_DAILY_CAP_USD` to 0.05 with the 1.2 pattern, restart, drill, set `8` and
-`20` back, restart; two restarts during judging hours). Stop the throwaway instance (own block; it matches only the
-process started with that port, never the service on 8000):
+says `read-only` instead, bubblewrap is not usable for your shell user: skip the drill (the message is covered by tests);
+do not edit the public caps. Stop the local copy (own block; it matches only the process started with that port, never the
+service on 8000):
 ```
 kill $(pgrep -f 'etho.app.server --port 8011')
 ```
 For the total-cap wording: the same with `ETHO_APP_TOTAL_CAP_USD=0.05`; the message then says live use is over for this demo
 and does not say "tomorrow".
 
-**Drill 6. A clip with no animal.** `testsrc` is a test pattern. Start it after drill 1 has finished (wait for
-`job $J1` to say `done`; one job per client), so it starts at once:
+**Drill 6. A clip with no animal stops at the planner.** `noanimal.mp4` is 20 s of ffmpeg `testsrc`, a test pattern with
+no animal. Start it after drill 1 has finished (wait for `job $J1` to say `done`; one job per client):
 ```
 R6=$(up $W/noanimal.mp4 $W/one_def.json "$CONSENT"); echo "$R6"; J6=$(echo "$R6" | head -1 | jq -r .id); job $J6
 ```
-Poll `job $J6` every 10 s until it is `done`, `failed` or `cancelled`; if it runs past 5 minutes or `cost_usd` passes 0.48, cancel
-it with `curl -sS $RS -X POST $BASE/api/jobs/$J6/cancel`. **What to expect, honestly:** the code does not refuse a
-no-animal clip at the planner. The planner always returns a plan (it falls back to its best phrase), the job then runs
-SAM tracking, and a clip where both animals are found in under 30% of samples only gets a warning ("Both animals were
-tracked in only N% of samples; scores may be unreliable"). So the likely outcomes are: the job ends with zero or few bouts and
-that warning, or it fails in a later stage and the page shows "Scoring this video did not finish..." with the
-showcase link. Either way it is bounded by the ceiling in the cost table. Record what you see and the cost (`job $J6`, and
-`adm` afterwards). A planner check that stops such a clip before tracking is not in this branch (not decided).
+Poll `job $J6` every 5 s. **Expected:** within about 20 s the status is `declined` with `error_code` `no_animals`; the stages
+after "Plan" stay pending (no tracking, no SAM video call), `cost_usd` is about 0.03 (the planner's own calls), and the
+page says: "We couldn't find animals in this video, so nothing was tracked or charged beyond a quick check. Etho scores
+animal behavior in lab videos; try the sample clip on this page." The job counts as one of the visitor's 10 runs. The gate
+declines when the planner proposes an expected count of 0, or when none of its phrases finds even one object in the SAM
+image check on either probe frame. **If it does not decline** (the planner calls the test pattern an animal and SAM finds
+something), the job goes on to tracking and is bounded by its ceiling ($0.48): if `cost_usd` passes 0.10 or it runs past
+2 minutes, cancel it with `curl -sS $RS -X POST $BASE/api/jobs/$J6/cancel`, write down what the planner said (the page's
+planner card, or `/api/projects/$J6/audit` once it is done), and tell the lead. Record `job $J6` and `adm` afterwards.
 
 **Drill 7. The per-visitor limit, at $0.** Running the real 10 runs would need a job running while eleven are cancelled,
-and one job per client now forbids that. Instead use a throwaway instance with a limit of 2 and **no key file**, so
-every job it admits fails at its first model call and costs nothing (the ledger gets two rows with `"cost_usd": 0.0` and
-the prefix `drill:job:`):
+and one job per client now forbids that. Instead use a local copy (the `throwaway` function of drill 5: every
+provider key variable unset, no key file) with a limit of 2, so every job it admits fails at its first model call and costs
+nothing (the ledger gets two rows with `"cost_usd": 0.0`, "no API key", and the prefix `drill:job:`):
 ```
-throwaway 8012 ETHO_SECRETS=$W/no-such-keys-file ETHO_APP_RATE_JOBS=2
+throwaway 8012 ETHO_APP_RATE_JOBS=2
 for i in 1 2 3; do out=$(curl -sS -w '\nHTTP %{http_code}\n' -F "video=@$W/tiny.mp4" -F "definitions=<$W/one_def.json" -F consent=yes http://127.0.0.1:8012/api/jobs); code=$(echo "$out" | tail -1); echo "run $i: $code"; case "$code" in "HTTP 200") id=$(echo "$out" | head -1 | jq -r .id); until curl -s http://127.0.0.1:8012/api/jobs/$id | jq -e '.status != "queued" and .status != "running"' >/dev/null; do sleep 1; done; curl -s http://127.0.0.1:8012/api/jobs/$id | jq -c '{status, cost_usd}';; *) echo "$out" | head -1 | jq '{error, friendly}';; esac; done
 ```
 Expect `run 1` and `run 2`: `HTTP 200` and `{"status":"failed","cost_usd":0}`; `run 3: HTTP 429` with `"error":"rate_limited"` and a
@@ -306,8 +309,8 @@ lines.) Stop it:
 kill $(pgrep -f 'etho.app.server --port 8012')
 ```
 
-**After the drills.** The cost: `adm` again; the difference from the "before" figure is the drill spend (expect about 0.4 to
-0.6; stop and tell Aniket if it passes 1.0). The public instance is untouched by drills 5 and 7. Then clean up the temp files
+**After the drills.** The cost: `adm` again; the difference from the "before" figure is the drill spend (expect about 0.3 to
+0.4; stop and tell Aniket if it passes 1.0). The public instance is untouched by drills 5 and 7. Then clean up the temp files
 (own block, a temp dir made above):
 ```
 rm -rf "$W"

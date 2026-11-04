@@ -21,6 +21,8 @@ PHASES = (
     ("report", "Report", ("report", "overlay"), "ethogram, metrics, methods paragraph and the overlay video"),
 )
 STILL_OPEN = "The precomputed showcase runs stay open."
+NO_ANIMALS = ("We couldn't find animals in this video, so nothing was tracked or charged beyond a quick check. "
+              "Etho scores animal behavior in lab videos; try the sample clip on this page.")
 
 
 def phases(snap: dict) -> list[dict]:
@@ -63,6 +65,8 @@ def phases(snap: dict) -> list[dict]:
 def friendly_failure(snap: dict, friendly: dict[str, str]) -> str | None:
     """A plain sentence for a job that did not finish, chosen by the machine code the job carries
     (`error_code`), never by looking at error text and never the raw exception."""
+    if snap["status"] == "declined":
+        return friendly.get("no_animals", NO_ANIMALS)
     if snap["status"] not in ("failed", "cancelled"):
         return None
     code = snap.get("error_code")
@@ -91,7 +95,7 @@ def view(snap: dict, friendly: dict[str, str], public: bool = False) -> dict:
         if p["status"] == "failed":
             p["message"] = FAILED_PHASE_MESSAGE
     snap["friendly"] = friendly_failure(snap, friendly)
-    if snap["status"] in ("failed", "cancelled") or public:
+    if snap["status"] in ("failed", "cancelled", "declined") or public:
         snap["message"] = "" if (public or snap["status"] == "failed") else snap["message"]
     if public:
         snap["error"] = None
