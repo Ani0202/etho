@@ -187,6 +187,11 @@ class JobManager:
         return any(j.status in ("queued", "running") and (project_id is None or j.project_id == project_id)
                    for j in self.jobs.values())
 
+    def in_flight(self) -> int:
+        """Jobs queued or running (analyses and revisions)."""
+        with self._cv:
+            return sum(1 for j in self.jobs.values() if j.status in ("queued", "running"))
+
     def busy(self) -> bool:
         """Is any job queued or running (so shared directories must not be swept)?"""
         with self._cv:
@@ -296,6 +301,9 @@ class JobManager:
                 raise QueueFull(f"{len(self._queue)} jobs are already waiting; try again later")
             if job.project_id in self._purging:
                 raise QueueFull("this project is being deleted (its retention time is over)")
+            lim = self.cfg.max_in_flight
+            if lim and sum(1 for j in self.jobs.values() if j.status in ("queued", "running")) >= lim:
+                raise QueueFull(f"{lim} jobs are already queued or running; try again in a few minutes")
             job.ceiling_usd = self.guard.reserve(job.id, job.est_cost_usd)
             job.stages = [Stage(n) for n in (ANALYZE_STAGES if job.kind == "analyze" else REVISE_STAGES)]
             self.jobs[job.id] = job

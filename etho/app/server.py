@@ -92,16 +92,62 @@ FRIENDLY = {
 }
 
 
-def err(status: int, code: str, message: str, headers: dict | None = None, friendly: str | None = None) -> JSONResponse:
+CONSENT_TEXT = "I have the right to upload this video, and it contains no people"
+CONSENT_FRIENDLY = ("Please tick the box \"" + CONSENT_TEXT + "\" before uploading. Etho only scores animal video "
+                    "that you may share and that shows no people. Nothing was kept or spent. " + OPEN)
+_TRUE = ("1", "true", "yes", "on")
+
+
+def friendly_map(cfg: AppConfig) -> dict[str, str]:
+    """The sentence for each refusal code. Without open mode it is `FRIENDLY` itself. In open mode every limit also says
+    where to go next (the showcase on this site, `make demo` from the repo for an offline replay with no keys) and
+    when it resets (the next day for the daily and per-visitor limits; never for the total cap)."""
+    if not cfg.open:
+        return FRIENDLY
+    offline = f"For an offline replay with no keys, run `make demo` from the repo (README: {cfg.readme_url})."
+    show = "The precomputed showcase runs stay open on this site (home page)."
+    hours = cfg.rate_window_s / 3600
+    window = "24 hours" if abs(hours - 24) < 1e-9 else f"{hours:g} hours"
+    return {
+        **FRIENDLY,
+        "daily_cap": "Today's live budget for this demo is used up, so uploads and revisions are paused. " + show +
+                     " " + offline + " Live use reopens as the 24-hour budget window moves on: please try again "
+                     "tomorrow.",
+        "total_cap": "The live budget for this demo is used up, so live use is over for this demo: uploads and "
+                     "revisions are closed for good. " + show + " " + offline,
+        "rate_limited": f"You have used your {cfg.rate_limit_jobs} live runs for the last {window} (a revision counts "
+                        f"as a run). Your limit resets {window} after each run, so please try again tomorrow. " +
+                        show + " " + offline,
+        "queue_full": "Etho is already scoring other videos (at most "
+                      f"{cfg.max_in_flight or cfg.max_queue} jobs at a time, one video takes about two minutes). "
+                      "Please try again in a few minutes. " + show + " " + offline,
+        "consent_required": CONSENT_FRIENDLY,
+        **{code: f"{what} Nothing was kept or spent. Please upload an mp4, mov or avi of up to "
+                 f"{cfg.max_duration_s:g} seconds and {cfg.max_upload_mb:g} MB; the sample clip on the home page "
+                 f"works as it is."
+           for code, what in {
+               "bad_type": "That file type is not supported.",
+               "unreadable": "That file could not be read as a video.",
+               "bad_container": "That file is not the kind of video its name says.",
+               "no_video": "That file has no video in it.",
+               "too_long": f"That video is longer than the {cfg.max_duration_s:g} second limit.",
+               "too_large": f"That file is larger than the {cfg.max_upload_mb:g} MB limit.",
+           }.items()},
+    }
+
+
+def err(status: int, code: str, message: str, headers: dict | None = None, friendly: str | None = None,
+        table: dict[str, str] | None = None) -> JSONResponse:
+    table = FRIENDLY if table is None else table
     body = {"error": code, "message": message}
-    if friendly or code in FRIENDLY:
-        body["friendly"] = friendly or FRIENDLY[code]
+    if friendly or code in table:
+        body["friendly"] = friendly or table[code]
     return JSONResponse(body, status_code=status, headers=headers)
 
 
-def refusal(e: Refused) -> JSONResponse:
+def refusal(e: Refused, table: dict[str, str] | None = None) -> JSONResponse:
     h = {"Retry-After": str(int(e.retry_after) + 1)} if e.retry_after else None
-    return err(e.status, e.code, e.message, h, e.friendly)
+    return err(e.status, e.code, e.message, h, e.friendly, table)
 
 
 @dataclass
@@ -127,6 +173,14 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                                           "rule sandbox isolation: %s (%s)", _iso["mode"], _iso["detail"])
     except SandboxUnavailable as e:
         logging.getLogger("etho.app").error("rule sandbox misconfigured, jobs will fail: %s", e)
+    fr = friendly_map(cfg)
+
+    def E(status, code, message, headers=None, friendly=None):
+        return err(status, code, message, headers, friendly, fr)
+
+    def refuse(e):
+        return refusal(e, fr)
+
     ledger = ledger or AppLedger(cfg.ledger_path, cfg.caller_prefix)
     guard = SpendGuard(cfg, ledger, now=now)
     access = AccessControl(cfg, now=now)
@@ -165,7 +219,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
 
     def snap(j: Job) -> dict:
         """A job snapshot for the browser: five phases and a plain-language failure message."""
-        return PG.view(manager.snapshot(j), FRIENDLY, cfg.public)
+        return PG.view(manager.snapshot(j), fr, cfg.public)
 
     def who(request: Request) -> str:
         return client_key(request.client.host if request.client else None)
@@ -182,15 +236,15 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
 
     @app.exception_handler(ValidationError)
     async def _validation(_: Request, e: ValidationError):
-        return err(e.status, e.code, e.message)
+        return E(e.status, e.code, e.message)
 
     @app.exception_handler(Refused)
     async def _refused(_: Request, e: Refused):
-        return refusal(e)
+        return refuse(e)
 
     @app.exception_handler(C.CorrectionError)
     async def _corr(_: Request, e: C.CorrectionError):
-        return err(400, "bad_corrections", str(e))
+        return E(400, "bad_corrections", str(e))
 
     @app.middleware("http")
     async def gate(request: Request, call_next):
@@ -199,36 +253,39 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         if request.method not in READ_METHODS and not SAFE_POST.match(request.url.path):
             gated = spend_refusal(request)
             if gated is not None:
-                resp = refusal(gated)          # before any body is read
+                resp = refuse(gated)          # before any body is read
         if resp is None and request.method == "POST":
             cl, te = request.headers.get("content-length"), request.headers.get("transfer-encoding")
             if request.url.path == "/api/jobs":
                 limit = cfg.max_upload_mb * 1e6 + MULTIPART_SLACK
                 if cl is None or te:
-                    resp = err(411, "length_required", "Content-Length is required for uploads")
+                    resp = E(411, "length_required", "Content-Length is required for uploads")
                 elif not cl.isdigit() or int(cl) > limit:
-                    resp = err(413, "too_large", f"upload is larger than the {cfg.max_upload_mb:g} MB limit")
+                    resp = E(413, "too_large", f"upload is larger than the {cfg.max_upload_mb:g} MB limit")
                 else:
                     try:
                         limiter.check(who(request))
                         if manager.queue_len() >= cfg.max_queue:
                             raise Refused(f"{manager.queue_len()} jobs are already waiting; try again later", 503,
                                           "queue_full")
+                        if cfg.max_in_flight and manager.in_flight() >= cfg.max_in_flight:
+                            raise Refused(f"{manager.in_flight()} jobs are already queued or running; try again in "
+                                          "a few minutes", 503, "queue_full")
                         guard.check(cfg.estimate_job_usd(1.0, 1), manager.outstanding_usd())   # cap already spent
                     except Refused as e:
-                        resp = refusal(e)
+                        resp = refuse(e)
                 if resp is None:
                     if not upload_sem.acquire(blocking=False):
-                        resp = err(503, "busy", "too many uploads in progress; try again in a moment")
+                        resp = E(503, "busy", "too many uploads in progress; try again in a moment")
                     else:
                         try:
                             resp = await call_next(request)
                         finally:
                             upload_sem.release()
             elif te:
-                resp = err(411, "length_required", "Content-Length is required")
+                resp = E(411, "length_required", "Content-Length is required")
             elif cl and (not cl.isdigit() or int(cl) > cfg.max_json_body_bytes):
-                resp = err(413, "too_large", f"request body is larger than {cfg.max_json_body_bytes // 1000} KB")
+                resp = E(413, "too_large", f"request body is larger than {cfg.max_json_body_bytes // 1000} KB")
         if resp is None:
             resp = await call_next(request)
         resp.headers["X-Content-Type-Options"] = "nosniff"
@@ -273,7 +330,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     def is_admin(request: Request) -> bool:
         """The operator's view: a visitor holding a valid access cookie, or the access code in X-Etho-Admin (checked
         and throttled like any code entry)."""
-        if access.valid(request.cookies.get(COOKIE)):
+        # In open mode `access.valid` is true for everyone, so the operator view needs a real cookie or the header.
+        if (access.valid_cookie if cfg.open else access.valid)(request.cookies.get(COOKIE)):
             return True
         hdr = request.headers.get("x-etho-admin")
         if not hdr:
@@ -288,8 +346,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         st = live.snapshot()
         granted = access.valid(request.cookies.get(COOKIE))
         capped = capped_by() if st["mode"] == "live" else None
-        message = {"killed": FRIENDLY["killed"], "expired": FRIENDLY["expired"],
-                   "read-only": FRIENDLY["read_only"]}.get(st["mode"], FRIENDLY.get(capped or "", ""))
+        message = {"killed": fr["killed"], "expired": fr["expired"],
+                   "read-only": fr["read_only"]}.get(st["mode"], fr.get(capped or "", ""))
         return {"mode": st["mode"], "live_until": st["live_until"], "capped": capped, "message": message,
                 "access_required": st["access_required"], "access_granted": granted,
                 "can_submit": st["mode"] == "live" and granted and capped is None}
@@ -302,7 +360,13 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         return {"sandbox": sandbox, "live": live_view(request),
                 "limits": {"max_upload_mb": cfg.max_upload_mb, "max_duration_s": cfg.max_duration_s,
                            "extensions": [".mp4", ".mov", ".avi"], "max_behaviors": cfg.max_behaviors,
-                           "rate_limit_jobs": cfg.rate_limit_jobs, "rate_window_s": cfg.rate_window_s},
+                           "rate_limit_jobs": cfg.rate_limit_jobs, "rate_window_s": cfg.rate_window_s,
+                           "max_in_flight": cfg.max_in_flight or None,
+                           "consent_required": cfg.consent_required,
+                           "consent_text": CONSENT_TEXT if cfg.consent_required else None},
+                "visitor": {"runs_used": limiter.usage(who(request)), "runs_limit": cfg.rate_limit_jobs,
+                            "window_s": cfg.rate_window_s},
+                "queue": {"in_flight": manager.in_flight(), "waiting": manager.queue_len()},
                 "retention_hours": cfg.retention_hours,
                 "defaults": d,
                 "text": {"tagline": cfg.tagline, "tile_title": cfg.tile_title, "tile_value": cfg.tile_value,
@@ -317,11 +381,11 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     @app.post("/api/access")
     async def api_access(request: Request):
         if not access.required:
-            return err(400, "no_code_needed", "this server does not ask for an access code")
+            return E(400, "no_code_needed", "this server does not ask for an access code")
         try:
             payload = await request.json()
         except (json.JSONDecodeError, UnicodeDecodeError):
-            return err(400, "bad_json", "body must be JSON")
+            return E(400, "bad_json", "body must be JSON")
         code = payload.get("code") if isinstance(payload, dict) else None
         client = who(request)
         try:
@@ -331,7 +395,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             log.warning("access code refused for %s: %s", client, e.code)
             if (d := access.delay_for(e)) > 0:                  # slows a guesser; the right code is never delayed
                 await asyncio.sleep(d)
-            return refusal(e)
+            return refuse(e)
         logging.getLogger("etho.app.access").info("access code accepted for %s", client)
         resp = JSONResponse({"granted": True, "expires_in_s": cfg.cookie_ttl_s})
         resp.set_cookie(COOKIE, token, max_age=int(cfg.cookie_ttl_s), httponly=True, samesite="strict", path="/",
@@ -353,6 +417,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         out = {"ok": True, "mode": st["mode"], "live_until": st["live_until"],
                "caps": {"remaining_usd": cap["remaining_usd"], "daily_remaining_usd": cap["daily_remaining_usd"],
                         "total_remaining_usd": cap["total_remaining_usd"]}}
+        if cfg.open:
+            out["open"] = True
         if not is_admin(request):
             return out
         who_key = who(request)
@@ -376,9 +442,15 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     # ---- submit ------------------------------------------------------------------------------
     @app.post("/api/jobs")
     def api_submit(request: Request, video: Annotated[UploadFile, File()], definitions: Annotated[str, Form()],
-                   subject: Annotated[str, Form()] = "", partner: Annotated[str, Form()] = ""):
+                   subject: Annotated[str, Form()] = "", partner: Annotated[str, Form()] = "",
+                   consent: Annotated[str, Form()] = ""):
         if (gated := spend_refusal(request)) is not None:     # also checked here: the handler is safe on its own
             raise gated
+        # Open mode: the visitor must have said they may upload this video and that it shows no people. Checked before
+        # the file is read, written or probed, so a refused upload costs nothing and leaves nothing behind.
+        if cfg.consent_required and consent.strip().lower() not in _TRUE:
+            raise ValidationError("the consent field is missing: confirm that you have the right to upload this "
+                                  "video and that it contains no people", 400, "consent_required")
         ext = check_extension(video.filename or "")
         try:
             raw_defs = json.loads(definitions)
@@ -420,6 +492,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
                        "definitions": defs, "subject": subject, "partner": partner, "public_data": False,
                        "video": {**info.as_dict(), "name": os.path.basename(video.filename or "upload")[:80]},
                        "created": datetime.now(timezone.utc).isoformat(timespec="seconds"), "est_cost_usd": est}
+                if cfg.consent_required:
+                    inp["consent"] = True
                 write_json(base / "input.json", inp)
                 try:
                     manager.submit(Job(jid, jid, "analyze", base, est_cost_usd=est))   # reserves the spend ceiling
@@ -431,6 +505,8 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             if isinstance(e, QueueFull):
                 raise Refused(str(e), 503, "queue_full") from e
             raise
+        if cfg.consent_required:      # only the fact that it was given, never who gave it
+            logging.getLogger("etho.app").info("upload consent given for job %s", jid)
         return {"id": jid, "project_id": jid, "url": f"/p/{jid}", "est_cost_usd": est,
                 "queue_position": manager.queue_position(manager.jobs[jid])}
 
@@ -441,21 +517,21 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     @app.get("/api/jobs/{jid}")
     def api_job(jid: str):
         j = job_or_404(jid)
-        return snap(j) if j else err(404, "not_found", "no such job")
+        return snap(j) if j else E(404, "not_found", "no such job")
 
     @app.post("/api/jobs/{jid}/cancel")
     def api_cancel(jid: str):
-        return {"cancelled": manager.cancel(jid)} if job_or_404(jid) else err(404, "not_found", "no such job")
+        return {"cancelled": manager.cancel(jid)} if job_or_404(jid) else E(404, "not_found", "no such job")
 
     @app.get("/api/jobs/{jid}/events")
     async def api_events(jid: str, request: Request):
         j = job_or_404(jid)
         if not j:
-            return err(404, "not_found", "no such job")
+            return E(404, "not_found", "no such job")
         cid = who(request)
         with sse_lock:
             if sse_open.get(cid, 0) >= cfg.max_sse_per_client:
-                return err(429, "too_many_streams", "too many open progress streams from this client")
+                return E(429, "too_many_streams", "too many open progress streams from this client")
             sse_open[cid] = sse_open.get(cid, 0) + 1
 
         async def gen():
@@ -497,11 +573,11 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         p = project_or_none(pid)
         j = manager.jobs.get(pid)
         if p is None:
-            return err(404, "not_found", "no such project")
+            return E(404, "not_found", "no such project")
         res = p.result()
         if res is None:
             if j is None:
-                return err(404, "not_found", "no such project")
+                return E(404, "not_found", "no such project")
             return {"id": pid, "status": j.status, "job": snap(j), "error": None if cfg.public else j.error}
         versions = [res["versions"][0]] + [r for n in p.revision_numbers() if (r := p.revision(n))]
         active = manager.active_for(pid)
@@ -525,32 +601,32 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     def api_overlay(pid: str, v: int | None = None):
         p, f = versioned_file(pid, "overlay", v)
         if f is None:
-            return err(404, "not_found", "no overlay video for this version")
+            return E(404, "not_found", "no overlay video for this version")
         return FileResponse(f, media_type="video/mp4", headers={"Cache-Control": "no-cache"})
 
     @app.get("/api/projects/{pid}/report")
     def api_report(pid: str, v: int | None = None):
         p, f = versioned_file(pid, "report", v)
         if f is None:
-            return err(404, "not_found", "no report for this version")
+            return E(404, "not_found", "no report for this version")
         return HTMLResponse(f.read_text(), headers={"Content-Security-Policy": REPORT_CSP})
 
     @app.get("/api/projects/{pid}/strip/{name}")
     def api_strip(pid: str, name: str):
         p = project_or_none(pid)
         if p is None or not STRIP_RE.match(name):
-            return err(404, "not_found", "no such strip")
+            return E(404, "not_found", "no such strip")
         for d in (p.strips_dir, p.base / "strips"):
             if (d / name).is_file():
                 return FileResponse(d / name, media_type="image/jpeg")
-        return err(404, "not_found", "no such strip")
+        return E(404, "not_found", "no such strip")
 
     @app.get("/api/projects/{pid}/audit")
     def api_audit(pid: str, v: int | None = None):
         p = project_or_none(pid)
         res = p.result() if p else None
         if res is None:
-            return err(404, "not_found", "no such project")
+            return E(404, "not_found", "no such project")
         return audit_view(p, res, version_arg(v), ledger)
 
     def version_record(p: Project, res: dict, v: int) -> dict | None:
@@ -565,17 +641,17 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
         p = project_or_none(pid)
         res = p.result() if p else None
         if res is None:
-            return err(404, "not_found", "no such project")
+            return E(404, "not_found", "no such project")
         ver = version_arg(v)
         rec = version_record(p, res, ver)
         if rec is None:
-            return err(404, "not_found", "no such version")
+            return E(404, "not_found", "no such version")
         names = res["behaviors"]["names"]
         verdicts = PG.read_verdicts(p.version_file(ver, "verdicts"), PG.allow_for(names))
         if behavior is None:
             return {"version": ver, "fps": res["fps"], **PG.trace_index(verdicts)}
         if behavior not in names or s0 is None or s1 is None or s1 <= s0:
-            return err(400, "bad_bout", "behavior, s0 and s1 (samples, s1 > s0) must name a bout")
+            return E(400, "bad_bout", "behavior, s0 and s1 (samples, s1 > s0) must name a bout")
         return {"version": ver, "fps": res["fps"], **PG.bout_trace(rec, verdicts, behavior, s0, s1, res["fps"])}
 
     # ---- sample clip for judges --------------------------------------------------------------
@@ -600,7 +676,7 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     @app.get("/api/sample/clip")
     def api_sample_clip():
         if sample_meta() is None:
-            return err(404, "not_found", "no sample clip on this machine")
+            return E(404, "not_found", "no sample clip on this machine")
         return FileResponse(cfg.sample_dir / SAMPLE_FILE, media_type="video/mp4", filename=SAMPLE_FILE,
                             headers={"Cache-Control": "public, max-age=3600"})
 
@@ -608,15 +684,15 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
     async def api_revise(pid: str, request: Request):
         # A revision (of a showcase too) makes model calls that cost money: live use and the code are required.
         if (gated := spend_refusal(request)) is not None:
-            return refusal(gated)
+            return refuse(gated)
         if project_or_none(pid) is None:
-            return err(404, "not_found", "no such project")
+            return E(404, "not_found", "no such project")
         try:
             payload = await request.json()
         except (json.JSONDecodeError, UnicodeDecodeError):
-            return err(400, "bad_json", "body must be JSON")
+            return E(400, "bad_json", "body must be JSON")
         if not isinstance(payload, dict):
-            return err(400, "bad_json", "body must be a JSON object")
+            return E(400, "bad_json", "body must be a JSON object")
         return await asyncio.to_thread(revise_sync, request, pid, payload)
 
     def revise_sync(request: Request, pid: str, payload: dict):
@@ -625,9 +701,9 @@ def create_app(cfg: AppConfig | None = None, *, backend: Backend | None = None, 
             p = project_or_none(pid)
             res = p.result() if p else None
             if res is None:
-                return err(404, "not_found", "no such project")
+                return E(404, "not_found", "no such project")
             if manager.active_for(p.id):
-                return err(409, "busy", "a job is already running for this video")
+                return E(409, "busy", "a job is already running for this video")
             names = res["behaviors"]["names"]
             latest = p.latest_version()
             prev_rev = p.revision(latest) if latest else None
@@ -744,10 +820,12 @@ def main(argv: list[str] | None = None) -> None:
     app = create_app(cfg)
     st = app.state.live.snapshot()
     logging.getLogger("etho.app").info(
-        "mode %s %s; tag %s; caps $%.2f per 24 h (%s in the judging window) and %s in total; retention %g h; "
-        "live until %s", st["mode"], st["reasons"], cfg.tag, cfg.daily_cap_usd,
+        "%smode %s %s; tag %s; caps $%.2f per 24 h (%s in the judging window) and %s in total; retention %g h; "
+        "live until %s; per-visitor limit %s runs per %g h; at most %s jobs in flight",
+        "OPEN (no access code) " if cfg.open else "", st["mode"], st["reasons"], cfg.tag, cfg.daily_cap_usd,
         "unchanged" if cfg.judging_daily_cap_usd is None else f"${cfg.judging_daily_cap_usd:.2f}",
-        "no" if cfg.total_cap_usd is None else f"${cfg.total_cap_usd:.2f}", cfg.retention_hours, st["live_until"])
+        "no" if cfg.total_cap_usd is None else f"${cfg.total_cap_usd:.2f}", cfg.retention_hours, st["live_until"],
+        cfg.rate_limit_jobs, cfg.rate_window_s / 3600, cfg.max_in_flight or "any number of")
     uvicorn.run(app, host=a.host, port=a.port, log_level="info", proxy_headers=True,
                 forwarded_allow_ips=a.forwarded_allow_ips)
 

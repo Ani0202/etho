@@ -34,7 +34,8 @@
     const lv = (cfg && cfg.live) || { mode: "live", can_submit: true, access_required: false };
     const note = $("mode-note");
     const text = lv.message || (!lv.can_submit && extra) || "";   // the server's own sentence for this state
-    note.textContent = text; note.hidden = !text;
+    note.replaceChildren(...linkify(text)); note.hidden = !text;
+    $("sample-upload-hint").hidden = !lv.can_submit;
     $("access-card").hidden = !(lv.mode === "live" && lv.access_required && !lv.access_granted);
     $("form").hidden = !lv.can_submit;
     if (!lv.can_submit) $("recent-card").hidden = true;
@@ -54,14 +55,26 @@
 
   // ---- form ----
   if (cfg) {
-    $("limits").textContent = `mp4, mov or avi; up to ${cfg.limits.max_upload_mb} MB and ${Math.round(cfg.limits.max_duration_s / 60)} minutes. ` +
-      `${cfg.limits.rate_limit_jobs} jobs per hour per visitor.`;
+    const win = cfg.limits.rate_window_s / 3600, winText = win === 1 ? "hour" : `${Math.round(win * 10) / 10} hours`;
+    const dur = cfg.limits.max_duration_s;
+    $("limits").textContent = `mp4, mov or avi; up to ${cfg.limits.max_upload_mb} MB and ${dur >= 120 ? Math.round(dur / 60) + " minutes" : Math.round(dur) + " seconds"}. ` +
+      `${cfg.limits.rate_limit_jobs} runs per ${winText} per visitor (a revision counts as a run).` +
+      (cfg.limits.max_in_flight ? ` At most ${cfg.limits.max_in_flight} jobs run or wait at once.` : "");
+    $("consent-row").hidden = !cfg.limits.consent_required;
+    if (cfg.limits.consent_text) $("consent-text").textContent = cfg.limits.consent_text;
+    showVisitor();
     $("subject").value = cfg.defaults.subject;
     $("partner").value = cfg.defaults.partner;
     for (const [name, text] of Object.entries(cfg.defaults.behaviors)) addBehavior(name, text);
   }
   if (!document.querySelector(".beh")) addBehavior("", "");
   applyMode();
+
+  function showVisitor() {
+    const v = cfg && cfg.visitor, q = cfg && cfg.queue;
+    $("visitor-info").textContent = v ? `Your runs in the last ${Math.round(v.window_s / 360) / 10} hours: ${v.runs_used} of ${v.runs_limit}.` +
+      (q ? ` Jobs running or waiting now: ${q.in_flight}.` : "") : "";
+  }
 
   function addBehavior(name, text) {
     const n = h("input", { type: "text", value: name, maxlength: 32, placeholder: "behavior name", "aria-label": "Behavior name" });
@@ -113,6 +126,8 @@
     if (!file) { err.textContent = "Choose a video first."; return; }
     const defs = definitions();
     if (!defs.length) { err.textContent = "Write at least one behavior definition."; return; }
+    const needConsent = cfg && cfg.limits.consent_required;
+    if (needConsent && !$("consent").checked) { err.textContent = `Please tick the box: "${cfg.limits.consent_text}".`; $("consent").focus(); return; }
     if (cfg && file.size > cfg.limits.max_upload_mb * 1e6) { err.textContent = `That file is larger than ${cfg.limits.max_upload_mb} MB.`; return; }
     if (cfg && duration !== null && duration > cfg.limits.max_duration_s) { err.textContent = `That video is longer than ${Math.round(cfg.limits.max_duration_s / 60)} minutes.`; return; }
     const fd = new FormData();
@@ -120,6 +135,7 @@
     fd.append("definitions", JSON.stringify(defs));
     fd.append("subject", $("subject").value);
     fd.append("partner", $("partner").value);
+    if (needConsent) fd.append("consent", "yes");
     $("go").disabled = true; $("go").textContent = "Uploading...";
     try {
       const r = await api("/api/jobs", { method: "POST", body: fd });
@@ -128,8 +144,9 @@
       localStorage.setItem("etho.recent", JSON.stringify(recent.slice(0, 10)));
       location.href = r.url;
     } catch (ex) {
-      err.textContent = ex.message;
+      err.replaceChildren(...linkify(ex.message));
       $("go").disabled = false; $("go").textContent = "Score video";
+      loadHeader().then(c => { if (c) { cfg.visitor = c.visitor; cfg.queue = c.queue; showVisitor(); } });
       if (LIVE_OFF.has(ex.code)) {         // live use just became unavailable: fall back to the showcase with the reason
         const c = await loadHeader();
         if (c) { cfg.live = c.live; cfg.cap = c.cap; }
