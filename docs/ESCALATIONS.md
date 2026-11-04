@@ -283,3 +283,10 @@ The pre-stated rule says the mouse075 showcase is far below average (macro 0.419
 0, 14 false mount bouts covering 23.8 s, 68% of it expert attack). The rule's replacement is mouse077 0-300 s (median
 0.5061), which has no expert mount. Options: keep mouse075 with its own F1 shown; switch to mouse077 (new live run,
 about $0.90 from dev; the traced-error beat follows the contingency); or a different rule (post hoc, must be labelled so).
+
+## Nov 4, 00:50 ET: hosted app has no provider keys (open-uploads drill 1 failed, $0)
+Drill 1 (sample upload through the public URL) failed at the planner's first call: `no API key for meta in
+/etc/etho-app/keys.env` (ledger row `pub:job:jc1e71130db51`, cost $0). It is the first `pub:` model call ever in the ledger,
+so the service has never had a usable key. The site is back to read-only (`ops/app-readonly`). Needs Aniket: put
+META_MODEL_API_KEY and FIREWORKS_API_KEY in `/etc/etho-app/keys.env` (HOSTING.md section 4). The gateway reads the file on
+every call, so no restart is needed. Then the lead re-runs the drills. Cutoff 03:00 ET still applies.
