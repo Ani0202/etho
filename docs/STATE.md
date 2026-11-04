@@ -2,6 +2,16 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 4, 13:45 ET: tests skip cleanly without bubblewrap or git (9b9c3d4, ba6bd26; tests/Makefile/README only)
+- Aniket's clean-machine report: ~16 failures without bwrap (public mode refuses live use, 503, by design) and
+  test_flies_frozen failing on a fresh copy (root cause: scripts/freeze_flies.py runs `git status`; a ZIP has no .git).
+- tests/markers.py: needs_bwrap (the app's probe; reason names the probe's cause) on 41 tests, needs_git (this repo's own
+  .git) on 2; `make test` runs `pytest -rs`. README: make demo "under a minute", "after a paid live run", local
+  (200 MB / 5 min) vs hosted (50 MB / 2 min) upload limits, Setup note on skips.
+- Fresh clones, make check exit 0: no bwrap on PATH 771 passed / 67 skipped; with bwrap 834 passed / 4 skipped (data
+  only, nothing new); no .git and no bwrap 768 / 70; ZIP inside another git repo skips the 2 git tests. Claude
+  reviewer: no blockers, two lows fixed in ba6bd26.
+
 ## Nov 4, 12:55 ET: README polish (docs only, b1ecdbb)
 - Quick-links row (video https://youtu.be/6yoZPROj7PA, live app, make demo, test report, What we learned); compact
   first-screen results table (0.58 vs 0.79-0.86, 0.88x, $11.25/video-hour, +0.205) with footnotes ¹²³ from approved
