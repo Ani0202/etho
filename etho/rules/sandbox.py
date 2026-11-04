@@ -90,8 +90,9 @@ import json, os, resource, sys
 resource.setrlimit(resource.RLIMIT_CPU, (int(sys.argv[3]), int(sys.argv[3])))
 try:
     resource.setrlimit(resource.RLIMIT_AS, (2 << 30, 2 << 30))
-except (ValueError, OSError):  # some platforms (macOS) cannot set RLIMIT_AS; every other limit still applies
-    pass
+except (ValueError, OSError):  # macOS cannot set RLIMIT_AS; every other limit still applies there
+    if sys.platform != "darwin":
+        raise                  # elsewhere (Linux) fail closed, exactly as before
 resource.setrlimit(resource.RLIMIT_FSIZE, (256 << 20, 256 << 20))
 resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
 import numpy as np

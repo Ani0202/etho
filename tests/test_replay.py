@@ -349,8 +349,7 @@ def test_exit_codes_are_documented_in_help(replayed, capsys):
     assert "4 the scored labels differ" in capsys.readouterr().out
 
 
-def test_rlimit_runner_survives_a_platform_that_cannot_set_rlimit_as(tmp_path):
-    """macOS cannot set RLIMIT_AS: only that limit is skipped, every other one is still applied."""
+def _run_runner_with_failing_rlimit_as(tmp_path, platform):
     import subprocess
     import sys
 
@@ -360,6 +359,7 @@ def test_rlimit_runner_survives_a_platform_that_cannot_set_rlimit_as(tmp_path):
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import json, resource, sys\n"
+        f"sys.platform = {platform!r}\n"
         "seen = []\n"
         "real = resource.setrlimit\n"
         "def fake(kind, lim):\n"
@@ -373,9 +373,22 @@ def test_rlimit_runner_survives_a_platform_that_cannot_set_rlimit_as(tmp_path):
     out = tmp_path / "out.npy"
     p = subprocess.run([sys.executable, str(driver), str(tmp_path / "in.npz"), str(tmp_path / "det.py"), "30",
                         str(out)], capture_output=True, text=True)
+    return p, out
+
+
+def test_rlimit_runner_survives_macos_that_cannot_set_rlimit_as(tmp_path):
+    """macOS cannot set RLIMIT_AS: only that limit is skipped there, every other one is still applied."""
+    p, out = _run_runner_with_failing_rlimit_as(tmp_path, "darwin")
     assert p.returncode == 0, p.stderr
     assert np.load(out).tolist() == [False, False, False, True, True]
     import resource
     seen = json.loads((tmp_path / "out.npy.seen").read_text())
     others = {resource.RLIMIT_CPU, resource.RLIMIT_FSIZE, resource.RLIMIT_NOFILE}
     assert resource.RLIMIT_AS in seen and others <= set(seen)
+
+
+def test_rlimit_runner_still_fails_closed_on_linux_when_rlimit_as_cannot_be_set(tmp_path):
+    """Elsewhere a refused memory limit still stops the runner before any detector code runs (a non-zero exit, as
+    before the macOS fallback: the limit is set before the runner's exit-97 hook is installed)."""
+    p, out = _run_runner_with_failing_rlimit_as(tmp_path, "linux")
+    assert p.returncode != 0 and not out.exists() and "ValueError" in p.stderr

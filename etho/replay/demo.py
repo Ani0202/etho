@@ -96,6 +96,9 @@ def run(index_path: Path, clip: Path, definitions_path: Path, out: Path, *, serv
     _LIVE = index.header.get("live_run")
     banner()
     recorded_clip = index.header.get("clip", {})
+    if not clip.is_file():
+        print(f"\nno such clip: {clip}", file=sys.stderr)
+        return 1
     if file_sha256(clip) != recorded_clip.get("sha256"):
         print(f"\nthis recording belongs to {recorded_clip.get('file', 'its own clip')}; for other clips add your own "
               "Meta Model API key (README, Setup)\n", file=sys.stderr)
