@@ -2,6 +2,14 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 3, 23:20 ET
+- **The replay demo is merged** (3953cf7, ac221b8). `make demo` on main: 56/56 recorded calls served, $0, labels match.
+  The reviewer passed twice. The sandbox RLIMIT_AS fallback applies on macOS only.
+- FORM_FINAL.md (baseline, with make demo) and FORM_FINAL_with_uploads.md (for the edit) are committed (4899261).
+- **The pre-submission audit has started early:** the Claude reviewer, plus `bin/codex-ask --gate pre-submission`
+  (log ops/codex/presub-run.log).
+- Open uploads: reviewer fixes in progress on branch open-uploads; not deployed.
+
 ## Nov 3 night (22:40 ET): plan to the deadline (hard stop on building: Nov 4 21:00 ET)
 - The hosted app is **read-only** (`ops/app-readonly` touched by the lead after the organizers' answer). The access code
   file exists but was never shared. No access code appears in any doc.
