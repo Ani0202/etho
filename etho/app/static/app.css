@@ -25,6 +25,7 @@ header.top { border-bottom: 1px solid var(--line); background: var(--surface-1);
 header.top .in { max-width: 1120px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: baseline; gap: 20px; }
 header.top .brand { font-weight: 700; font-size: 20px; letter-spacing: .02em; color: var(--text-primary); text-decoration: none; }
 header.top .tag { color: var(--text-secondary); font-size: 13px; flex: 1; }
+@media (max-width: 700px) { header.top .tag { display: none; } header.top .spend { margin-left: auto; } }  /* a word-per-line column on phones */
 header.top .spend { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 main { max-width: 1120px; margin: 0 auto; padding: 24px; }
 h1 { font-size: 24px; margin: 0 0 4px; line-height: 1.25; }
@@ -62,7 +63,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .drop.over, .drop:hover { border-color: var(--accent); }
 .drop strong { color: var(--text-primary); }
 .beh { display: grid; grid-template-columns: 170px 1fr auto; gap: 10px; align-items: start; margin: 0 0 10px; }
-@media (max-width: 700px) { .beh { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .beh { grid-template-columns: 1fr; } .animals > div { flex: 1 1 100%; } }
 .err { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 1.2em; }
 .note { background: var(--warn-bg); color: var(--warn-text); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 0 0 12px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
