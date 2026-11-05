@@ -2,6 +2,11 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 5, 12:35 ET: VM rebooted (17:30 UTC; kernel now 7.0.0-1013-oracle); site came back on its own
+- etho-app active, mode live, open uploads, sandbox isolation bwrap, public URL 200; no kill/read-only/funnel-off
+  marker. Caps: $20.00 today, $59.49 total. No visitor jobs yet (ledger total still $73.20). Lead session restarted by
+  the watchdog; duplicate in-session notify cron removed (a1185184 kept). No code changes (building stopped Nov 4, 9 PM ET).
+
 ## Nov 4, 14:00 ET: skip reasons per Aniket (45b1607), verified from GitHub
 - Reasons "needs bubblewrap (Linux); skipped on macOS" and "needs a git clone, not a ZIP download"; README Setup one line.
 - GitHub ZIP (archive/refs/heads/main.zip), no bwrap on PATH: make check exit 0, 768 passed / 70 skipped (55 bwrap,
