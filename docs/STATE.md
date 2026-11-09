@@ -2,6 +2,15 @@
 
 _Updated 2026-10-31 15:40 UTC (11:40 ET)._
 
+## Nov 9, 17:20 ET: hosted app kept running after judging (runs until Aniket turns it off)
+- Aniket's app.env edit, then restart (push sent, no jobs in flight): `ETHO_APP_LIVE_UNTIL=none`, daily cap $5 (judging
+  cap also $5), total cap $65, 10 runs per visitor per 24 h. Verified locally first (keys unset) and on the public URL
+  after the restart: mode live, live_until null, $5.00 today, $64.49 total left. No stop timer installed; watchdog,
+  uptime check and Funnel keepalive run from cron with no end date. Details and the $65 reasoning: HOSTING.md top.
+- Open with Aniket: provider console check (real remaining credit, any expiry date, card / auto-recharge). If a credit
+  expires, set ETHO_APP_LIVE_UNTIL to that date; if a console shows less than the ledger, lower the total cap.
+- Next: LinkedIn video (Part 2) in ~/work/etho-linkedin/ (outside the repo).
+
 ## Nov 5, 12:35 ET: VM rebooted (17:30 UTC; kernel now 7.0.0-1013-oracle); site came back on its own
 - etho-app active, mode live, open uploads, sandbox isolation bwrap, public URL 200; no kill/read-only/funnel-off
   marker. Caps: $20.00 today, $59.49 total. No visitor jobs yet (ledger total still $73.20). Lead session restarted by

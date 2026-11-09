@@ -1,4 +1,4 @@
-# Hosting the Etho web app during judging (ADR-003, approved 2026-10-28)
+# Hosting the Etho web app (ADR-003, approved 2026-10-28; kept running after judging, Nov 9)
 
 Aniket runs the sudo commands below; the code that makes them work is on branch `worktree-agent-ab0d7665ca99e742a`
 (merge it first). Nothing here was run with sudo by the agent that wrote it: **the commands are untested as written**,
@@ -6,19 +6,37 @@ so the checks in sections 7 and 8 matter. The app itself was run in public mode 
 provider calls) to confirm that it starts, reports its mode and refuses uploads without the code, and the unit files
 below were syntax-checked with `systemd-analyze verify`.
 
-The window: the site must stay up from submission (Nov 4, 9 PM ET) through the finals on **Nov 9**. Live mode switches
-itself off at Nov 10 23:59:59 ET; read-only browsing can stay up after that. The optional stop timer (section 12) never
-stops the service before Nov 11 00:05 ET.
+The window: the site had to stay up from submission (Nov 4, 9 PM ET) through the finals on **Nov 9**. **Since Nov 9 it runs
+until Aniket turns it off:** the Nov 10 auto-off is disabled (`ETHO_APP_LIVE_UNTIL=none`), and no stop timer is installed.
+
+**Current settings (Nov 9, post-judging; in `/etc/etho-app/app.env`, applied by Aniket, live after the 22:17 UTC restart).**
+
+| Setting | Value | Why |
+|---|---|---|
+| `ETHO_APP_LIVE_UNTIL` | `none` | runs until Aniket turns it off; if a provider's credits turn out to expire, set it to that date (e.g. `2026-11-30T23:59:59-05:00`) so live mode stops before any call could fall outside the credit |
+| `ETHO_APP_DAILY_CAP_USD` / `ETHO_APP_JUDGING_DAILY_CAP_USD` | `5` / `5` | $5 public budget per rolling 24 h |
+| `ETHO_APP_TOTAL_CAP_USD` | `65` | all-time cap on the app's own spend ($0.51 spent on Nov 9, so $64.49 left) |
+| `ETHO_APP_RATE_JOBS` / `ETHO_APP_RATE_WINDOW_S` | `10` / `86400` | 10 runs per visitor per 24 h (in memory: a restart resets it; the $ caps survive) |
+
+Why $65 fits the credits: a run is about 65-80% Meta and at most about half Fireworks, so the app can spend at most about
+$64.5 on Meta and $32 on Fireworks. That stays inside the gateway's own backstops (Meta `demo-reserve` $78.58 left of
+$79, Fireworks $57.96 left below its $90 hard cap) and, by the ledger on Nov 9 (Meta $38.84 spent of the $150 credit,
+Fireworks $32.04 of $100, Baseten $2.32 of $100 and not used by the app), at least $36 below the real remaining credit
+on each. When the total cap is reached the site says "The live budget for this demo is used up, so live use is over for
+this demo" and the showcase and the offline replay demo stay open (drill 5b, Nov 4). The caps are only as good as the
+ledger's match with real billing: compare the provider consoles with `bin/spend` now and then, and keep no card with
+auto-recharge on the provider accounts (Meta's spend-limit notification does not stop billing). To close uploads at
+once: `touch /home/ubuntu/work/etho/ops/app-readonly` (no restart).
 
 What the visitor sees:
 
 | Mode | How you get there | What works |
 |---|---|---|
 | `live` | none of the below | Showcases, plus uploads and revisions for a visitor who entered the access code. |
-| `live` but over budget | the daily cap ($3 per 24 h, $8 in the Nov 4-9 ET judging window) or the $30 total cap has no room for the smallest job | Showcases; the page says the live budget is used up and uploads reopen as the window moves on (daily) or are closed (total). |
+| `live` but over budget | the daily cap (now $5 per 24 h; it was $20 in the Nov 4-9 ET judging window) or the total cap (now $65) has no room for the smallest job | Showcases; the page says the live budget is used up and uploads reopen as the window moves on (daily) or are closed (total). |
 | `read-only` | `ETHO_APP_READ_ONLY=1`, the file `ops/app-readonly`, or (public only) no usable access code, or the rule sandbox is not bubblewrap | Showcases, reports, audit trails. Uploads and revisions (a showcase revision too: it spends money) are refused. |
 | `killed` | the file `ops/app-kill` exists | Like read-only, and the running job is cancelled at its next model call and the queue is cancelled. |
-| `expired` | after `ETHO_APP_LIVE_UNTIL` (default 2026-11-10 23:59:59 America/New_York) | Like killed. |
+| `expired` | after `ETHO_APP_LIVE_UNTIL` (code default 2026-11-10 23:59:59 America/New_York; set to `none` on Nov 9, so it never expires) | Like killed. |
 
 **Open mode (`ETHO_APP_OPEN=1`, Nov 4).** In the `live` row, "who may upload" becomes anyone: no code, no login, but the upload form must carry
 a consent field (HTTP 400 without it), each visitor gets 10 runs per rolling 24 h, at most 2 jobs are queued or running (one per visitor, one upload at a time per visitor, a 120 s deadline for the upload body, 10 rejected uploads per hour). The
