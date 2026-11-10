@@ -5,7 +5,7 @@
 
 The root is taken ONLY from ETHO_ROOT (the shared checkout): its ops/spend.jsonl ledger and caps pay for
 every SAM call, so a worktree can never write its own ledger. `track` prints a job estimate first and
-refuses anything over $5 without --i-have-approval (CLAUDE.md: any single job over $5 needs approval).
+refuses anything over $5 without --i-have-approval (project rule: any single job over $5 needs approval).
 Reads only data/flyvsfly/Aggression/movie<N>/movie<N>.mp4. Outputs under <root>/data/runs/<run>/movie<N>/.
 Default window: the middle 5 min, source frames 22500-31499, 30 fps, native 144 px.
 Overlap: 1 s by default so a re-run of dev movies 1-2 hits the gateway cache; use --overlap-s 2 for new

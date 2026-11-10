@@ -99,7 +99,7 @@ class AppConfig:
     # Speed. SAM bills at least 50 frames per request, so at 10 fps a chunk is never shorter than 10 s; the target is
     # about `chunk_target` chunks per video so that they track in parallel (chunk_s = clamp(duration / 8, 10, 60)).
     chunk_target: int = 8
-    chunk_min_s: int = 60   # = benchmark; 10 s and 30 s chunks lost coverage (DECISIONS 2026-10-28)
+    chunk_min_s: int = 60   # = benchmark; 10 s and 30 s chunks lost coverage (docs/history/DECISIONS.md, 2026-10-28)
     chunk_max_s: int = 60
     # Fireworks calls in flight for tier 1 (the benchmark default is 6; 40 at once returned HTTP 429).
     tier1_concurrency: int = field(default_factory=lambda: _env("ETHO_APP_TIER1_CONCURRENCY", 16, int))

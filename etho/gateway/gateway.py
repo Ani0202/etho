@@ -35,8 +35,8 @@ _FILE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 529}
 
-# Allowed reasoning-effort values per provider (CLAUDE.md "How to set effort"). `max` exists on
-# muse-spark-1.3 but our policy doesn't use it; `none` is rejected by Muse Spark.
+# Allowed reasoning-effort values per provider (project brief "How to set effort", CLAUDE.md in tag
+# hackathon-submission). `max` exists on muse-spark-1.3 but our policy doesn't use it; `none` is rejected by Muse Spark.
 EFFORTS = {
     "meta": {"minimal", "low", "medium", "high", "xhigh"},
     "baseten": {"low", "medium", "high", "xhigh"},

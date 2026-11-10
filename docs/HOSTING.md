@@ -101,7 +101,7 @@ sudo setfacl -m u:etho-app:rw ops/spend.jsonl ops/.spend.lock ops/alerts.jsonl
 sudo setfacl -m u:etho-app:rwx,u:ubuntu:rwx,d:u:etho-app:rwx,d:u:ubuntu:rwx ops/inflight
 sudo setfacl -R -m u:etho-app:rwX,u:ubuntu:rwX ops/inflight
 # a local ops/codex/ (Codex outputs on the build machine, not in the repo) stays closed to the app
-[ -d ops/codex ] && sudo setfacl -m u:etho-app:--- ops/codex
+if [ -d ops/codex ]; then sudo setfacl -m u:etho-app:--- ops/codex; fi
 # the kill and read-only switches are plain files in ops/; you create and remove them as yourself
 ```
 

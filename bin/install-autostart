@@ -2,10 +2,11 @@
 # Install the hosting cron entries: the public uptime check every 15 minutes and the Funnel keepalive every 5 minutes
 # (docs/HOSTING.md sections 10 and 11).
 #
-# Safe to re-run. It owns exactly two lines: those that run THIS checkout's bin/uptime-check or bin/funnel-keepalive.
-# Those are replaced in place; every other crontab line (other jobs, comments, blank lines, other checkouts' entries)
-# is kept byte for byte and in its original order. If the current crontab cannot be read (any error other than "no crontab
-# for <user>"), nothing is written. ETHO_CRONTAB overrides the crontab binary (tests use a fake one).
+# Safe to re-run. It owns exactly two lines: those whose command is THIS checkout's bin/uptime-check or
+# bin/funnel-keepalive on its own (see the rule below). Those are replaced in place; every other crontab line (other
+# jobs, comments, blank lines, other checkouts' entries) is kept byte for byte and in its original order. If the current
+# crontab cannot be read (any error other than "no crontab for <user>"), nothing is written. The previous table is
+# saved to ops/crontab.bak (ETHO_CRONTAB_BACKUP overrides). ETHO_CRONTAB overrides the crontab binary (tests use a fake).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 crontab_bin="${ETHO_CRONTAB:-crontab}"
@@ -15,7 +16,7 @@ own_b="$root/bin/funnel-keepalive"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 rc=0
-"$crontab_bin" -l >"$tmp/cur" 2>"$tmp/err" || rc=$?
+LC_ALL=C "$crontab_bin" -l >"$tmp/cur" 2>"$tmp/err" || rc=$?
 if [ "$rc" -ne 0 ]; then
   if grep -qi "no crontab" "$tmp/err"; then
     : >"$tmp/cur"
@@ -24,16 +25,32 @@ if [ "$rc" -ne 0 ]; then
     exit 1
   fi
 fi
+backup="${ETHO_CRONTAB_BACKUP:-$root/ops/crontab.bak}"   # the table as it was (ops/ is git-ignored)
+mkdir -p "$(dirname "$backup")" && cp "$tmp/cur" "$backup"
 
-# Every line that is not ours (comments are never ours) is copied unchanged and in order. Our two lines go where the
-# first of our old lines was (so re-running on an up-to-date crontab changes nothing), or at the end if there was none.
-ours_1="*/15 * * * * $own_a >> $root/ops/uptime.cron.log 2>&1"
-ours_2="*/5 * * * * $own_b >> $root/ops/funnel-keepalive.log 2>&1"
-awk -v a="$own_a" -v b="$own_b" -v l1="$ours_1" -v l2="$ours_2" -v keptf="$tmp/kept" '
-  !/^[[:space:]]*#/ && (index($0, a) || index($0, b)) { if (!done) { print l1; print l2; done = 1 } ; next }
+# A line is ours only if its command word (after the 5 schedule fields, or one @keyword) is exactly this checkout's
+# bin/uptime-check or bin/funnel-keepalive, and nothing else is chained onto it (no ; & | apart from "2>&1").
+# Every other line, comments included, is copied unchanged and in order. Our two lines go where the first old one
+# was (so re-running on an up-to-date crontab changes nothing), or at the end if there was none.
+export IA_A="$own_a" IA_B="$own_b"
+export IA_L1="*/15 * * * * $own_a >> $root/ops/uptime.cron.log 2>&1"
+export IA_L2="*/5 * * * * $own_b >> $root/ops/funnel-keepalive.log 2>&1"
+awk -v keptf="$tmp/kept" '
+  function ours(line,   l, n, f, s, i, rest) {
+    l = line; sub(/^[[:space:]]+/, "", l)
+    if (l == "" || l ~ /^#/) return 0
+    n = split(l, f, /[[:space:]]+/)
+    s = (f[1] ~ /^@/) ? 2 : 6
+    if (n < s || (f[s] != ENVIRON["IA_A"] && f[s] != ENVIRON["IA_B"])) return 0
+    rest = ""
+    for (i = s + 1; i <= n; i++) rest = rest " " f[i]
+    gsub(/2>&1/, "", rest)
+    return rest !~ /[;&|]/
+  }
+  ours($0) { if (!done) { print ENVIRON["IA_L1"]; print ENVIRON["IA_L2"]; done = 1 } ; next }
   { print; kept++ }
-  END { if (!done) { print l1; print l2 } ; print kept + 0 > keptf }' "$tmp/cur" >"$tmp/new"
+  END { if (!done) { print ENVIRON["IA_L1"]; print ENVIRON["IA_L2"] } ; print kept + 0 > keptf }' "$tmp/cur" >"$tmp/new"
 kept=$(cat "$tmp/kept")
 "$crontab_bin" - <"$tmp/new"
-echo "installed 2 hosting lines; kept $kept other line(s) unchanged"
-"$crontab_bin" -l | grep -F -e "$own_a" -e "$own_b"
+echo "installed 2 hosting lines; kept $kept other line(s) unchanged (previous table: $backup)"
+"$crontab_bin" -l | grep -F -e "$own_a" -e "$own_b" || true
