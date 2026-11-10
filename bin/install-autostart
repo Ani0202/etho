@@ -3,8 +3,8 @@
 # (docs/HOSTING.md sections 10 and 11).
 #
 # Safe to re-run. It owns exactly two lines: those that run THIS checkout's bin/uptime-check or bin/funnel-keepalive.
-# Those are replaced; every other crontab line (other jobs, comments, blank lines, other checkouts' entries) is kept
-# byte for byte and in its original order. If the current crontab cannot be read (any error other than "no crontab
+# Those are replaced in place; every other crontab line (other jobs, comments, blank lines, other checkouts' entries)
+# is kept byte for byte and in its original order. If the current crontab cannot be read (any error other than "no crontab
 # for <user>"), nothing is written. ETHO_CRONTAB overrides the crontab binary (tests use a fake one).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -25,11 +25,15 @@ if [ "$rc" -ne 0 ]; then
   fi
 fi
 
-# Everything that is not one of our two lines (comments always count as not ours), unchanged and in order, then ours.
-awk -v a="$own_a" -v b="$own_b" '/^[[:space:]]*#/ || (index($0, a) == 0 && index($0, b) == 0)' "$tmp/cur" >"$tmp/new"
-kept=$(wc -l <"$tmp/new")
-printf '%s\n' "*/15 * * * * $own_a >> $root/ops/uptime.cron.log 2>&1" \
-               "*/5 * * * * $own_b >> $root/ops/funnel-keepalive.log 2>&1" >>"$tmp/new"
+# Every line that is not ours (comments are never ours) is copied unchanged and in order. Our two lines go where the
+# first of our old lines was (so re-running on an up-to-date crontab changes nothing), or at the end if there was none.
+ours_1="*/15 * * * * $own_a >> $root/ops/uptime.cron.log 2>&1"
+ours_2="*/5 * * * * $own_b >> $root/ops/funnel-keepalive.log 2>&1"
+awk -v a="$own_a" -v b="$own_b" -v l1="$ours_1" -v l2="$ours_2" -v keptf="$tmp/kept" '
+  !/^[[:space:]]*#/ && (index($0, a) || index($0, b)) { if (!done) { print l1; print l2; done = 1 } ; next }
+  { print; kept++ }
+  END { if (!done) { print l1; print l2 } ; print kept + 0 > keptf }' "$tmp/cur" >"$tmp/new"
+kept=$(cat "$tmp/kept")
 "$crontab_bin" - <"$tmp/new"
 echo "installed 2 hosting lines; kept $kept other line(s) unchanged"
 "$crontab_bin" -l | grep -F -e "$own_a" -e "$own_b"

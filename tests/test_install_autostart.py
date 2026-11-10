@@ -53,7 +53,8 @@ def test_keeps_every_line_it_does_not_own_in_order_and_replaces_its_own(cron):
     tab.write_text("\n".join(OTHER[:3] + [stale] + OTHER[3:] + [FUNNEL]) + "\n\n")
     r = run()
     assert r.returncode == 0, r.stderr
-    assert tab.read_text() == "\n".join(OTHER) + "\n\n" + UPTIME + "\n" + FUNNEL + "\n"
+    # our lines replace the first old one in place; the duplicate further down is dropped; nothing else moves
+    assert tab.read_text() == "\n".join(OTHER[:3] + [UPTIME, FUNNEL] + OTHER[3:]) + "\n\n"
     assert f"kept {len(OTHER) + 1} other line(s)" in r.stdout
 
 
@@ -68,6 +69,14 @@ def test_rerunning_never_removes_or_duplicates_anything(cron):
     lines = first.splitlines()
     assert lines[:len(OTHER)] == OTHER and lines.count(UPTIME) == 1 and lines.count(FUNNEL) == 1
     assert sum("bin/lead-watchdog" in x for x in lines) == 2
+
+
+def test_up_to_date_crontab_is_left_byte_identical(cron):
+    tab, run = cron
+    text = "\n".join(OTHER[:2] + [UPTIME, FUNNEL] + OTHER[2:]) + "\n"
+    tab.write_text(text)
+    assert run().returncode == 0
+    assert tab.read_text() == text
 
 
 def test_no_crontab_yet_installs_just_the_two_lines(cron):
