@@ -28,6 +28,20 @@ ledger's match with real billing: compare the provider consoles with `bin/spend`
 auto-recharge on the provider accounts (Meta's spend-limit notification does not stop billing). To close uploads at
 once: `touch /home/ubuntu/work/etho/ops/app-readonly` (no restart).
 
+**Installed on the VM (Nov 10, Aniket; verified).**
+
+| What | State | Check |
+|---|---|---|
+| Health watchdog timer (section 9) | `etho-app-watchdog.timer` enabled, runs every minute | `systemctl list-timers etho-app-watchdog.timer` |
+| Hang drill | app frozen with SIGSTOP at 02:13:21 UTC; 2 failed checks (02:14:37, 02:15:41), restarted at 02:15:41, health 200 at 02:15:46 (about 2.5 min) | `journalctl -u etho-app-watchdog.service`, `ops/app-watchdog.log` |
+| OOM priority (section 5.1) | `OOMScoreAdjust=-500` in `etho-app.service.d/oom.conf`; applied from the 02:19:27 UTC restart on (`oom_score` 341 vs 686-693 for the Claude sessions) | `cat /proc/$(systemctl show etho-app -p MainPID --value)/oom_score_adj` |
+
+Memory headroom (measured Nov 10, 02:05 UTC): 11.7 GiB RAM, no swap, about 9.5 GiB available with the Claude sessions
+running. The app runs one job at a time; one replay job on the 60 s sample clip peaks at 1.02 GiB (two forced to run
+at once: 2.04 GiB), so the 2-minute public limit is estimated at up to about 2 GiB per job, inside the unit's
+`MemoryMax=8G`. Other work on the VM (the gemma-agent project) caps each of its jobs at 5 GiB and kills its own jobs
+first when available memory drops below 2.5 GiB.
+
 What the visitor sees:
 
 | Mode | How you get there | What works |
@@ -316,6 +330,29 @@ The app listens on 127.0.0.1:8000 only. `--forwarded-allow-ips 127.0.0.1` makes 
 from the proxy on this machine. Never widen it to `*`: the rate limit and the code throttle key on that address. In
 public mode `/docs`, `/redoc` and `/openapi.json` are off.
 
+### 5.1 OOM priority (installed Nov 10)
+
+The VM has no swap and is shared with other work (Claude Code sessions, another project's jobs). By default every
+process has `oom_score_adj` 0, so under memory exhaustion the kernel would kill the largest one, which during a job is
+the app. This drop-in makes it prefer the others:
+
+```
+sudo mkdir -p /etc/systemd/system/etho-app.service.d
+sudo tee /etc/systemd/system/etho-app.service.d/oom.conf >/dev/null <<'EOF'
+[Service]
+# Under memory exhaustion, prefer killing Claude sessions and other projects' jobs over the public site
+OOMScoreAdjust=-500
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart etho-app        # takes effect only at the next start
+cat /proc/$(systemctl show etho-app -p MainPID --value)/oom_score_adj     # -500
+```
+
+Sandboxed detector processes inherit it; they are small and have their own rlimits. `MemoryMax=8G` still bounds the
+app itself: past it, the kernel kills inside the app's own cgroup, never other processes. Undo:
+`sudo rm /etc/systemd/system/etho-app.service.d/oom.conf`, then `sudo systemctl daemon-reload` and
+`sudo systemctl restart etho-app`.
+
 ## 6. How uploads are handled
 
 Media tools: on a public deployment ffprobe and ffmpeg run on uploaded files under bubblewrap too (no network, a
@@ -428,6 +465,9 @@ publishing. If bubblewrap is refused for the service user, health shows `read-on
 Through the public URL once Funnel is on (section 7): `curl -s https://<url>/api/health`.
 
 ## 9. Health watchdog (restarts a hung app)
+
+**Installed Nov 10, 2026** (Aniket). Hang drill the same night: `sudo systemctl kill --signal=SIGSTOP --kill-whom=main
+etho-app` at 02:13:21 UTC; failed checks at 02:14:37 and 02:15:41, restart at 02:15:41, health 200 at 02:15:46.
 
 systemd restarts a crashed process; this also restarts one that is alive but not answering. Every minute a root timer asks
 `GET /api/health` on localhost (the public, unauthenticated view). If there is no good answer within 10 s, twice in a
