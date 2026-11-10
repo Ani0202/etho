@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# One-line Codex usage summary (for checkpoint reports). See bin/codex_run.py.
-exec python3 "$(cd "$(dirname "$0")" && pwd)/codex_run.py" summary

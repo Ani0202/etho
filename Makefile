@@ -3,13 +3,13 @@
 check: lint test
 
 lint:
-	uv run ruff check etho tests eval scripts bin/codex_run.py bin/codex-queue
+	uv run ruff check etho tests eval scripts
 
 test:
 	uv run pytest -rs
 
 fmt:
-	uv run ruff check --fix etho tests eval scripts bin/codex_run.py bin/codex-queue
+	uv run ruff check --fix etho tests eval scripts
 
 # Offline replay of recorded Meta model responses on the 60 s CalMS21 sample clip: no API keys, no network.
 demo:

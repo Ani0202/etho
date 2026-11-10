@@ -8,43 +8,22 @@ cache/
 *.mp4
 *.avi
 *.mov
-ops/sessions/
-ops/codex/*.log
-ops/codex/*.patch
-ops/lead.started
-ops/lead.disabled
-ops/watchdog.log
-ops/inflight/
-ops/.spend.lock
 .ruff_cache/
 .pytest_cache/
-ops/codex/diff-*
-ops/codex/queue-cron.log
-ops/codex/.queue.lock
-ops/codex/limit.json
-ops/codex/queue/
-ops/codex/notify.jsonl
-ops/codex/gate-blocked-*.json
-ops/codex/.*.lock
-ops/codex/.*.tmp
-.claude/worktrees/
-# machine-local hosting runtime state (logs, markers, notifications)
-ops/uptime.jsonl
-ops/uptime.cron.log
-ops/notify.jsonl
-ops/funnel.jsonl
-ops/funnel-keepalive.log
-ops/funnel-off
-ops/.funnel-state.json
-ops/.uptime.lock
-ops/public-url
 
 # the 60 s CalMS21 dev-split sample clip for the offline replay demo (CC BY 4.0, demo/sample/CREDITS.md)
 !demo/sample/calms21_dev_60s.mp4
 
-# runtime markers and scratch (not for the repo)
-ops/alerts.jsonl
-ops/app-readonly
-ops/app-kill
-ops/codex/presub-context.md
-ops/codex/presub-run.log
+# Agent setup (Claude Code and Codex): kept on the build machine, not in the repo. The version used during the
+# hackathon is in the tag `hackathon-submission`.
+CLAUDE.md
+AGENTS.md
+.claude/
+bin/lead-start
+bin/lead-stop
+bin/lead-watchdog
+bin/spawn
+
+# Runtime state: the spend ledger, hosting logs and markers, notifications (see ops/README.md)
+ops/*
+!ops/README.md

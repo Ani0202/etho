@@ -1,4 +1,4 @@
-"""Regression tests for the Codex review of the gateway (ops/codex/review-20261028-042016.md)."""
+"""Regression tests for the Codex review of the gateway (docs/history/codex/review-20261028-042016.md)."""
 import json
 import shutil
 import subprocess

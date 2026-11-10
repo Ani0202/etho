@@ -166,7 +166,7 @@ def adjudicate(run_dir: Path, seq: str, windows: list[Window], definitions: dict
 
 # Dev finding (R1): at low effort tier 1's "attack"/"mount" verdicts were right only ~21-26% of the time,
 # its "investigation" 58% and "none" 85%. So by default it may confirm investigation or reject a window,
-# never promote one to attack/mount (DECISIONS.md, 2026-10-28).
+# never promote one to attack/mount (docs/history/DECISIONS.md, 2026-10-28).
 DEFAULT_ALLOW = frozenset({"investigation", "none"})
 
 

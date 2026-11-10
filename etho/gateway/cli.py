@@ -114,7 +114,7 @@ def sam_main(argv: list[str]) -> None:
     p.add_argument("--confidence", action="store_true")
     p.add_argument("--out", type=Path, help="copy raw SAM output text here")
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--fps", type=int, default=10, help="subsample video to this rate first (CLAUDE.md: 10-15)")
+    p.add_argument("--fps", type=int, default=10, help="subsample video to this rate first (10-15 recommended)")
     p.add_argument("--keep-fps", action="store_true", help="send the video at its native rate")
     a = p.parse_args(argv)
     gw = Gateway()

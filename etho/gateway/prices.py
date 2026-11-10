@@ -1,4 +1,5 @@
-"""Prices, caps, and budgets from CLAUDE.md. Never raise caps here without Aniket's approval."""
+"""Prices, caps, and budgets from the project brief (CLAUDE.md, in tag hackathon-submission). Never raise caps here
+without Aniket's approval."""
 
 from __future__ import annotations
 
@@ -45,7 +46,7 @@ HARD_CAPS: dict[str, float] = {
     "meta": 140.0,
     "baseten": 90.0,
     "fireworks": 90.0,
-    "together": 5.0,  # Aniket's own money; small until he says otherwise (DECISIONS.md)
+    "together": 5.0,  # Aniket's own money; small until he says otherwise (docs/history/DECISIONS.md)
 }
 
 # Soft sub-budgets for Meta spend, by tag. Calls are refused once a tag is exhausted. The sum is still 140, the Meta

@@ -1,14 +1,35 @@
 #!/usr/bin/env bash
-# Install cron entries: the lead watchdog every 5 minutes and after a reboot, and the Codex queue
-# drain every 10 minutes (runs queued Codex requests after a usage-limit reset), the public uptime check every 15
-# minutes and the Funnel keepalive every 5 minutes (docs/HOSTING.md section 10). Safe to re-run: every line it writes
-# is filtered out first.
+# Install the hosting cron entries: the public uptime check every 15 minutes and the Funnel keepalive every 5 minutes
+# (docs/HOSTING.md sections 10 and 11).
+#
+# Safe to re-run. It owns exactly two lines: those that run THIS checkout's bin/uptime-check or bin/funnel-keepalive.
+# Those are replaced; every other crontab line (other jobs, comments, blank lines, other checkouts' entries) is kept
+# byte for byte and in its original order. If the current crontab cannot be read (any error other than "no crontab
+# for <user>"), nothing is written. ETHO_CRONTAB overrides the crontab binary (tests use a fake one).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
-( { crontab -l 2>/dev/null || true; } | { grep -v -e 'bin/lead-watchdog' -e 'bin/codex-queue' -e 'bin/uptime-check' -e 'bin/funnel-keepalive' || true; } ;
-  echo "*/5 * * * * $root/bin/lead-watchdog >/dev/null 2>&1" ;
-  echo "@reboot sleep 90 && $root/bin/lead-watchdog >/dev/null 2>&1" ;
-  echo "*/10 * * * * cd $root && PATH=/usr/local/bin:/usr/bin:/bin $root/bin/codex-queue --drain >> $root/ops/codex/queue-cron.log 2>&1" ;
-  echo "*/15 * * * * $root/bin/uptime-check >> $root/ops/uptime.cron.log 2>&1" ;
-  echo "*/5 * * * * $root/bin/funnel-keepalive >> $root/ops/funnel-keepalive.log 2>&1" ) | crontab -
-crontab -l | grep -e lead-watchdog -e codex-queue -e uptime-check -e funnel-keepalive
+crontab_bin="${ETHO_CRONTAB:-crontab}"
+own_a="$root/bin/uptime-check"
+own_b="$root/bin/funnel-keepalive"
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+rc=0
+"$crontab_bin" -l >"$tmp/cur" 2>"$tmp/err" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  if grep -qi "no crontab" "$tmp/err"; then
+    : >"$tmp/cur"
+  else
+    echo "install-autostart: cannot read the current crontab (exit $rc): $(cat "$tmp/err"); nothing changed" >&2
+    exit 1
+  fi
+fi
+
+# Everything that is not one of our two lines (comments always count as not ours), unchanged and in order, then ours.
+awk -v a="$own_a" -v b="$own_b" '/^[[:space:]]*#/ || (index($0, a) == 0 && index($0, b) == 0)' "$tmp/cur" >"$tmp/new"
+kept=$(wc -l <"$tmp/new")
+printf '%s\n' "*/15 * * * * $own_a >> $root/ops/uptime.cron.log 2>&1" \
+               "*/5 * * * * $own_b >> $root/ops/funnel-keepalive.log 2>&1" >>"$tmp/new"
+"$crontab_bin" - <"$tmp/new"
+echo "installed 2 hosting lines; kept $kept other line(s) unchanged"
+"$crontab_bin" -l | grep -F -e "$own_a" -e "$own_b"

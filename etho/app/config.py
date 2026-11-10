@@ -105,7 +105,7 @@ class AppConfig:
     tier1_concurrency: int = field(default_factory=lambda: _env("ETHO_APP_TIER1_CONCURRENCY", 16, int))
     synth_workers: int = 8                     # detector-writing calls in flight (at most one per behavior)
     # Per-day app spend cap (UTC day) and the pre-estimate used to refuse a job that would cross it. Rates are
-    # measured costs with margin: SAM $0.002/s of video at 10 fps, tier-1 $0.0012/s (docs/STATE.md).
+    # measured costs with margin: SAM $0.002/s of video at 10 fps, tier-1 $0.0012/s (docs/history/STATE.md).
     # The "day" is a rolling 24 hours, not a calendar day, so spend cannot be doubled around midnight.
     # (public: $3; $8 in the judging window)
     daily_cap_usd: float | None = field(default_factory=lambda: _env("ETHO_APP_DAILY_CAP_USD", None, float))

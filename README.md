@@ -39,6 +39,7 @@ per visitor per day and a small daily and total budget; when a limit is reached 
 
 Upload lab video, write behavior definitions in plain English, and get a scored ethogram, metrics, and an auditable
 methods report. Built for the Meta Global AI Developer Hackathon (Push the Frontier).
+The pipeline at a glance: [architecture diagram](docs/architecture.svg).
 
 ## Try it in 1 minute (no keys)
 
@@ -222,14 +223,14 @@ Measured during the event. Each claim links to the committed evidence.
     test clip.
   - The plain phrase "mouse" tracked both animals with stable IDs, and the image endpoint did find "black mouse"
     on frame 0, so video concept detection is much stricter than image detection
-    ([docs/SPIKE.md](docs/SPIKE.md)).
-  - For flies, "fly" returned 0 objects and "fruit fly" works ([docs/DECISIONS.md](docs/DECISIONS.md), ADR-002
+    ([docs/history/SPIKE.md](docs/history/SPIKE.md)).
+  - For flies, "fly" returned 0 objects and "fruit fly" works ([docs/history/DECISIONS.md](docs/history/DECISIONS.md), ADR-002
     tracking line).
   - Etho tells the two mice apart by mask brightness rather than by phrase (ADR-001).
 - **Once SAM 3.1 has a track, it keeps it through a mount.**
   - With 60 s chunks, both mice stay labeled on 100% of mount frames (development video mouse016).
   - A chunk that starts while one mouse is hidden under the other never picks it up again: 10 s chunks
-    dropped to 15.6% ([docs/DECISIONS.md](docs/DECISIONS.md), chunk-length table).
+    dropped to 15.6% ([docs/history/DECISIONS.md](docs/history/DECISIONS.md), chunk-length table).
   - Identity error against the dataset's keypoints is 0.29% on the 19 test videos
     ([eval/results/test1_report.md](eval/results/test1_report.md)).
 - **Muse Spark turns a published English definition into a short, readable, executable rule.**
@@ -248,12 +249,12 @@ Measured during the event. Each claim links to the committed evidence.
 - **Hosted latency is the bottleneck, and it parallelizes.**
   - Fireworks frame-strip calls took a median of 8-12 s.
   - Throughput grew almost linearly from 6 to 16 concurrent calls with no rate limiting, taking a fresh
-    5-min clip from 1.12x to 0.60x real time end to end ([docs/DECISIONS.md](docs/DECISIONS.md), concurrency
+    5-min clip from 1.12x to 0.60x real time end to end ([docs/history/DECISIONS.md](docs/history/DECISIONS.md), concurrency
     line; `scripts/speed_sweep.py`).
 - **What didn't work:**
   - 18 simulated corrections did not measurably improve the full pipeline on test (inconclusive);
   - one joint classifier and a 5-way ensemble both did worse than independent rules on dev
-    ([docs/DECISIONS.md](docs/DECISIONS.md)).
+    ([docs/history/DECISIONS.md](docs/history/DECISIONS.md)).
 
 ## What's next (future work, not built)
 - **Ask your experiment.** A researcher would ask a plain-English question across scored videos; Muse Spark would
@@ -305,3 +306,8 @@ The first commit is Oct 27, 11:50 PM ET (`4646383`), and every row below can be 
 Developed with AI coding tools: Claude Code (lead engineer and subagents) and OpenAI Codex CLI
 (independent code review). Etho's runtime pipeline uses only Meta models. The fast SAM mask decoder
 is an AI-assisted port (Claude Code) of Meta's open reference decoder, verified bit-exact against it.
+
+Tag `hackathon-submission` (commit `44bdc15`, the main branch at the Nov 4 deadline) is
+[the repo exactly as submitted, including the agent setup](https://github.com/Ani0202/etho/tree/hackathon-submission)
+(Claude Code instructions and subagents, Codex tooling, working notes). After judging, the build records moved to
+[docs/history/](docs/history/) and the agent setup and hackathon-only files left the main branch.

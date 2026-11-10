@@ -194,7 +194,7 @@ def test_persistent_status_error_notifies_after_three_then_rate_limited(tmp_path
 def test_every_bin_script_in_install_autostart_is_executable_in_git():
     root = Path(__file__).resolve().parents[1]
     names = set(re.findall(r"\$root/bin/([\w-]+)", (root / "bin" / "install-autostart").read_text()))
-    assert {"lead-watchdog", "codex-queue", "uptime-check", "funnel-keepalive"} <= names
+    assert names == {"uptime-check", "funnel-keepalive"}
     out = subprocess.run(["git", "ls-files", "-s", "--"] + [f"bin/{n}" for n in sorted(names)], cwd=root,
                          capture_output=True, text=True, check=True).stdout.splitlines()
     modes = {line.split("\t")[1]: line.split()[0] for line in out}

@@ -2,7 +2,7 @@
 
   1. fly_video.prepare_fly_chunks cuts [start, stop) at `stride` into overlapping 60 s chunks.
   2. Chunks go to SAM in parallel (phrase "fruit fly": plain "fly" returned nothing, SPIKE in
-     docs/DECISIONS.md). Each streamed line is decoded at once and reduced to per-object geometry
+     docs/history/DECISIONS.md). Each streamed line is decoded at once and reduced to per-object geometry
      (source pixels); masks are dropped, box-local RLE goes to raw_c###.jsonl.gz.
   3. fly_identity: SAM ids inside a chunk, relabeling after contact runs that exchanged the flies,
      Hungarian stitching across chunk overlaps, identity `unknown` whenever the flies are within one

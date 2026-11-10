@@ -100,8 +100,8 @@ sudo setfacl -m u:etho-app:rw ops/spend.jsonl ops/.spend.lock ops/alerts.jsonl
 # remove reservation files the app creates, and the other way round.
 sudo setfacl -m u:etho-app:rwx,u:ubuntu:rwx,d:u:etho-app:rwx,d:u:ubuntu:rwx ops/inflight
 sudo setfacl -R -m u:etho-app:rwX,u:ubuntu:rwX ops/inflight
-# the Codex queue and outputs stay closed to the app
-sudo setfacl -m u:etho-app:--- ops/codex
+# a local ops/codex/ (Codex outputs on the build machine, not in the repo) stays closed to the app
+[ -d ops/codex ] && sudo setfacl -m u:etho-app:--- ops/codex
 # the kill and read-only switches are plain files in ops/; you create and remove them as yourself
 ```
 
@@ -395,7 +395,7 @@ $AS test -w /home/ubuntu/work/etho/ops/alerts.jsonl   && echo "ok: alerts writab
 $AS test -w /home/ubuntu/work/etho/ops/.spend.lock    && echo "ok: ledger lock writable"
 $AS test -e /home/ubuntu/.claude                      && echo "NOT OK: ~/.claude exists"
 $AS test -e /home/ubuntu/.config                      && echo "NOT OK: ~/.config exists"
-$AS test -r /home/ubuntu/work/etho/ops/codex          && echo "NOT OK: ops/codex readable"
+$AS test -r /home/ubuntu/work/etho/ops/codex          && echo "NOT OK: ops/codex readable"   # only if it exists
 $AS ls -A /home/ubuntu                                 # must list only: work
 $AS ls /home/ubuntu/work/etho                          # must list only: configs  data  etho  ops
 # the shared reservation directory works both ways (the service user creates, you read and remove)
@@ -432,7 +432,7 @@ Through the public URL once Funnel is on (section 7): `curl -s https://<url>/api
 systemd restarts a crashed process; this also restarts one that is alive but not answering. Every minute a root timer asks
 `GET /api/health` on localhost (the public, unauthenticated view). If there is no good answer within 10 s, twice in a
 row, it restarts `etho-app`; never more than once per 2 minutes. A service that is stopped (by you, or by the stop timer
-in section 12) is left alone. It is modelled on `bin/lead-watchdog`, but it never gives up: the site must stay up.
+in section 12) is left alone. Unlike a watchdog with a restart budget, it never gives up: the site must stay up.
 
 ```
 sudo install -m 0755 /home/ubuntu/work/etho/bin/app-watchdog /usr/local/sbin/etho-app-watchdog   # a root-owned copy
@@ -477,7 +477,8 @@ changing `bin/app-watchdog`. A read-only, killed or expired app answers health w
 
 ```
 ( crontab -l 2>/dev/null; echo '*/15 * * * * /home/ubuntu/work/etho/bin/uptime-check >> /home/ubuntu/work/etho/ops/uptime.cron.log 2>&1' ) | crontab -
-# or, idempotently, together with the keepalive and the other cron entries: bin/install-autostart
+# or, idempotently, together with the keepalive: bin/install-autostart (replaces only its own two lines; every other
+# crontab line is kept as it was)
 bin/uptime-check              # one check now; exit 0 = healthy
 bin/uptime-report             # summary for a checkpoint: checks, availability, outages, latency, modes
 bin/uptime-report --since 24h
