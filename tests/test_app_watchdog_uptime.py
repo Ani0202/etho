@@ -68,7 +68,13 @@ def fake_systemctl(tmp_path):
 
 
 def watchdog(tmp_path, url, systemctl, **env):
-    e = {**os.environ, "ETHO_HEALTH_URL": url + "/api/health", "ETHO_SYSTEMCTL": str(systemctl),
+    # a no-op `logger` first on PATH: the fake restarts must not reach the real journal (journalctl -t etho-app-watchdog)
+    shim = tmp_path / "shim"
+    shim.mkdir(exist_ok=True)
+    (shim / "logger").write_text("#!/bin/sh\nexit 0\n")
+    (shim / "logger").chmod(0o755)
+    e = {**os.environ, "PATH": f"{shim}:{os.environ.get('PATH', '')}",
+         "ETHO_HEALTH_URL": url + "/api/health", "ETHO_SYSTEMCTL": str(systemctl),
          "ETHO_WATCHDOG_STATE": str(tmp_path / "state"), "ETHO_WATCHDOG_LOG": str(tmp_path / "wd.log"),
          "ETHO_WATCHDOG_TIMEOUT": "1", **env}
     return subprocess.run([str(ROOT / "bin" / "app-watchdog")], env=e, capture_output=True, text=True, timeout=30)
